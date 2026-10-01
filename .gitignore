@@ -1,0 +1,12 @@
+.*/
+!.github/
+
+build/
+logs/
+run/
+versions/
+
+stonecutter.properties.toml
+
+# repomix output
+repomix*

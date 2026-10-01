@@ -1,0 +1,168 @@
+name: Build and Package
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+# settings.gradle.kts reads ../panzer-build-logic/common.stonecutter.properties.toml
+# and includeBuild()s it, so both repos are checked out side by side under the
+# workspace (checkout cannot write outside $GITHUB_WORKSPACE).
+defaults:
+  run:
+    working-directory: Celeris
+
+jobs:
+  build:
+    name: Build all versions + package JAR with natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: Celeris
+
+      - uses: actions/checkout@v5
+        with:
+          repository: PanzerDevOrg/PanzerBuildLogic
+          path: panzer-build-logic
+
+      # 21 for Minecraft 1.21.x, 25 for 26.1 (the last entry becomes the default JDK).
+      - name: Set up JDKs
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: |
+            25
+            21
+
+      - name: Check release matrix matches the Stonecutter versions
+        run: |
+          set -euo pipefail
+          TOML=$(sed -n '/^\[stonecutter\]/,/^\[/{s/^versions *= *\[\(.*\)\]/\1/p}' mod.stonecutter.properties.toml | tr -d ' "')
+          WORKFLOW=$(sed -n 's/^ *mc: \[\(.*\)\]/\1/p' .github/workflows/package.yml | tr -d ' "')
+          [ "$TOML" = "$WORKFLOW" ] || { echo "::error::release matrix ($WORKFLOW) != stonecutter versions ($TOML)"; exit 1; }
+
+      - name: Verify natives are present for all supported platforms
+        run: |
+          set -euo pipefail
+          for path in \
+            natives/windows/x86_64/zstd.dll natives/windows/aarch64/zstd.dll \
+            natives/linux/x86_64/libzstd.so natives/linux/aarch64/libzstd.so \
+            natives/linux/ppc64le/libzstd.so natives/linux/riscv64/libzstd.so \
+            natives/macos/x86_64/libzstd.dylib natives/macos/aarch64/libzstd.dylib; do
+            [ -f "$path" ] || { echo "::error::Missing native $path"; exit 1; }
+          done
+
+      - name: Build and test every Minecraft version
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build buildAndCollect -Pceleris.fatJar=true --stacktrace
+
+      - name: Verify JAR contains all natives
+        run: |
+          set -euo pipefail
+          JAR_PATH=$(find build/libs -mindepth 2 -maxdepth 2 -name "*.jar" \
+            ! -name "*-sources.jar" ! -name "*-dev.jar" | sort | head -n1)
+          [ -n "$JAR_PATH" ] || { echo "::error::No mod JAR under build/libs/<version>/"; find build/libs -type f; exit 1; }
+          echo "Inspecting $JAR_PATH"
+          for plat in windows-x86_64 windows-aarch64 linux-x86_64 linux-aarch64 linux-ppc64le linux-riscv64 macos-x86_64 macos-aarch64; do
+            unzip -l "$JAR_PATH" | grep -q "natives/$plat/" || { echo "::error::Missing natives for $plat in $JAR_PATH"; exit 1; }
+          done
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: celeris-jar
+          path: Celeris/build/libs/**/*.jar
+          if-no-files-found: error
+
+  publish:
+    # Only on version tags (v0.1.0, ...). Consumers (Tessera) resolve
+    # com.panzer.mods:celeris-<mc>:<version> from https://panzerdevorg.github.io/Celeris/maven
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: Celeris
+
+      - uses: actions/checkout@v5
+        with:
+          repository: PanzerDevOrg/PanzerBuildLogic
+          path: panzer-build-logic
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: |
+            25
+            21
+
+      # The published version comes from [mod] version in mod.stonecutter.properties.toml;
+      # refuse to publish if the tag disagrees, so v0.2.0 can never ship 0.1.0 artifacts.
+      - name: Check tag matches mod version
+        run: |
+          MOD_VERSION=$(sed -n '/^\[mod\]/,/^\[/{s/^version *= *"\(.*\)"/\1/p}' mod.stonecutter.properties.toml)
+          [ "v$MOD_VERSION" = "$GITHUB_REF_NAME" ] || { echo "::error::Tag $GITHUB_REF_NAME != mod version $MOD_VERSION"; exit 1; }
+
+      - name: Publish every version to the staging Maven tree
+        run: |
+          chmod +x ./gradlew
+          ./gradlew publishAllPublicationsToGitHubPagesRepository --stacktrace
+
+      - name: Publish static Maven repo to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./Celeris/build/publish-repo
+          destination_dir: maven
+          keep_files: true
+
+  release:
+    # Uploads each Minecraft version's jar to Modrinth and CurseForge on v* tags.
+    # Configure once per repository (Settings > Secrets and variables > Actions):
+    #   variables: MODRINTH_ID, CURSEFORGE_ID   (project IDs; a missing one skips that site)
+    #   secrets:   MODRINTH_TOKEN, CURSEFORGE_TOKEN
+    # Game versions, loader and dependencies are read from each jar's neoforge.mods.toml.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        # Keep in sync with [stonecutter] versions in mod.stonecutter.properties.toml
+        # (the build job fails if they differ).
+        mc: ["1.21.1", "1.21.3", "1.21.6", "1.21.10", "1.21.11", "26.1"]
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: celeris-jar
+          path: jars
+
+      - name: Locate jar
+        id: jar
+        working-directory: .
+        run: |
+          JAR=$(find jars -name "celeris-*+${{ matrix.mc }}.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n1)
+          [ -n "$JAR" ] || { echo "::error::No jar for ${{ matrix.mc }}"; find jars -type f; exit 1; }
+          echo "path=$JAR" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME#v}+${{ matrix.mc }}" >> "$GITHUB_OUTPUT"
+
+      - uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: ${{ vars.CURSEFORGE_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: ${{ steps.jar.outputs.path }}
+          name: Celeris ${{ steps.jar.outputs.version }}
+          version: ${{ steps.jar.outputs.version }}
+          loaders: neoforge
+          changelog: See https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}

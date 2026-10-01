@@ -1,0 +1,10 @@
+{
+	"itemGroup.celeris_example.tab": "Celeris Examples",
+	"menu.title.celeris_example.compressor": "Compressor",
+	"block.celeris_example.compressor": "Compressor",
+	"block.celeris_example.wire": "Signal Wire",
+	"block.celeris_example.pipe": "Flow Pipe",
+	"block.celeris_example.memory_bank": "Memory Bank",
+	"block.celeris_example.payload_demo": "Payload Compression Demo",
+	"block.celeris_example.ring_buffer_demo": "Ring Buffer Demo"
+}

@@ -1,0 +1,25 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "AGPLv3"
+issueTrackerURL = ""
+
+[[mods]]
+modId = "celeris_example"
+version = "0.1.0"
+displayName = "Celeris Example"
+authors = "Bichal"
+description = '''Example content demonstrating Celeris's framework APIs (async work queues, SIMD, off-heap memory) via playable content.'''
+
+[[dependencies."celeris_example"]]
+modId = "celeris"
+type = "required"
+versionRange = "[0.1.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies."celeris_example"]]
+modId = "neoforge"
+type = "required"
+versionRange = "[4,)"
+ordering = "NONE"
+side = "BOTH"

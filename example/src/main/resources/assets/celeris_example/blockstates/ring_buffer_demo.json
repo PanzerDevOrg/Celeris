@@ -1,0 +1,5 @@
+{
+	"variants": {
+		"": { "model": "celeris_example:block/ring_buffer_demo" }
+	}
+}

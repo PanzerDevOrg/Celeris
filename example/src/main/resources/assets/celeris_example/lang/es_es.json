@@ -1,0 +1,9 @@
+{
+	"menu.title.celeris_example.compressor": "Compresor",
+	"block.celeris_example.compressor": "Compresor",
+	"block.celeris_example.wire": "Cable de Señal",
+	"block.celeris_example.pipe": "Tubería de Flujo",
+	"block.celeris_example.memory_bank": "Banco de Memoria",
+	"block.celeris_example.payload_demo": "Demo de Compresión de Payload",
+	"block.celeris_example.ring_buffer_demo": "Demo de Ring Buffer"
+}

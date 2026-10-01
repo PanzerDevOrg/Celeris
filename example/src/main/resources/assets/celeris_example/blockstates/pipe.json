@@ -1,0 +1,6 @@
+{
+	"variants": {
+		"full=false": { "model": "celeris_example:block/pipe" },
+		"full=true": { "model": "celeris_example:block/pipe_full" }
+	}
+}

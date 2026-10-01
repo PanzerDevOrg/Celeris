@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.panzer.mods.celeris.mixin",
+  "compatibilityLevel": "${java}",
+  "refmap": "celeris.refmap.json",
+  "mixins": [],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 0
+  },
+  "plugin": "com.panzer.mods.celeris.mixin.CelerisMixinPlugin"
+}
