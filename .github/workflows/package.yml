@@ -146,12 +146,11 @@ jobs:
         with:
           path: Celeris
 
-      # The "## [<version>]" section of CHANGELOG.md becomes the published changelog.
-      - name: Extract changelog
+      # docs/changelogs/<version>.md is the published changelog.
+      - name: Check changelog exists
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          awk -v v="$VERSION" 'index($0,"## ["v"]")==1{f=1;next} /^## \[/{if(f)exit} f' CHANGELOG.md > release-notes.md
-          [ -s release-notes.md ] || { echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1; }
+          [ -s "docs/changelogs/$VERSION.md" ] || { echo "::error::Missing docs/changelogs/$VERSION.md"; exit 1; }
 
       - uses: actions/download-artifact@v5
         with:
@@ -165,6 +164,7 @@ jobs:
           JAR=$(find jars -name "celeris-*+${{ matrix.mc }}.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n1)
           [ -n "$JAR" ] || { echo "::error::No jar for ${{ matrix.mc }}"; find jars -type f; exit 1; }
           echo "path=$JAR" >> "$GITHUB_OUTPUT"
+          echo "mod_version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       # Release name and game versions from game_versions in the TOML,
       # e.g. "0.1.0-1.21(.0-.6)" for 1.21 .. 1.21.6.
@@ -183,10 +183,10 @@ jobs:
           version: ${{ steps.meta.outputs.label }}
           game-versions: ${{ steps.meta.outputs.game_versions }}
           loaders: neoforge
-          changelog-file: Celeris/release-notes.md
+          changelog-file: Celeris/docs/changelogs/${{ steps.jar.outputs.mod_version }}.md
 
   modrinth-description:
-    # Keeps the Modrinth project page in sync with docs/modrinth.md: on every push
+    # Keeps the Modrinth project page in sync with docs/modrinth/description.md: on every push
     # to master and every release tag. Idempotent, so unchanged text is harmless.
     if: >-
       vars.MODRINTH_ID != '' && github.event_name == 'push' &&
@@ -201,7 +201,7 @@ jobs:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         run: |
           set -euo pipefail
-          jq -n --rawfile body docs/modrinth.md '{body: $body}' > body.json
+          jq -n --rawfile body docs/modrinth/description.md '{body: $body}' > body.json
           STATUS=$(curl -sS -o response.txt -w '%{http_code}' -X PATCH \
             "https://api.modrinth.com/v2/project/${{ vars.MODRINTH_ID }}" \
             -H "Authorization: $MODRINTH_TOKEN" -H "Content-Type: application/json" \

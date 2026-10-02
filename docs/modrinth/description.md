@@ -35,6 +35,18 @@ flags**.
 | Java | 21 (Minecraft 1.21.x) · 25 (26.x) |
 | Side | Client and server |
 
+## ⚡ Maximum performance (optional)
+
+Celeris works without any setup. These JVM flags unlock its fastest code paths:
+
+| Minecraft (Java) | Add to your JVM arguments | Unlocks |
+|---|---|---|
+| 1.21.x (Java 21) | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | Off-heap FFM, native zstd, SIMD |
+| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | SIMD (FFM and zstd already on) |
+
+**Modrinth App**: instance → *Settings → Java and memory → Java arguments*. **Servers**: `user_jvm_args.txt`.
+Without the flags nothing breaks; each feature uses its pure-Java fallback.
+
 ## 👩‍💻 For developers
 
 ```kotlin

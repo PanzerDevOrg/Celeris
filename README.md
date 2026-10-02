@@ -46,12 +46,25 @@ Everything is chosen at startup and logged once. No configuration or launch flag
 
 | Feature      | Preferred                                           | Fallback                          |
 |--------------|-----------------------------------------------------|-----------------------------------|
-| Memory       | FFM (Java 22+, or Java 21 with `--enable-preview`)  | `sun.misc.Unsafe`, then Java heap |
+| Memory       | FFM (26.x build; 1.21.x builds with `--enable-preview`) | `sun.misc.Unsafe`, then Java heap |
 | SIMD         | `jdk.incubator.vector` (`--add-modules`)            | Scalar code, same results         |
 | Compression  | zstd (native, needs FFM)                            | deflate (JDK zlib)                |
 | Network wire | Always deflate, so client and server always agree   |                                   |
 
 Force the pure-Java paths with `-Dceleris.compatMode=true`.
+
+### ⚡ Maximum performance (optional JVM flags)
+
+Celeris works without flags. These unlock its fastest paths (verified on real NeoForge servers):
+
+| Minecraft (Java)       | Add to your JVM arguments                                                              | Unlocks                |
+|------------------------|----------------------------------------------------------------------------------------|------------------------|
+| 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD |
+| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`                 | SIMD (FFM and zstd are already on) |
+
+Where to put them: **Modrinth App** → instance → *Settings → Java and memory → Java arguments*; **CurseForge App** →
+*Settings → Minecraft → Additional arguments*; **Prism Launcher** → instance → *Settings → Java → JVM arguments*;
+**servers** → `user_jvm_args.txt`. Use `--enable-preview` only with the Java 21 that Minecraft 1.21.x ships with.
 
 ## Using Celeris in your mod
 
@@ -114,16 +127,24 @@ Requirements: JDK 21. JDK 25, for the 26.1 target, is downloaded automatically t
 Native zstd libraries for every supported platform are committed under `natives/<os>/<arch>/` and bundled into the
 jar.
 
+## Docs, changelogs and the Modrinth page
+
+Everything published outside GitHub lives in [`docs/`](./docs): one changelog per version in
+`docs/changelogs/<version>.md`, and the Modrinth page in `docs/modrinth/description.md` (synced on every push to
+`master`). See [`docs/README.md`](./docs/README.md).
+
 ## Releasing
 
-Bump `version` under `[mod]` in `mod.stonecutter.properties.toml`, commit, then push a matching tag:
+Add `docs/changelogs/<version>.md`, bump `version` under `[mod]` in `mod.stonecutter.properties.toml`, commit,
+then push a matching tag:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
 CI (`.github/workflows/package.yml`) builds and tests every version on each push. On a `v*` tag it also publishes all
-versions to the GitHub Pages Maven repository above, and refuses to publish if the tag doesn't match the mod version.
+versions to the GitHub Pages Maven repository above and uploads each jar to Modrinth and CurseForge with that
+changelog. It refuses to publish if the tag doesn't match the mod version or the changelog file is missing.
 
 ## License
 
