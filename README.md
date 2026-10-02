@@ -6,10 +6,10 @@ graph/network utilities, each with a pure-Java fallback so it runs on any JVM wi
 Celeris is a library mod: on its own it adds no gameplay. Other mods (for example
 [Tessera](https://github.com/PanzerDevOrg/Tessera)) depend on it.
 
-| Minecraft | `1.21.1`, `1.21.3`, `1.21.6`, `1.21.10`, `1.21.11`, `26.1` |
+| Minecraft | 1.21 – 1.21.11 and 26.1 – 26.3 (4 jars, see below)      |
 |-----------|-------------------------------------------------------------|
 | Loader    | NeoForge                                                    |
-| Java      | 21 (Minecraft 1.21.x), 25 (26.1)                            |
+| Java      | 21 (Minecraft 1.21.x), 25 (26.x)                            |
 | Side      | Client and server                                           |
 
 ## What it provides
@@ -26,6 +26,19 @@ Celeris is a library mod: on its own it adds no gameplay. Other mods (for exampl
 | `core.topology`, `graph.*`   | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs          |
 | `pipeline.*`                 | Event-driven and continuous (SIMD) pipeline solvers                                          |
 | `network`                    | `PayloadCompression` / `CompressedPayload`: compressed custom payloads                        |
+
+### Which jar for which Minecraft version
+
+Each jar is boot-tested on a real NeoForge server for every version it declares:
+
+| Jar        | Minecraft          |
+|------------|--------------------|
+| `1.21.1`   | 1.21 – 1.21.6      |
+| `1.21.10`  | 1.21.7 – 1.21.10   |
+| `1.21.11`  | 1.21.11            |
+| `26.1`     | 26.1 – 26.3        |
+
+The groups are defined by `game_versions` in `mod.stonecutter.properties.toml`.
 
 ### Runtime selection and fallbacks
 

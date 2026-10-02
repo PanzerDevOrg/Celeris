@@ -29,10 +29,10 @@ flags**.
 
 ## 📋 Requirements
 
-| Minecraft | 1.21.1 · 1.21.3 · 1.21.6 · 1.21.10 · 1.21.11 · 26.1 |
+| Minecraft | 1.21 – 1.21.11 · 26.1 – 26.3 (pick the file for your version) |
 |---|---|
 | Loader | NeoForge |
-| Java | 21 (Minecraft 1.21.x) · 25 (26.1) |
+| Java | 21 (Minecraft 1.21.x) · 25 (26.x) |
 | Side | Client and server |
 
 ## 👩‍💻 For developers

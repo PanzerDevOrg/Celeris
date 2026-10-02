@@ -40,12 +40,12 @@ jobs:
             25
             21
 
-      - name: Check release matrix matches the Stonecutter versions
+      # Every build needs game_versions, a range starting at its first version, and
+      # a matching entry in the release matrix below.
+      - name: Check build/version metadata
         run: |
-          set -euo pipefail
-          TOML=$(sed -n '/^\[stonecutter\]/,/^\[/{s/^versions *= *\[\(.*\)\]/\1/p}' mod.stonecutter.properties.toml | tr -d ' "')
-          WORKFLOW=$(sed -n 's/^ *mc: \[\(.*\)\]/\1/p' .github/workflows/package.yml | tr -d ' "')
-          [ "$TOML" = "$WORKFLOW" ] || { echo "::error::release matrix ($WORKFLOW) != stonecutter versions ($TOML)"; exit 1; }
+          MATRIX=$(sed -n 's/^ *mc: \[\(.*\)\]/\1/p' .github/workflows/package.yml)
+          python3 .github/scripts/release_info.py --check "$MATRIX"
 
       - name: Verify natives are present for all supported platforms
         run: |
@@ -140,7 +140,7 @@ jobs:
       matrix:
         # Keep in sync with [stonecutter] versions in mod.stonecutter.properties.toml
         # (the build job fails if they differ).
-        mc: ["1.21.1", "1.21.3", "1.21.6", "1.21.10", "1.21.11", "26.1"]
+        mc: ["1.21.1", "1.21.10", "1.21.11", "26.1"]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -165,7 +165,12 @@ jobs:
           JAR=$(find jars -name "celeris-*+${{ matrix.mc }}.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n1)
           [ -n "$JAR" ] || { echo "::error::No jar for ${{ matrix.mc }}"; find jars -type f; exit 1; }
           echo "path=$JAR" >> "$GITHUB_OUTPUT"
-          echo "version=${GITHUB_REF_NAME#v}+${{ matrix.mc }}" >> "$GITHUB_OUTPUT"
+
+      # Release name and game versions from game_versions in the TOML,
+      # e.g. "0.1.0-1.21(.0-.6)" for 1.21 .. 1.21.6.
+      - name: Release metadata
+        id: meta
+        run: python3 .github/scripts/release_info.py "${{ matrix.mc }}" "${GITHUB_REF_NAME#v}"
 
       - uses: Kir-Antipov/mc-publish@v3.3
         with:
@@ -174,8 +179,9 @@ jobs:
           curseforge-id: ${{ vars.CURSEFORGE_ID }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: ${{ steps.jar.outputs.path }}
-          name: Celeris ${{ steps.jar.outputs.version }}
-          version: ${{ steps.jar.outputs.version }}
+          name: ${{ steps.meta.outputs.label }}
+          version: ${{ steps.meta.outputs.label }}
+          game-versions: ${{ steps.meta.outputs.game_versions }}
           loaders: neoforge
           changelog-file: Celeris/release-notes.md
 
