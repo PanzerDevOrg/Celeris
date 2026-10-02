@@ -1,4 +1,4 @@
-# Celeris
+![Tessera](./docs/media/banner.png)
 
 **A performance library for NeoForge mods:** off-heap memory, lock-free concurrency, SIMD math, compression and
 graph/network utilities, each with a pure-Java fallback so it runs on any JVM without launch flags.
@@ -6,26 +6,26 @@ graph/network utilities, each with a pure-Java fallback so it runs on any JVM wi
 Celeris is a library mod: on its own it adds no gameplay. Other mods (for example
 [Tessera](https://github.com/PanzerDevOrg/Tessera)) depend on it.
 
-| Minecraft | 1.21 – 1.21.11 and 26.1 – 26.3 (4 jars, see below)      |
-|-----------|-------------------------------------------------------------|
-| Loader    | NeoForge                                                    |
-| Java      | 21 (Minecraft 1.21.x), 25 (26.x)                            |
-| Side      | Client and server                                           |
+| Minecraft | 1.21 – 1.21.11 and 26.1 – 26.3 (4 jars, see below) |
+|-----------|----------------------------------------------------|
+| Loader    | NeoForge                                           |
+| Java      | 21 (Minecraft 1.21.x), 25 (26.x)                   |
+| Side      | Client and server                                  |
 
 ## What it provides
 
-| Package                      | Contents                                                                                     |
-|------------------------------|----------------------------------------------------------------------------------------------|
-| `core.memory.backend`        | `MemoryBackend` with automatic selection: **FFM** → **Unsafe** → **heap** (see below)        |
-| `core.memory`                | `PacketPipeline`, `MemoryBus`, zstd (native) / deflate compression codecs                    |
-| `core.concurrency`           | `MpscRingBuffer`: lock-free multi-producer/single-consumer ring on off-heap memory           |
-| `framework.async`            | `AsyncResultQueue`: hand results from worker threads to the game/render thread               |
-| `framework.ticking`          | `IdleTickFilter`: skip work while nothing is pending                                         |
-| `framework.capability/query` | Capability caching and throttled queries                                                     |
+| Package                      | Contents                                                                                    |
+|------------------------------|---------------------------------------------------------------------------------------------|
+| `core.memory.backend`        | `MemoryBackend` with automatic selection: **FFM** → **Unsafe** → **heap** (see below)       |
+| `core.memory`                | `PacketPipeline`, `MemoryBus`, zstd (native) / deflate compression codecs                   |
+| `core.concurrency`           | `MpscRingBuffer`: lock-free multi-producer/single-consumer ring on off-heap memory          |
+| `framework.async`            | `AsyncResultQueue`: hand results from worker threads to the game/render thread              |
+| `framework.ticking`          | `IdleTickFilter`: skip work while nothing is pending                                        |
+| `framework.capability/query` | Capability caching and throttled queries                                                    |
 | `api.simd`                   | `VectorOperations`: SIMD via `jdk.incubator.vector`, scalar fallback with identical results |
-| `core.topology`, `graph.*`   | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs          |
-| `pipeline.*`                 | Event-driven and continuous (SIMD) pipeline solvers                                          |
-| `network`                    | `PayloadCompression` / `CompressedPayload`: compressed custom payloads                        |
+| `core.topology`, `graph.*`   | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs        |
+| `pipeline.*`                 | Event-driven and continuous (SIMD) pipeline solvers                                         |
+| `network`                    | `PayloadCompression` / `CompressedPayload`: compressed custom payloads                      |
 
 ### Which jar for which Minecraft version
 
@@ -44,12 +44,12 @@ The groups are defined by `game_versions` in `mod.stonecutter.properties.toml`.
 
 Everything is chosen at startup and logged once. No configuration or launch flags are needed:
 
-| Feature      | Preferred                                           | Fallback                          |
-|--------------|-----------------------------------------------------|-----------------------------------|
+| Feature      | Preferred                                               | Fallback                          |
+|--------------|---------------------------------------------------------|-----------------------------------|
 | Memory       | FFM (26.x build; 1.21.x builds with `--enable-preview`) | `sun.misc.Unsafe`, then Java heap |
-| SIMD         | `jdk.incubator.vector` (`--add-modules`)            | Scalar code, same results         |
-| Compression  | zstd (native, needs FFM)                            | deflate (JDK zlib)                |
-| Network wire | Always deflate, so client and server always agree   |                                   |
+| SIMD         | `jdk.incubator.vector` (`--add-modules`)                | Scalar code, same results         |
+| Compression  | zstd (native, needs FFM)                                | deflate (JDK zlib)                |
+| Network wire | Always deflate, so client and server always agree       |                                   |
 
 Force the pure-Java paths with `-Dceleris.compatMode=true`.
 
@@ -57,10 +57,10 @@ Force the pure-Java paths with `-Dceleris.compatMode=true`.
 
 Celeris works without flags. These unlock its fastest paths (verified on real NeoForge servers):
 
-| Minecraft (Java)       | Add to your JVM arguments                                                              | Unlocks                |
-|------------------------|----------------------------------------------------------------------------------------|------------------------|
-| 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD |
-| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`                 | SIMD (FFM and zstd are already on) |
+| Minecraft (Java)       | Add to your JVM arguments                                                                | Unlocks                            |
+|------------------------|------------------------------------------------------------------------------------------|------------------------------------|
+| 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD             |
+| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`                  | SIMD (FFM and zstd are already on) |
 
 Where to put them: **Modrinth App** → instance → *Settings → Java and memory → Java arguments*; **CurseForge App** →
 *Settings → Minecraft → Additional arguments*; **Prism Launcher** → instance → *Settings → Java → JVM arguments*;
@@ -148,10 +148,10 @@ changelog. It refuses to publish if the tag doesn't match the mod version or the
 
 ## License
 
-| Content               | License                                                                                                 |
-|-----------------------|---------------------------------------------------------------------------------------------------------|
-| Source code           | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — see [`LICENSE-AGPL`](./LICENSE-AGPL)           |
+| Content               | License                                                                                                  |
+|-----------------------|----------------------------------------------------------------------------------------------------------|
+| Source code           | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — see [`LICENSE-AGPL`](./LICENSE-AGPL)            |
 | Artwork and branding  | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — see [`LICENSE-CC`](./LICENSE-CC) |
-| Bundled zstd binaries | [BSD-3-Clause](https://github.com/facebook/zstd/blob/dev/LICENSE) (zstd)                                |
+| Bundled zstd binaries | [BSD-3-Clause](https://github.com/facebook/zstd/blob/dev/LICENSE) (zstd)                                 |
 
 See [`LICENSE`](./LICENSE) for the full summary.
