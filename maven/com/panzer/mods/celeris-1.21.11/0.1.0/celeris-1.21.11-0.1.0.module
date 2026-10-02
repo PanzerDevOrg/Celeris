@@ -27,11 +27,11 @@
         {
           "name": "celeris-1.21.11-0.1.0.jar",
           "url": "celeris-1.21.11-0.1.0.jar",
-          "size": 3558763,
-          "sha512": "8c50db37e257708d425b710f18e99a0fba91f3cf9a0994e94be1a628dd45ee3e7fdbbb2609e3a38cd7fa62b189c956a4c7ca9ffd8f17ad6d2779e22b787ab6b7",
-          "sha256": "4e02777d72d1f8423bd93333b3eaa02298bf4224c3155333a038dc6ed3da8279",
-          "sha1": "6f06fc613ae8681ae8ca75d8e2ae04c13928e031",
-          "md5": "3d6420ed5ab37ca852bb5742d7da8be0"
+          "size": 3558767,
+          "sha512": "6f4e2f4f88a440f861400f893c85a30faea4da365d3c2b0c6ebdab67728ae05d499b2bb307c0613463f1e2d06afd18bc1df709cf12de550506317de231b05009",
+          "sha256": "3bb058d828f51328da96123061ba4e554dc3d42aeca1c02302e2b3cce5a6ffd2",
+          "sha1": "665edb94bf7c94688c917f8193d779717241c80d",
+          "md5": "875f86c2a69d3656e1c5593f30375824"
         }
       ]
     },
@@ -48,11 +48,11 @@
         {
           "name": "celeris-1.21.11-0.1.0.jar",
           "url": "celeris-1.21.11-0.1.0.jar",
-          "size": 3558763,
-          "sha512": "8c50db37e257708d425b710f18e99a0fba91f3cf9a0994e94be1a628dd45ee3e7fdbbb2609e3a38cd7fa62b189c956a4c7ca9ffd8f17ad6d2779e22b787ab6b7",
-          "sha256": "4e02777d72d1f8423bd93333b3eaa02298bf4224c3155333a038dc6ed3da8279",
-          "sha1": "6f06fc613ae8681ae8ca75d8e2ae04c13928e031",
-          "md5": "3d6420ed5ab37ca852bb5742d7da8be0"
+          "size": 3558767,
+          "sha512": "6f4e2f4f88a440f861400f893c85a30faea4da365d3c2b0c6ebdab67728ae05d499b2bb307c0613463f1e2d06afd18bc1df709cf12de550506317de231b05009",
+          "sha256": "3bb058d828f51328da96123061ba4e554dc3d42aeca1c02302e2b3cce5a6ffd2",
+          "sha1": "665edb94bf7c94688c917f8193d779717241c80d",
+          "md5": "875f86c2a69d3656e1c5593f30375824"
         }
       ]
     },
