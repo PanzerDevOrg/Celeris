@@ -61,7 +61,7 @@ jobs:
       - name: Build and test every Minecraft version
         run: |
           chmod +x ./gradlew
-          ./gradlew build buildAndCollect -Pceleris.fatJar=true --stacktrace
+          ./gradlew build buildAndCollect -Pceleris.fatJar=true --no-watch-fs --stacktrace
 
       - name: Verify JAR contains all natives
         run: |
@@ -114,7 +114,7 @@ jobs:
       - name: Publish every version to the staging Maven tree
         run: |
           chmod +x ./gradlew
-          ./gradlew publishAllPublicationsToGitHubPagesRepository --stacktrace
+          ./gradlew publishAllPublicationsToGitHubPagesRepository --no-watch-fs --stacktrace
 
       - name: Publish static Maven repo to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
