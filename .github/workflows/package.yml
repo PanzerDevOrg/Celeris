@@ -130,7 +130,8 @@ jobs:
     #   variables: MODRINTH_ID, CURSEFORGE_ID   (project IDs; a missing one skips that site)
     #   secrets:   MODRINTH_TOKEN, CURSEFORGE_TOKEN
     # Game versions, loader and dependencies are read from each jar's neoforge.mods.toml.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Skipped entirely until at least one site's project ID is configured.
+    if: startsWith(github.ref, 'refs/tags/v') && (vars.MODRINTH_ID != '' || vars.CURSEFORGE_ID != '')
     needs: publish
     runs-on: ubuntu-latest
     strategy:
