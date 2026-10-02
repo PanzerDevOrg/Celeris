@@ -180,9 +180,11 @@ jobs:
           changelog-file: Celeris/release-notes.md
 
   modrinth-description:
-    # Keeps the Modrinth project page in sync with docs/modrinth.md on every release.
-    if: startsWith(github.ref, 'refs/tags/v') && vars.MODRINTH_ID != ''
-    needs: release
+    # Keeps the Modrinth project page in sync with docs/modrinth.md: on every push
+    # to master and every release tag. Idempotent, so unchanged text is harmless.
+    if: >-
+      vars.MODRINTH_ID != '' && github.event_name == 'push' &&
+      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
