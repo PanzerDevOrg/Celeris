@@ -62,9 +62,14 @@ Celeris works without flags. These unlock its fastest paths (verified on real Ne
 | 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD             |
 | 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`                  | SIMD (FFM and zstd are already on) |
 
-Where to put them: **Modrinth App** → instance → *Settings → Java and memory → Java arguments*; **CurseForge App** →
-*Settings → Minecraft → Additional arguments*; **Prism Launcher** → instance → *Settings → Java → JVM arguments*;
-**servers** → `user_jvm_args.txt`. Use `--enable-preview` only with the Java 21 that Minecraft 1.21.x ships with.
+Where to put them: 
+- **Modrinth App** → instance → *Settings → Java and memory → Java arguments*
+- **CurseForge App** →
+*Settings → Minecraft → Additional arguments*
+- **Prism Launcher** → instance → *Settings → Java → JVM arguments*
+- **servers** → `user_jvm_args.txt`. 
+
+Use `--enable-preview` only with the Java 21 that Minecraft 1.21.x ships with.
 
 ## Using Celeris in your mod
 
