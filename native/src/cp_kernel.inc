@@ -21,7 +21,6 @@ constexpr double EPS = 1.0e-7;                       // Shapes / VoxelShape epsi
 constexpr double MTH_EQUAL_EPS = (double) 1.0e-5f;   // Mth.equal
 constexpr double HOLD_SPEED_SQR = (double) 1.0e-5f;  // ItemEntity: horizontalDistanceSqr() > 1.0E-5F
 constexpr double SUPPORT_EPS = 1.0e-6;               // Entity.checkSupportingBlock
-constexpr double ON_POS_FRICTION = (double) 0.500001f; // getBlockPosBelowThatAffectsMyMovement
 constexpr double ON_POS_LEGACY = (double) 0.2f;        // getOnPosLegacy
 constexpr double MIN_MOVE_SQR = 1.0e-7;
 constexpr int32_t MAX_CELLS = 512;
@@ -356,10 +355,12 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
 
     // getBlockPosBelowThatAffectsMyMovement: its friction on the ground, and
     // its getSpeedFactor always -- Entity.move applies the speed factor of
-    // the block half a block down even mid-air (soul sand, honey: COMPLEX).
+    // the block below even mid-air (soul sand, honey: COMPLEX). Items look
+    // almost a whole block down (getOnPos(0.999999F)).
+    const double below_y = ny - C.f[CP_BELOW_OFFSET][i];
     const uint32_t below = has_support
-            ? L.at(support[0], ifloor(ny - ON_POS_FRICTION), support[2])
-            : L.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
+            ? L.at(support[0], ifloor(below_y), support[2])
+            : L.at(ifloor(nx), ifloor(below_y), ifloor(nz));
     if (below == CP_CELL_COMPLEX) {
         *fh = 1.0;
         *fv = 1.0;

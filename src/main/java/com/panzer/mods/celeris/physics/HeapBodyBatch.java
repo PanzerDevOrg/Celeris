@@ -20,7 +20,8 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
 
     private final PhysicsMode mode;
     private final int capacity;
-    final double[] px, py, pz, vx, vy, vz, halfWidth, height, gravity, dragAirH, dragV, groundScale, factorH, factorV;
+    final double[] px, py, pz, vx, vy, vz, halfWidth, height, gravity, dragAirH, dragV, groundScale, belowOffset,
+            factorH, factorV;
     final int[] flags, deferredList, cellHash, sorted, buckets;
     private final int[] pairs;
     private final int pairCapacity;
@@ -47,6 +48,7 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         dragAirH = new double[c];
         dragV = new double[c];
         groundScale = new double[c];
+        belowOffset = new double[c];
         factorH = new double[c];
         factorV = new double[c];
         java.util.Arrays.fill(factorH, 1.0);
@@ -92,6 +94,7 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         dragAirH[slot] = params.dragAirHorizontal();
         dragV[slot] = params.dragVertical();
         groundScale[slot] = params.groundScale();
+        belowOffset[slot] = params.belowOffset();
         factorH[slot] = 1.0;
         factorV[slot] = 1.0;
         setDimensions(slot, width, height);
@@ -123,6 +126,7 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         dragAirH[slot] = dragAirH[last];
         dragV[slot] = dragV[last];
         groundScale[slot] = groundScale[last];
+        belowOffset[slot] = belowOffset[last];
         factorH[slot] = factorH[last];
         factorV[slot] = factorV[last];
         flags[slot] = flags[last];

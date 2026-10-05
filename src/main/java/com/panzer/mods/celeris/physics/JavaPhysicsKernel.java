@@ -23,7 +23,6 @@ final class JavaPhysicsKernel {
     static final double MTH_EQUAL_EPS = 1.0E-5F;
     static final double HOLD_SPEED_SQR = 1.0E-5F;
     static final double SUPPORT_EPS = 1.0e-6;
-    static final double ON_POS_FRICTION = 0.500001F;
     static final double ON_POS_LEGACY = 0.2F;
     static final double MIN_MOVE_SQR = 1.0e-7;
     static final int MAX_CELLS = 512;
@@ -414,10 +413,12 @@ final class JavaPhysicsKernel {
 
         // getBlockPosBelowThatAffectsMyMovement: its friction on the ground, and
         // its getSpeedFactor always -- Entity.move applies the speed factor of
-        // the block half a block down even mid-air (soul sand, honey: COMPLEX).
+        // the block below even mid-air (soul sand, honey: COMPLEX). Items look
+        // almost a whole block down (getOnPos(0.999999F)).
+        double belowY = ny - b.belowOffset[i];
         int below = hasSupport
-                ? l.at(sup[0], ifloor(ny - ON_POS_FRICTION), sup[2])
-                : l.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
+                ? l.at(sup[0], ifloor(belowY), sup[2])
+                : l.at(ifloor(nx), ifloor(belowY), ifloor(nz));
         if (below == CellClass.COMPLEX) {
             return defer(b, i, deferredFlags);
         }

@@ -99,6 +99,7 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         put(DRAG_AIR_H, slot, params.dragAirHorizontal());
         put(DRAG_V, slot, params.dragVertical());
         put(GROUND_SCALE, slot, params.groundScale());
+        put(BELOW_OFFSET, slot, params.belowOffset());
         put(FACTOR_H, slot, 1.0);
         put(FACTOR_V, slot, 1.0);
         setDimensions(slot, width, height);

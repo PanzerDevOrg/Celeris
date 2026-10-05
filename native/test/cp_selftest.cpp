@@ -64,6 +64,7 @@ void item(Slab& s, int i, double x, double y, double z, double vx, double vy, do
     s.f(CP_DRAG_AIR_H)[i] = (double) 0.98f;
     s.f(CP_DRAG_V)[i] = 0.98;
     s.f(CP_GROUND_SCALE)[i] = (double) 0.98f;
+    s.f(CP_BELOW_OFFSET)[i] = (double) 0.999999f;
     s.u(CP_FLAGS)[i] = CP_FLAG_THROTTLE_RESTING | ((uint32_t) (i & 3) << CP_PHASE_SHIFT);
 }
 

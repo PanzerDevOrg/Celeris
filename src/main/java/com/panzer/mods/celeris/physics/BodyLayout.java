@@ -11,7 +11,7 @@ package com.panzer.mods.celeris.physics;
  * ├─ f64 column 0  POS_X          capacity * 8 bytes
  * ├─ f64 column 1  POS_Y
  * │  ...
- * ├─ f64 column 13 FACTOR_V
+ * ├─ f64 column 14 FACTOR_V
  * ├─ u32 column 0  FLAGS          capacity * 4 bytes
  * ├─ u32 column 1  DEFERRED_LIST
  * ├─ u32 column 2  CELL_HASH
@@ -26,7 +26,7 @@ package com.panzer.mods.celeris.physics;
  */
 public final class BodyLayout {
 
-    public static final int ABI_VERSION = 1;
+    public static final int ABI_VERSION = 2;
     public static final int LANE_PAD = 16;
     public static final long ALIGNMENT = 64;
 
@@ -47,9 +47,11 @@ public final class BodyLayout {
     public static final int DRAG_V = 10;
     /** Holds a float widened to double; ground multiplier = (double) (friction_f32 * scale_f32). */
     public static final int GROUND_SCALE = 11;
-    public static final int FACTOR_H = 12;
-    public static final int FACTOR_V = 13;
-    public static final int F64_COLUMNS = 14;
+    /** Holds a float widened to double: the block below is at floor(y - offset). */
+    public static final int BELOW_OFFSET = 12;
+    public static final int FACTOR_H = 13;
+    public static final int FACTOR_V = 14;
+    public static final int F64_COLUMNS = 15;
 
     // u32 columns
     public static final int FLAGS = 0;

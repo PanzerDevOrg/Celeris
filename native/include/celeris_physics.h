@@ -38,7 +38,7 @@ extern "C" {
 #endif
 
 /* Bumped on any change to the layout, flags or entry point signatures. */
-#define CP_ABI_VERSION 1
+#define CP_ABI_VERSION 2
 
 #define CP_LANE_PAD 16
 
@@ -56,6 +56,7 @@ enum {
     CP_DRAG_AIR_H,      /* horizontal velocity multiplier while airborne */
     CP_DRAG_V,          /* vertical velocity multiplier */
     CP_GROUND_SCALE,    /* holds a float: ground multiplier = (double)(friction_f32 * scale_f32) */
+    CP_BELOW_OFFSET,    /* holds a float: friction/speed block at floor(y - offset) (getBlockPosBelowThatAffectsMyMovement) */
     CP_FACTOR_H,        /* scratch: written by collide, read by damp */
     CP_FACTOR_V,        /* scratch: written by collide, read by damp */
     CP_F64_COLUMNS

@@ -115,8 +115,8 @@ class PhysicsKernelReferenceTest {
     void airborneBodyOverComplexCellDefers() {
         try (TerrainView t = PhysicsTestSupport.floorWorld(factory);
              BodyBatch b = factory.newBatch(16, PhysicsMode.VANILLA, 0)) {
-            // Mid-air, 0.26 above the complex cell at (9, 5, 9): vanilla applies
-            // that block's speed factor (getBlockPosBelowThatAffectsMyMovement).
+            // Mid-air, 0.26 above the top of the complex cell at (9, 5, 9): vanilla
+            // applies that block's speed factor (getBlockPosBelowThatAffectsMyMovement).
             b.add(BodyParams.ITEM, 0.25F, 0.25F, 9.5, 6.3, 9.5, 0, 0, 0, false, 0);
             // Mid-air over the plain floor: simulated.
             b.add(BodyParams.ITEM, 0.25F, 0.25F, 0.5, 5.3, 0.5, 0, 0, 0, false, 0);
@@ -124,6 +124,22 @@ class PhysicsKernelReferenceTest {
             assertEquals(0, b.deferred(0));
             assertEquals(0, b.flags(1) & BodyFlags.DEFERRED);
             assertEquals(5.3 + -0.04, b.y(1));
+        }
+    }
+
+    @Test
+    void itemsLookAlmostAWholeBlockDown() {
+        BodyParams entity = new BodyParams(0.04, (double) 0.98F, 0.98, 0.98F, BodyParams.ENTITY_BELOW_OFFSET, false);
+        try (TerrainView t = PhysicsTestSupport.floorWorld(factory);
+             BodyBatch b = factory.newBatch(16, PhysicsMode.VANILLA, 0)) {
+            // 0.66 above the complex cell's top after the move: an item's block below
+            // is getOnPos(0.999999F), that cell; any other entity's is getOnPos(0.500001F), air.
+            b.add(BodyParams.ITEM, 0.25F, 0.25F, 9.5, 6.7, 9.5, 0, 0, 0, false, 0);
+            b.add(entity, 0.25F, 0.25F, 9.5, 6.7, 9.5, 0, 0, 0, false, 0);
+            assertEquals(1, b.step(t, 0));
+            assertEquals(0, b.deferred(0));
+            assertEquals(0, b.flags(1) & BodyFlags.DEFERRED);
+            assertEquals(6.7 + -0.04, b.y(1));
         }
     }
 
