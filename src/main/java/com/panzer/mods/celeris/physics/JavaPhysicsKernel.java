@@ -256,19 +256,31 @@ final class JavaPhysicsKernel {
         boolean onGround = (flags & BodyFlags.ON_GROUND) != 0;
         boolean mayChange = vx != 0.0 | vy != 0.0 | vz != 0.0 | b.gravity[i] != 0.0;
 
+        int deferredFlags = (flags & ~(BodyFlags.DEFERRED | BodyFlags.MOVED | BodyFlags.HELD | BodyFlags.PHASE_MASK))
+                | BodyFlags.DEFERRED | nextPhase;
+
+        double x0 = x - hw, x1 = x + hw, y0 = y, y1 = y + h, z0 = z - hw, z1 = z + hw;
+
         // ItemEntity: moves only if !onGround || horizontalDistanceSqr() > 1.0E-5F || (tickCount + id) % 4 == 0
         if ((flags & BodyFlags.THROTTLE_RESTING) != 0 && onGround && !(vx * vx + vz * vz > HOLD_SPEED_SQR) && phase != 0) {
+            // noPhysics is decided before that test: a box overlapping a block pushes the
+            // item out (moveTowardsClosestSpace), which may make it move this tick.
+            for (int cz = ifloor(z0 + EPS); cz <= iceil(z1 - EPS) - 1; cz++) {
+                for (int cy = ifloor(y0 + EPS); cy <= iceil(y1 - EPS) - 1; cy++) {
+                    for (int cx = ifloor(x0 + EPS); cx <= iceil(x1 - EPS) - 1; cx++) {
+                        int c = l.terrain(cx, cy, cz);
+                        if (c == CellClass.COMPLEX || solid(c)) {
+                            return defer(b, i, deferredFlags);
+                        }
+                    }
+                }
+            }
             b.factorH[i] = 1.0;
             b.factorV[i] = 1.0;
             b.flags[i] = (flags & ~(BodyFlags.DEFERRED | BodyFlags.MOVED | BodyFlags.PHASE_MASK))
                     | BodyFlags.HELD | nextPhase | (mayChange ? BodyFlags.MOVED : 0);
             return false;
         }
-
-        int deferredFlags = (flags & ~(BodyFlags.DEFERRED | BodyFlags.MOVED | BodyFlags.HELD | BodyFlags.PHASE_MASK))
-                | BodyFlags.DEFERRED | nextPhase;
-
-        double x0 = x - hw, x1 = x + hw, y0 = y, y1 = y + h, z0 = z - hw, z1 = z + hw;
         double mx = vx, my = vy, mz = vz;
 
         // AABB.expandTowards

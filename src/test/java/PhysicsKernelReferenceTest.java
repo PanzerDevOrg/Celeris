@@ -1,6 +1,7 @@
 import com.panzer.mods.celeris.physics.BodyBatch;
 import com.panzer.mods.celeris.physics.BodyFlags;
 import com.panzer.mods.celeris.physics.BodyParams;
+import com.panzer.mods.celeris.physics.CellClass;
 import com.panzer.mods.celeris.physics.PhysicsFactory;
 import com.panzer.mods.celeris.physics.PhysicsMode;
 import com.panzer.mods.celeris.physics.PhysicsTestAccess;
@@ -123,6 +124,28 @@ class PhysicsKernelReferenceTest {
             assertEquals(0, b.deferred(0));
             assertEquals(0, b.flags(1) & BodyFlags.DEFERRED);
             assertEquals(5.3 + -0.04, b.y(1));
+        }
+    }
+
+    @Test
+    void heldBodyOverlappingABlockDefers() {
+        try (TerrainView t = PhysicsTestSupport.floorWorld(factory);
+             BodyBatch b = factory.newBatch(16, PhysicsMode.VANILLA, 0)) {
+            // Resting, on ticks it would not move: vanilla still pushes an item out of a
+            // block first (noPhysics -> moveTowardsClosestSpace), which can make it move.
+            b.add(BodyParams.ITEM, 0.25F, 0.25F, 0.5, 5.0, 0.5, 0, 0, 0, true, 1);
+            b.add(BodyParams.ITEM, 0.25F, 0.25F, 9.5, 5.0, 9.5, 0, 0, 0, true, 1);   // inside the complex cell
+            b.add(BodyParams.ITEM, 0.25F, 0.25F, 5.875, 5.0, 0.5, 0, 0, 0, true, 1); // touching the wall face
+            assertEquals(1, b.step(t, 0));
+            assertNotEquals(0, b.flags(0) & BodyFlags.HELD);
+            assertEquals(1, b.deferred(0));
+            assertNotEquals(0, b.flags(2) & BodyFlags.HELD);
+
+            t.setCell(0, 5, 0, CellClass.SOLID_DEFAULT); // a block placed where the item rests
+            assertEquals(2, b.step(t, 0));
+            assertNotEquals(0, b.flags(0) & BodyFlags.DEFERRED);
+            assertEquals(0, b.flags(0) & BodyFlags.HELD);
+            assertNotEquals(0, b.flags(2) & BodyFlags.HELD);
         }
     }
 

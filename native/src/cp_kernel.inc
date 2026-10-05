@@ -190,19 +190,32 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     const bool on_ground = (flags & CP_FLAG_ON_GROUND) != 0;
     const bool may_change = (vx != 0.0) | (vy != 0.0) | (vz != 0.0) | (C.f[CP_GRAVITY][i] != 0.0);
 
-    // ItemEntity: moves only if !onGround || horizontalDistanceSqr() > 1.0E-5F || (tickCount + id) % 4 == 0
-    if ((flags & CP_FLAG_THROTTLE_RESTING) && on_ground && !(vx * vx + vz * vz > HOLD_SPEED_SQR) && phase != 0) {
-        *fh = 1.0;
-        *fv = 1.0;
-        C.u[CP_FLAGS][i] = (flags & ~(CP_FLAG_DEFERRED | CP_FLAG_MOVED | CP_PHASE_MASK))
-                | CP_FLAG_HELD | next_phase | (may_change ? CP_FLAG_MOVED : 0u);
-        return 0;
-    }
-
     const uint32_t deferred_flags = (flags & ~(CP_FLAG_DEFERRED | CP_FLAG_MOVED | CP_FLAG_HELD | CP_PHASE_MASK))
             | CP_FLAG_DEFERRED | next_phase;
 
     const double x0 = x - hw, x1 = x + hw, y0 = y, y1 = y + h, z0 = z - hw, z1 = z + hw;
+
+    // ItemEntity: moves only if !onGround || horizontalDistanceSqr() > 1.0E-5F || (tickCount + id) % 4 == 0
+    if ((flags & CP_FLAG_THROTTLE_RESTING) && on_ground && !(vx * vx + vz * vz > HOLD_SPEED_SQR) && phase != 0) {
+        *fh = 1.0;
+        *fv = 1.0;
+        // noPhysics is decided before that test: a box overlapping a block pushes the
+        // item out (moveTowardsClosestSpace), which may make it move this tick.
+        for (int32_t cz = ifloor(z0 + EPS); cz <= iceil(z1 - EPS) - 1; cz++) {
+            for (int32_t cy = ifloor(y0 + EPS); cy <= iceil(y1 - EPS) - 1; cy++) {
+                for (int32_t cx = ifloor(x0 + EPS); cx <= iceil(x1 - EPS) - 1; cx++) {
+                    const uint32_t c = terrain_cell(t, cx, cy, cz);
+                    if (c == CP_CELL_COMPLEX || is_solid(c)) {
+                        C.u[CP_FLAGS][i] = deferred_flags;
+                        return 1;
+                    }
+                }
+            }
+        }
+        C.u[CP_FLAGS][i] = (flags & ~(CP_FLAG_DEFERRED | CP_FLAG_MOVED | CP_PHASE_MASK))
+                | CP_FLAG_HELD | next_phase | (may_change ? CP_FLAG_MOVED : 0u);
+        return 0;
+    }
     const double mx = vx, my = vy, mz = vz;
 
     // AABB.expandTowards
