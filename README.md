@@ -1,79 +1,74 @@
-![Tessera](./docs/media/banner.png)
+![Celeris](./docs/media/banner.png)
 
-**A performance library for NeoForge mods:** off-heap memory, lock-free concurrency, SIMD math, compression and
-graph/network utilities, each with a pure-Java fallback so it runs on any JVM without launch flags.
+**A performance library for NeoForge mods.** Celeris gives mod developers off-heap memory, lock-free concurrency,
+SIMD math, fast compression and a batch physics engine, each with a pure-Java fallback, so everything works on any
+Java 21+ install with **no launch flags**.
 
-Celeris is a library mod: on its own it adds no gameplay. Other mods (for example
-[Tessera](https://github.com/PanzerDevOrg/Tessera)) depend on it.
+> 📚 **This is a library.** It adds nothing to the game by itself. You only need it when another mod requires it, for
+> example [Tessera](https://github.com/PanzerDevOrg/Tessera).
 
-| Minecraft | 1.21 – 1.21.11 and 26.1 – 26.3 (4 jars, see below) |
-|-----------|----------------------------------------------------|
-| Loader    | NeoForge                                           |
-| Java      | 21 (Minecraft 1.21.x), 25 (26.x)                   |
-| Side      | Client and server                                  |
+---
 
-## What it provides
+## ✨ What's inside
 
-| Package                      | Contents                                                                                    |
-|------------------------------|---------------------------------------------------------------------------------------------|
-| `core.memory.backend`        | `MemoryBackend` with automatic selection: **FFM** → **Unsafe** → **heap** (see below)       |
-| `core.memory`                | `PacketPipeline`, `MemoryBus`, zstd (native) / deflate compression codecs                   |
-| `core.concurrency`           | `MpscRingBuffer`: lock-free multi-producer/single-consumer ring on off-heap memory          |
-| `framework.async`            | `AsyncResultQueue`: hand results from worker threads to the game/render thread              |
-| `framework.ticking`          | `IdleTickFilter`: skip work while nothing is pending                                        |
-| `framework.capability/query` | Capability caching and throttled queries                                                    |
-| `api.simd`                   | `VectorOperations`: SIMD via `jdk.incubator.vector`, scalar fallback with identical results |
-| `core.topology`, `graph.*`   | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs        |
-| `pipeline.*`                 | Event-driven and continuous (SIMD) pipeline solvers                                         |
-| `network`                    | `PayloadCompression` / `CompressedPayload`: compressed custom payloads                      |
-| `physics`                    | Batch physics engine: SoA bodies, native C++ kernel (AVX2/AVX-512/NEON) or pure-Java kernel, broadphase, entity bridge |
+| Feature | What it does |
+|---|---|
+| 🧠 **Off-heap memory** | FFM on Java 22+, `Unsafe` on Java 21, heap fallback, chosen automatically |
+| ⚡ **Lock-free queues** | `MpscRingBuffer` and `AsyncResultQueue` move results from worker threads to the game thread |
+| 🧮 **SIMD math** | `jdk.incubator.vector` when enabled, identical scalar results otherwise |
+| 📦 **Compression** | zstd and deflate codecs, plus compressed network payloads |
+| 🕸️ **Graphs & networks** | Segmented (pipes, wires) and discrete (signals) graphs with pipeline solvers |
+| 🏃 **Batch physics** | Thousands of entity bodies per tick on a native SIMD kernel (AVX2/AVX-512/NEON) or a pure-Java one, with vanilla's movement rules |
 
-### Which jar for which Minecraft version
+## 🛡️ Safe by design
 
-Each jar is boot-tested on a real NeoForge server for every version it declares:
+- Every native or off-heap feature falls back to pure Java; Celeris never crashes the game because a backend is
+  unavailable.
+- Network traffic always uses deflate, so clients and servers on different Java versions always understand each
+  other.
+- Incoming payloads are size-capped and malformed packets are dropped.
 
-| Jar        | Minecraft          |
-|------------|--------------------|
-| `1.21.1`   | 1.21 – 1.21.6      |
-| `1.21.10`  | 1.21.7 – 1.21.10   |
-| `1.21.11`  | 1.21.11            |
-| `26.1`     | 26.1 – 26.3        |
+## 📋 Requirements
 
-The groups are defined by `game_versions` in `mod.stonecutter.properties.toml`.
+| | |
+|---|---|
+| **Minecraft** | 1.21 – 1.21.11 · 26.1 – 26.3 (pick the file for your version) |
+| **Loader** | NeoForge |
+| **Java** | 21 (Minecraft 1.21.x) · 25 (26.x) |
+| **Side** | Client and server |
 
-### Runtime selection and fallbacks
+### Which file?
 
-Everything is chosen at startup and logged once. No configuration or launch flags are needed:
+| Minecraft | File |
+|---|---|
+| 1.21 – 1.21.6 | `celeris-<version>+1.21.1.jar` |
+| 1.21.7 – 1.21.10 | `celeris-<version>+1.21.10.jar` |
+| 1.21.11 | `celeris-<version>+1.21.11.jar` |
+| 26.1 – 26.3 | `celeris-<version>+26.1.jar` |
 
-| Feature      | Preferred                                               | Fallback                          |
-|--------------|---------------------------------------------------------|-----------------------------------|
-| Memory       | FFM (26.x build; 1.21.x builds with `--enable-preview`) | `sun.misc.Unsafe`, then Java heap |
-| SIMD         | `jdk.incubator.vector` (`--add-modules`)                | Scalar code, same results         |
-| Compression  | zstd (native, needs FFM)                                | deflate (JDK zlib)                |
-| Physics      | Native kernel `celeris_physics` (needs FFM)             | Java kernel, same results         |
-| Network wire | Always deflate, so client and server always agree       |                                   |
+The standard file works on every system. GitHub releases also offer per-system files (Windows, Linux, macOS, or pure
+Java without native libraries) for anyone who wants exactly what their machine runs.
 
-Force the pure-Java paths with `-Dceleris.compatMode=true`.
+## ⚡ Maximum performance (optional)
 
-### ⚡ Maximum performance (optional JVM flags)
+Celeris works without any setup. These JVM flags unlock its fastest code paths:
 
-Celeris works without flags. These unlock its fastest paths (verified on real NeoForge servers):
+| Minecraft (Java) | Add to your JVM arguments | Unlocks |
+|---|---|---|
+| 1.21.x (Java 21) | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | Off-heap FFM, native zstd, SIMD, native physics |
+| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | SIMD (FFM, zstd and native physics are already on) |
 
-| Minecraft (Java)       | Add to your JVM arguments                                                                | Unlocks                            |
-|------------------------|------------------------------------------------------------------------------------------|------------------------------------|
-| 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD, native physics |
-| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`                  | SIMD (FFM and zstd are already on) |
+Where to put them:
 
-Where to put them: 
-- **Modrinth App** → instance → *Settings → Java and memory → Java arguments*
-- **CurseForge App** →
-*Settings → Minecraft → Additional arguments*
-- **Prism Launcher** → instance → *Settings → Java → JVM arguments*
-- **servers** → `user_jvm_args.txt`. 
+- **Modrinth App**: instance → *Settings → Java and memory → Java arguments*
+- **CurseForge App**: *Settings → Minecraft → Additional arguments*
+- **Prism Launcher**: instance → *Settings → Java → JVM arguments*
+- **Servers**: `user_jvm_args.txt`
 
-Use `--enable-preview` only with the Java 21 that Minecraft 1.21.x ships with.
+Use `--enable-preview` only with the Java 21 that Minecraft 1.21.x ships with. Without the flags nothing breaks; each
+feature uses its pure-Java fallback.
 
-## Using Celeris in your mod
+## 👩‍💻 For developers
 
 ```kotlin
 repositories {
@@ -81,12 +76,35 @@ repositories {
         content { includeGroup("com.panzer.mods") }
     }
 }
-
 dependencies {
     // one artifact per Minecraft version: celeris-<mc version>
-    implementation("com.panzer.mods:celeris-1.21.1:0.1.0")
+    implementation("com.panzer.mods:celeris-1.21.1:0.2.0")
 }
 ```
+
+Docs, examples and source code: **[github.com/PanzerDevOrg/Celeris](https://github.com/PanzerDevOrg/Celeris)**
+
+<!-- publish:off -->
+
+## Package overview
+
+| Package | Contents |
+|---|---|
+| `core.memory.backend` | `MemoryBackend` with automatic selection: **FFM** → **Unsafe** → **heap** |
+| `core.memory` | `PacketPipeline`, `MemoryBus`, zstd (native) / deflate compression codecs |
+| `core.concurrency` | `MpscRingBuffer`: lock-free multi-producer/single-consumer ring on off-heap memory |
+| `framework.async` | `AsyncResultQueue`: hand results from worker threads to the game/render thread |
+| `framework.ticking` | `IdleTickFilter`: skip work while nothing is pending |
+| `framework.capability/query` | Capability caching and throttled queries |
+| `api.simd` | `VectorOperations`: SIMD via `jdk.incubator.vector`, scalar fallback with identical results |
+| `core.topology`, `graph.*` | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs |
+| `pipeline.*` | Event-driven and continuous (SIMD) pipeline solvers |
+| `network` | `PayloadCompression` / `CompressedPayload`: compressed custom payloads |
+| `physics` | Batch physics engine: SoA bodies, native C++ kernel or pure-Java kernel, broadphase, entity bridge ([`native/`](./native)) |
+
+Everything is chosen at startup and logged once. `-Dceleris.compatMode=true` forces the pure-Java paths.
+
+## Using Celeris in your mod
 
 Declare it as a required dependency in your `neoforge.mods.toml`:
 
@@ -94,7 +112,7 @@ Declare it as a required dependency in your `neoforge.mods.toml`:
 [[dependencies.yourmod]]
 modId = "celeris"
 type = "required"
-versionRange = "[0.1.0,)"
+versionRange = "[0.2.0,)"
 ordering = "AFTER"
 side = "BOTH"
 ```
@@ -125,41 +143,41 @@ cd Celeris
 Requirements: JDK 21. JDK 25, for the 26.1 target, is downloaded automatically through Gradle toolchains.
 
 ```bash
-./gradlew build                                   # every Minecraft version, with tests
-./gradlew :1.21.1:runClient                       # dev client for one version
-./gradlew publishToMavenLocal                     # use your local build from other mods
-./gradlew buildAndCollect -Pceleris.fatJar=true   # release jars in build/libs/<version>/
+./gradlew build                     # every Minecraft version, with tests
+./gradlew :1.21.1:runClient         # dev client for one version
+./gradlew publishToMavenLocal       # use your local build from other mods
+./gradlew buildAndCollect           # release jars (universal, per-system, sources) in build/libs/<version>/
 ```
 
 Native zstd libraries for every supported platform are committed under `natives/<os>/<arch>/` and bundled into the
 jar. The physics kernel is built from [`native/`](./native) with CMake (`./gradlew buildNativeCelerisPhysics`, or
 `-Ppanzer.native.build=true` on any build); CI builds it for every platform.
 
-## Docs, changelogs and the Modrinth page
-
-Everything published outside GitHub lives in [`docs/`](./docs): one changelog per version in
-`docs/changelogs/<version>.md`, and the Modrinth page in `docs/modrinth/description.md` (synced on every push to
-`master`). See [`docs/README.md`](./docs/README.md).
-
 ## Releasing
 
-Add `docs/changelogs/<version>.md`, bump `version` under `[mod]` in `mod.stonecutter.properties.toml`, commit,
-then push a matching tag:
+This README is the description on Modrinth and CurseForge too (everything outside `publish:off` blocks); see
+[`docs/README.md`](./docs/README.md). To release: add `docs/changelogs/<version>.md`, set `version` under `[mod]` in
+`mod.stonecutter.properties.toml`, commit, then push a matching tag:
 
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.2.0 && git push origin v0.2.0
 ```
 
-CI (`.github/workflows/package.yml`) builds and tests every version on each push. On a `v*` tag it also publishes all
-versions to the GitHub Pages Maven repository above and uploads each jar to Modrinth and CurseForge with that
-changelog. It refuses to publish if the tag doesn't match the mod version or the changelog file is missing.
+CI publishes the Maven repository, a GitHub release with every jar, and the Modrinth and CurseForge files. Every other
+push runs the same release as a dry run and uploads a `release-preview` artifact with the pages as they would look.
 
 ## License
 
-| Content               | License                                                                                                  |
-|-----------------------|----------------------------------------------------------------------------------------------------------|
-| Source code           | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — see [`LICENSE-AGPL`](./LICENSE-AGPL)            |
-| Artwork and branding  | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — see [`LICENSE-CC`](./LICENSE-CC) |
-| Bundled zstd binaries | [BSD-3-Clause](https://github.com/facebook/zstd/blob/dev/LICENSE) (zstd)                                 |
+| Content | License |
+|---|---|
+| Source code | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html), see [`LICENSE-AGPL`](./LICENSE-AGPL) |
+| Artwork and branding | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), see [`LICENSE-CC`](./LICENSE-CC) |
+| Bundled zstd binaries | [BSD-3-Clause](https://github.com/facebook/zstd/blob/dev/LICENSE) (zstd) |
 
 See [`LICENSE`](./LICENSE) for the full summary.
+
+<!-- publish:on -->
+
+---
+
+Source code is licensed under **AGPL-3.0**; artwork under **CC BY-NC-SA 4.0**. Made by **Panzer**.

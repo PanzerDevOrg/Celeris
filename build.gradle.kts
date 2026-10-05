@@ -233,11 +233,12 @@ tasks {
 
     register<Copy>("buildAndCollect") {
         group = "build"
-        description = "Build mod jar and copy result to `build/libs/{mod version}/`"
+        description = "Build the mod and sources jars (plus per-system jars) into `build/libs/{mod version}/`"
 
         dependsOn("jar")
         dependsOn(publishToMavenLocal)
         from(project.tasks.named("jar"))
+        from(project.tasks.named("sourcesJar"))
         inputs.property("version", modProps.modVersion)
         into(rootProject.layout.buildDirectory.file("libs/${modProps.modVersion}"))
     }

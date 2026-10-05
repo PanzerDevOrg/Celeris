@@ -21,6 +21,16 @@ cmake_dir = "native"
 headers = "native/include"
 platforms = ["linux-x86_64", "linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64"]
 
+# Releases and descriptions (panzer-build-logic/publishing). README.md is the
+# description on GitHub, Modrinth and CurseForge. Per-system jars (only that
+# OS's natives; "java" = none) are attached to GitHub releases only.
+[publish]
+modrinth_id = "sQphaM3I"
+curseforge_id = "1722411"
+platforms = ["windows", "linux", "macos", "java"]
+client_side = "required"
+server_side = "required"
+
 [tools.oxipng]
 enabled = false
 

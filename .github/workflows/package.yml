@@ -1,16 +1,24 @@
 name: Build and Package
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Release dry run: build, check and preview only (on a tag ref, untick to publish)"
+        type: boolean
+        default: true
+      targets:
+        description: "Release targets"
+        type: string
+        default: github,modrinth,curseforge
   push:
     branches: [master]
     tags: ["v*"]
     # Docs-only commits don't rebuild anything (path filters never apply to tag
-    # pushes, so releases always run). The Modrinth page has its own workflow.
+    # pushes, so releases always run). README changes sync the descriptions in
+    # descriptions.yml.
     paths-ignore: ["docs/**", "**.md", "LICENSE*", ".gitignore"]
   pull_request:
-    # Docs-only commits don't rebuild anything (path filters never apply to tag
-    # pushes, so releases always run). The Modrinth page has its own workflow.
     paths-ignore: ["docs/**", "**.md", "LICENSE*", ".gitignore"]
 
 permissions:
@@ -89,13 +97,6 @@ jobs:
             25
             21
 
-      # Every build needs game_versions, a range starting at its first version, and
-      # a matching entry in the release matrix below.
-      - name: Check build/version metadata
-        run: |
-          MATRIX=$(sed -n 's/^ *mc: \[\(.*\)\]/\1/p' .github/workflows/package.yml)
-          python3 .github/scripts/release_info.py --check "$MATRIX"
-
       - uses: actions/download-artifact@v5
         with:
           pattern: physics-*
@@ -131,28 +132,40 @@ jobs:
           chmod +x ./gradlew
           ./gradlew build buildAndCollect -Pceleris.fatJar=true --no-watch-fs --stacktrace
 
-      - name: Verify JAR contains all natives
+      # buildAndCollect writes, per Minecraft version: the universal jar, the
+      # per-system jars ([publish] platforms) and the sources jar.
+      - name: Verify jars and their natives
         run: |
           set -euo pipefail
-          JAR_PATH=$(find build/libs -mindepth 2 -maxdepth 2 -name "*.jar" \
-            ! -name "*-sources.jar" ! -name "*-dev.jar" | sort | head -n1)
-          [ -n "$JAR_PATH" ] || { echo "::error::No mod JAR under build/libs/<version>/"; find build/libs -type f; exit 1; }
-          echo "Inspecting $JAR_PATH"
-          for plat in windows-x86_64 windows-aarch64 linux-x86_64 linux-aarch64 linux-ppc64le linux-riscv64 macos-x86_64 macos-aarch64; do
-            unzip -l "$JAR_PATH" | grep -q "natives/$plat/" || { echo "::error::Missing natives for $plat in $JAR_PATH"; exit 1; }
+          ALL="windows-x86_64 windows-aarch64 linux-x86_64 linux-aarch64 linux-ppc64le linux-riscv64 macos-x86_64 macos-aarch64"
+          natives() { unzip -Z1 "$1" | sed -n 's#^natives/\([^/]*\)/.*#\1#p' | sort -u | tr '\n' ' '; }
+          for JAR in $(find build/libs -mindepth 2 -maxdepth 2 -name "*.jar" | grep -Ev -- '-(sources|dev|windows|linux|macos|java)\.jar$'); do
+            BASE=${JAR%.jar}
+            for plat in $ALL; do
+              unzip -Z1 "$JAR" | grep -q "^natives/$plat/" || { echo "::error::$JAR lacks natives for $plat"; exit 1; }
+            done
+            for os in windows linux macos; do
+              [ -f "$BASE-$os.jar" ] || { echo "::error::missing $BASE-$os.jar"; exit 1; }
+              OTHER=$(natives "$BASE-$os.jar" | tr ' ' '\n' | grep -v "^$os-" | grep -v '^$' || true)
+              [ -z "$OTHER" ] || { echo "::error::$BASE-$os.jar contains foreign natives: $OTHER"; exit 1; }
+              [ -n "$(natives "$BASE-$os.jar")" ] || { echo "::error::$BASE-$os.jar has no natives"; exit 1; }
+            done
+            [ -z "$(natives "$BASE-java.jar")" ] || { echo "::error::$BASE-java.jar contains natives"; exit 1; }
+            [ -f "$BASE-sources.jar" ] || { echo "::error::missing $BASE-sources.jar"; exit 1; }
+            echo "ok: $(basename "$JAR") (+ windows/linux/macos/java/sources)"
           done
 
-      - name: Upload JAR artifact
+      - name: Upload jars
         uses: actions/upload-artifact@v5
         with:
-          name: celeris-jar
-          path: Celeris/build/libs/**/*.jar
+          name: celeris-jars
+          path: Celeris/build/libs/
           if-no-files-found: error
 
   publish:
     # Only on version tags (v0.1.0, ...). Consumers (Tessera) resolve
     # com.panzer.mods:celeris-<mc>:<version> from https://panzerdevorg.github.io/Celeris/maven
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -171,6 +184,20 @@ jobs:
           java-version: |
             25
             21
+
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: physics-*
+          path: physics-natives
+
+      - name: Stage celeris_physics binaries
+        run: |
+          set -euo pipefail
+          for dir in ../physics-natives/physics-*; do
+            plat=${dir##*/physics-}
+            mkdir -p "natives/${plat%%-*}/${plat#*-}"
+            cp "$dir"/* "natives/${plat%%-*}/${plat#*-}/"
+          done
 
       # The published version comes from [mod] version in mod.stonecutter.properties.toml;
       # refuse to publish if the tag disagrees, so v0.2.0 can never ship 0.1.0 artifacts.
@@ -193,62 +220,18 @@ jobs:
           keep_files: true
 
   release:
-    # Uploads each Minecraft version's jar to Modrinth and CurseForge on v* tags.
-    # Configure once per repository (Settings > Secrets and variables > Actions):
-    #   variables: MODRINTH_ID, CURSEFORGE_ID   (project IDs; a missing one skips that site)
-    #   secrets:   MODRINTH_TOKEN, CURSEFORGE_TOKEN
-    # Game versions, loader and dependencies are read from each jar's neoforge.mods.toml.
-    # Skipped entirely until at least one site's project ID is configured.
-    if: startsWith(github.ref, 'refs/tags/v') && (vars.MODRINTH_ID != '' || vars.CURSEFORGE_ID != '')
-    needs: publish
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        # Keep in sync with [stonecutter] versions in mod.stonecutter.properties.toml
-        # (the build job fails if they differ).
-        mc: ["1.21.1", "1.21.10", "1.21.11", "26.1"]
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          path: Celeris
-
-      # docs/changelogs/<version>.md is the published changelog.
-      - name: Check changelog exists
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          [ -s "docs/changelogs/$VERSION.md" ] || { echo "::error::Missing docs/changelogs/$VERSION.md"; exit 1; }
-
-      - uses: actions/download-artifact@v5
-        with:
-          name: celeris-jar
-          path: jars
-
-      - name: Locate jar
-        id: jar
-        working-directory: .
-        run: |
-          JAR=$(find jars -name "celeris-*+${{ matrix.mc }}.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | head -n1)
-          [ -n "$JAR" ] || { echo "::error::No jar for ${{ matrix.mc }}"; find jars -type f; exit 1; }
-          echo "path=$JAR" >> "$GITHUB_OUTPUT"
-          echo "mod_version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      # Release name and game versions from game_versions in the TOML,
-      # e.g. "0.1.0-1.21(.0-.6)" for 1.21 .. 1.21.6.
-      - name: Release metadata
-        id: meta
-        run: python3 .github/scripts/release_info.py "${{ matrix.mc }}" "${GITHUB_REF_NAME#v}"
-
-      - uses: Kir-Antipov/mc-publish@v3.3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_ID }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          curseforge-id: ${{ vars.CURSEFORGE_ID }}
-          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-          files: ${{ steps.jar.outputs.path }}
-          name: ${{ steps.meta.outputs.label }}
-          version: ${{ steps.meta.outputs.label }}
-          game-versions: ${{ steps.meta.outputs.game_versions }}
-          loaders: neoforge
-          changelog-file: Celeris/docs/changelogs/${{ steps.jar.outputs.mod_version }}.md
+    # GitHub release (universal + per-system + sources jars), Modrinth and
+    # CurseForge, through panzer-build-logic's shared publisher. Every push is
+    # a dry run that uploads a "release-preview" artifact (pages and files as
+    # they would be published); only a v* tag publishes for real.
+    # Secrets: MODRINTH_TOKEN, CURSEFORGE_TOKEN. Project ids: [publish] in the TOML.
+    needs: [build, publish]
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result != 'failure' }}
+    uses: PanzerDevOrg/PanzerBuildLogic/.github/workflows/mod-release.yml@master
+    with:
+      jars-artifact: celeris-jars
+      dry-run: ${{ !(startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)) }}
+      targets: ${{ inputs.targets || 'github,modrinth,curseforge' }}
+    secrets: inherit
+    permissions:
+      contents: write
