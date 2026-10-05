@@ -11,6 +11,16 @@ add_modules = "jdk.incubator.vector"
 enable_preview = true
 add_to_runtime = true
 
+# Batch physics kernel (native/). panzer-build-logic registers
+# buildNativeCelerisPhysics (CMake, host platform -> natives/<os>/<arch>/) and
+# nativeHeadersCelerisPhysics (native/include, published as `native-headers`).
+# -Ppanzer.native.build=true rebuilds it before packaging; otherwise the
+# committed binaries are used. Platforms without a binary use the Java kernel.
+[natives.celeris_physics]
+cmake_dir = "native"
+headers = "native/include"
+platforms = ["linux-x86_64", "linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64"]
+
 [tools.oxipng]
 enabled = false
 

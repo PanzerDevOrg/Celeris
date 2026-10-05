@@ -53,13 +53,26 @@ sourceSets.main {
 
 val nativesDir = layout.buildDirectory.dir("generated/natives")
 
+// Every native library in the jar, by file name per OS. zstd is a committed
+// prebuilt; celeris_physics is built from native/ (see [natives.celeris_physics]
+// in mod.stonecutter.properties.toml and buildNativeCelerisPhysics from
+// panzer-build-logic) and committed per platform the same way.
+data class NativeLib(val windows: String, val macos: String, val linux: String, val renameLinux: String? = null,
+                     val renameWindows: String? = null, val required: Boolean = true)
+
+val nativeLibs = listOf(
+    NativeLib("zstd.dll", "libzstd.dylib", "libzstd.so", renameLinux = "libzstd.so.1", renameWindows = "libzstd.dll"),
+    // Optional per platform: without it the physics engine runs its Java kernel.
+    NativeLib("celeris_physics.dll", "libceleris_physics.dylib", "libceleris_physics.so", required = false),
+)
+
 data class NativeTarget(val os: String, val arch: String) {
     val classifier: String = "$os-$arch"
     val relativeSourcePath: String = "$os/$arch"
-    val fileName: String = when (os) {
-        "windows" -> "zstd.dll"
-        "macos" -> "libzstd.dylib"
-        else -> "libzstd.so"
+    fun fileName(lib: NativeLib): String = when (os) {
+        "windows" -> lib.windows
+        "macos" -> lib.macos
+        else -> lib.linux
     }
 }
 
@@ -117,20 +130,19 @@ val collectNatives = tasks.register<Copy>("collectNatives") {
 
     if (sourceDir.exists()) {
         targetsToCopy.forEach { target ->
-            val srcFile = sourceDir.resolve(target.relativeSourcePath).resolve(target.fileName)
-            if (srcFile.exists()) {
-                from(srcFile) {
-                    into("natives/${target.classifier}")
-                    when {
-                        target.classifier.startsWith("linux") && target.fileName == "libzstd.so" ->
-                            rename { "libzstd.so.1" }
-
-                        target.classifier.startsWith("windows") && target.fileName == "zstd.dll" ->
-                            rename { "libzstd.dll" }
+            nativeLibs.forEach { lib ->
+                val srcFile = sourceDir.resolve(target.relativeSourcePath).resolve(target.fileName(lib))
+                if (srcFile.exists()) {
+                    from(srcFile) {
+                        into("natives/${target.classifier}")
+                        when {
+                            target.os == "linux" && lib.renameLinux != null -> rename { lib.renameLinux }
+                            target.os == "windows" && lib.renameWindows != null -> rename { lib.renameWindows }
+                        }
                     }
+                } else if (lib.required) {
+                    logger.warn("Celeris: missing native binary for ${target.classifier} at $srcFile")
                 }
-            } else {
-                logger.warn("Celeris: missing native binary for ${target.classifier} at $srcFile")
             }
         }
     } else if (nativeMode != "off") {
@@ -262,6 +274,9 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+            // C header of the physics kernel, for native code linking against
+            // the same ABI (classifier: native-headers).
+            artifact(rootProject.tasks.named("nativeHeadersCelerisPhysics"))
             groupId = modProps.modGroup
             artifactId = "celeris-${modProps.currentVersion}"
             version = modProps.modVersion

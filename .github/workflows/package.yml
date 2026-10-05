@@ -24,8 +24,51 @@ defaults:
     working-directory: Celeris
 
 jobs:
+  physics-natives:
+    # Builds and self-tests native/ (celeris_physics) on every platform it ships
+    # for; the build job bundles the results. Linux x86_64 is also committed
+    # under natives/ so local builds without CMake still get it.
+    name: celeris_physics ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: Celeris
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux-x86_64,   runner: ubuntu-latest,    file: libceleris_physics.so }
+          - { platform: linux-aarch64,  runner: ubuntu-24.04-arm, file: libceleris_physics.so }
+          - { platform: windows-x86_64, runner: windows-latest,   file: celeris_physics.dll }
+          - { platform: macos-x86_64,   runner: macos-13,         file: libceleris_physics.dylib }
+          - { platform: macos-aarch64,  runner: macos-14,         file: libceleris_physics.dylib }
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: Celeris
+
+      # Builds every ISA variant the platform has and runs cp_selftest, which
+      # checks each one the runner's CPU supports bit for bit against the
+      # generic path.
+      - name: CMake build + self-test
+        shell: bash
+        run: |
+          cmake -S native -B build-native -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-native --config Release --parallel
+          ctest --test-dir build-native -C Release --output-on-failure
+          mkdir -p out
+          find build-native -name '${{ matrix.file }}' -exec cp {} out/ \;
+          ls -l out
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: physics-${{ matrix.platform }}
+          path: Celeris/out/${{ matrix.file }}
+          if-no-files-found: error
+
   build:
     name: Build all versions + package JAR with natives
+    needs: physics-natives
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -53,6 +96,22 @@ jobs:
           MATRIX=$(sed -n 's/^ *mc: \[\(.*\)\]/\1/p' .github/workflows/package.yml)
           python3 .github/scripts/release_info.py --check "$MATRIX"
 
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: physics-*
+          path: physics-natives
+
+      # natives/<os>/<arch>/ is where collectNatives looks for every library.
+      - name: Stage celeris_physics binaries
+        run: |
+          set -euo pipefail
+          for dir in ../physics-natives/physics-*; do
+            plat=${dir##*/physics-}
+            mkdir -p "natives/${plat%%-*}/${plat#*-}"
+            cp "$dir"/* "natives/${plat%%-*}/${plat#*-}/"
+          done
+          find natives -name '*celeris_physics*'
+
       - name: Verify natives are present for all supported platforms
         run: |
           set -euo pipefail
@@ -60,7 +119,10 @@ jobs:
             natives/windows/x86_64/zstd.dll natives/windows/aarch64/zstd.dll \
             natives/linux/x86_64/libzstd.so natives/linux/aarch64/libzstd.so \
             natives/linux/ppc64le/libzstd.so natives/linux/riscv64/libzstd.so \
-            natives/macos/x86_64/libzstd.dylib natives/macos/aarch64/libzstd.dylib; do
+            natives/macos/x86_64/libzstd.dylib natives/macos/aarch64/libzstd.dylib \
+            natives/linux/x86_64/libceleris_physics.so natives/linux/aarch64/libceleris_physics.so \
+            natives/windows/x86_64/celeris_physics.dll \
+            natives/macos/x86_64/libceleris_physics.dylib natives/macos/aarch64/libceleris_physics.dylib; do
             [ -f "$path" ] || { echo "::error::Missing native $path"; exit 1; }
           done
 

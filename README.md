@@ -26,6 +26,7 @@ Celeris is a library mod: on its own it adds no gameplay. Other mods (for exampl
 | `core.topology`, `graph.*`   | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs        |
 | `pipeline.*`                 | Event-driven and continuous (SIMD) pipeline solvers                                         |
 | `network`                    | `PayloadCompression` / `CompressedPayload`: compressed custom payloads                      |
+| `physics`                    | Batch physics engine: off-heap SoA bodies, native C++ kernel (AVX2/AVX-512/NEON), broadphase, entity bridge |
 
 ### Which jar for which Minecraft version
 
@@ -49,6 +50,7 @@ Everything is chosen at startup and logged once. No configuration or launch flag
 | Memory       | FFM (26.x build; 1.21.x builds with `--enable-preview`) | `sun.misc.Unsafe`, then Java heap |
 | SIMD         | `jdk.incubator.vector` (`--add-modules`)                | Scalar code, same results         |
 | Compression  | zstd (native, needs FFM)                                | deflate (JDK zlib)                |
+| Physics      | Native kernel `celeris_physics` (needs FFM)             | Java kernel; without FFM, vanilla |
 | Network wire | Always deflate, so client and server always agree       |                                   |
 
 Force the pure-Java paths with `-Dceleris.compatMode=true`.
@@ -130,7 +132,8 @@ Requirements: JDK 21. JDK 25, for the 26.1 target, is downloaded automatically t
 ```
 
 Native zstd libraries for every supported platform are committed under `natives/<os>/<arch>/` and bundled into the
-jar.
+jar. The physics kernel is built from [`native/`](./native) with CMake (`./gradlew buildNativeCelerisPhysics`, or
+`-Ppanzer.native.build=true` on any build); CI builds it for every platform.
 
 ## Docs, changelogs and the Modrinth page
 

@@ -10,3 +10,4 @@ stonecutter.properties.toml
 
 # repomix output
 repomix*
+build-native/
