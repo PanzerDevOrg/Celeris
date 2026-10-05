@@ -79,6 +79,12 @@ banner = ""
 # Versions: panzer-build-logic's "panzer" profile (1.21.1, 1.21.10, 1.21.11,
 # 26.1; Minecraft/NeoForge builds in its common TOML). branches: extra projects
 # built per version too (example/, against Celeris).
+# `panzer compat` (Mods workflow, action compat): each build's jar on the other
+# versions in its game_versions, as a smoke test on a NeoForge dedicated server
+# (starts with the jar, stops cleanly).
+[compat]
+timeout_minutes = 10
+
 [stonecutter]
 profile = "panzer"
 vcs_version = "1.21.1"
