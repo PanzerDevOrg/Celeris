@@ -1,74 +1,55 @@
 ![Celeris](./docs/media/banner.png)
 
-**A performance library for NeoForge mods.** Celeris gives mod developers off-heap memory, lock-free concurrency,
-SIMD math, fast compression and a batch physics engine, each with a pure-Java fallback, so everything works on any
-Java 21+ install with **no launch flags**.
+Celeris is the part of a mod you don't see: the memory, threading and math underneath. It runs a few thousand
+entity bodies through one SIMD pass per tick, hands worker results to the game thread without a lock, and compresses
+what goes over the wire. If a faster backend isn't there, it uses the next one down, so it behaves the same on a
+stock launcher as on a tuned one.
 
-> 📚 **This is a library.** It adds nothing to the game by itself. You only need it when another mod requires it, for
-> example [Tessera](https://github.com/PanzerDevOrg/Tessera).
+> On its own it changes nothing in game. You install it because a mod such as
+> [Tessera](https://github.com/PanzerDevOrg/Tessera) asks for it.
 
 ---
 
-## ✨ What's inside
-
-| Feature | What it does |
-|---|---|
-| 🧠 **Off-heap memory** | FFM on Java 22+, `Unsafe` on Java 21, heap fallback, chosen automatically |
-| ⚡ **Lock-free queues** | `MpscRingBuffer` and `AsyncResultQueue` move results from worker threads to the game thread |
-| 🧮 **SIMD math** | `jdk.incubator.vector` when enabled, identical scalar results otherwise |
-| 📦 **Compression** | zstd and deflate codecs, plus compressed network payloads |
-| 🕸️ **Graphs & networks** | Segmented (pipes, wires) and discrete (signals) graphs with pipeline solvers |
-| 🏃 **Batch physics** | Thousands of entity bodies per tick on a native SIMD kernel (AVX2/AVX-512/NEON) or a pure-Java one, with vanilla's movement rules |
-
-## 🛡️ Safe by design
-
-- Every native or off-heap feature falls back to pure Java; Celeris never crashes the game because a backend is
-  unavailable.
-- Network traffic always uses deflate, so clients and servers on different Java versions always understand each
-  other.
-- Incoming payloads are size-capped and malformed packets are dropped.
-
-## 📋 Requirements
+## Inside
 
 | | |
 |---|---|
-| **Minecraft** | 1.21 – 1.21.11 · 26.1 – 26.3 (pick the file for your version) |
-| **Loader** | NeoForge |
-| **Java** | 21 (Minecraft 1.21.x) · 25 (26.x) |
-| **Side** | Client and server |
+| **Memory** | FFM on Java 22+, `Unsafe` on 21, plain heap as a last resort |
+| **Threads** | `MpscRingBuffer` and `AsyncResultQueue`: workers produce, the tick consumes |
+| **Math** | `jdk.incubator.vector` when the module is loaded; the scalar path gives bit-identical results |
+| **Compression** | zstd and deflate, and a compressed payload type for custom packets |
+| **Graphs** | Segmented networks (pipes, wires) and discrete ones (signals), with pipeline solvers |
+| **Physics** | Batch bodies on a native kernel (AVX2, AVX-512, NEON) or in Java, following vanilla's movement rules |
 
-### Which file?
+Packets between client and server always use deflate, so a Java 21 client and a Java 25 server never disagree on the
+format. Oversized or malformed payloads are dropped, not trusted.
 
-| Minecraft | File |
-|---|---|
-| 1.21 – 1.21.6 | `celeris-<version>+1.21.1.jar` |
-| 1.21.7 – 1.21.10 | `celeris-<version>+1.21.10.jar` |
-| 1.21.11 | `celeris-<version>+1.21.11.jar` |
-| 26.1 – 26.3 | `celeris-<version>+26.1.jar` |
+## Versions
 
-The standard file works on every system. GitHub releases also offer per-system files (Windows, Linux, macOS, or pure
-Java without native libraries) for anyone who wants exactly what their machine runs.
-
-## ⚡ Maximum performance (optional)
-
-Celeris works without any setup. These JVM flags unlock its fastest code paths:
-
-| Minecraft (Java) | Add to your JVM arguments | Unlocks |
+| Minecraft | File | Java |
 |---|---|---|
-| 1.21.x (Java 21) | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | Off-heap FFM, native zstd, SIMD, native physics |
-| 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | SIMD (FFM, zstd and native physics are already on) |
+| 1.21 – 1.21.6 | `celeris-<version>+1.21.1.jar` | 21 |
+| 1.21.7 – 1.21.10 | `celeris-<version>+1.21.10.jar` | 21 |
+| 1.21.11 | `celeris-<version>+1.21.11.jar` | 21 |
+| 26.1 – 26.3 | `celeris-<version>+26.1.jar` | 25 |
 
-Where to put them:
+NeoForge, client and server. Each jar has been booted on every Minecraft version in its row. The
+GitHub releases also carry per-system builds (Windows, Linux, macOS, or Java only) if you'd rather not ship natives
+you won't load.
 
-- **Modrinth App**: instance → *Settings → Java and memory → Java arguments*
-- **CurseForge App**: *Settings → Minecraft → Additional arguments*
-- **Prism Launcher**: instance → *Settings → Java → JVM arguments*
-- **Servers**: `user_jvm_args.txt`
+## Flags
 
-Use `--enable-preview` only with the Java 21 that Minecraft 1.21.x ships with. Without the flags nothing breaks; each
-feature uses its pure-Java fallback.
+None are required. These open the fast paths that the JVM keeps closed by default:
 
-## 👩‍💻 For developers
+| Java | JVM arguments | Opens |
+|---|---|---|
+| 21 (Minecraft 1.21.x) | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM memory, native zstd, SIMD, native physics |
+| 25 (Minecraft 26.x) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | SIMD (the rest is already open on 25) |
+
+Modrinth App: *Settings → Java and memory*. CurseForge: *Settings → Minecraft → Additional arguments*. Prism: instance
+*Settings → Java*. Servers: `user_jvm_args.txt`. `--enable-preview` belongs to Java 21 only.
+
+## For mod authors
 
 ```kotlin
 repositories {
@@ -77,12 +58,11 @@ repositories {
     }
 }
 dependencies {
-    // one artifact per Minecraft version: celeris-<mc version>
-    implementation("com.panzer.mods:celeris-1.21.1:0.2.0")
+    implementation("com.panzer.mods:celeris-1.21.1:0.2.0") // celeris-<minecraft version>
 }
 ```
 
-Docs, examples and source code: **[github.com/PanzerDevOrg/Celeris](https://github.com/PanzerDevOrg/Celeris)**
+Source, examples and the package map: **[github.com/PanzerDevOrg/Celeris](https://github.com/PanzerDevOrg/Celeris)**
 
 <!-- publish:off -->
 
