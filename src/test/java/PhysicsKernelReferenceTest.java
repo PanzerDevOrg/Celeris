@@ -111,6 +111,22 @@ class PhysicsKernelReferenceTest {
     }
 
     @Test
+    void airborneBodyOverComplexCellDefers() {
+        try (TerrainView t = PhysicsTestSupport.floorWorld(factory);
+             BodyBatch b = factory.newBatch(16, PhysicsMode.VANILLA, 0)) {
+            // Mid-air, 0.26 above the complex cell at (9, 5, 9): vanilla applies
+            // that block's speed factor (getBlockPosBelowThatAffectsMyMovement).
+            b.add(BodyParams.ITEM, 0.25F, 0.25F, 9.5, 6.3, 9.5, 0, 0, 0, false, 0);
+            // Mid-air over the plain floor: simulated.
+            b.add(BodyParams.ITEM, 0.25F, 0.25F, 0.5, 5.3, 0.5, 0, 0, 0, false, 0);
+            assertEquals(1, b.step(t, 0));
+            assertEquals(0, b.deferred(0));
+            assertEquals(0, b.flags(1) & BodyFlags.DEFERRED);
+            assertEquals(5.3 + -0.04, b.y(1));
+        }
+    }
+
+    @Test
     void removeSwapsLastIntoHole() {
         try (BodyBatch b = factory.newBatch(16, PhysicsMode.VANILLA, 0)) {
             for (int i = 0; i < 5; i++) {

@@ -341,18 +341,21 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
         }
     }
 
+    // getBlockPosBelowThatAffectsMyMovement: its friction on the ground, and
+    // its getSpeedFactor always -- Entity.move applies the speed factor of
+    // the block half a block down even mid-air (soul sand, honey: COMPLEX).
+    const uint32_t below = has_support
+            ? L.at(support[0], ifloor(ny - ON_POS_FRICTION), support[2])
+            : L.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
+    if (below == CP_CELL_COMPLEX) {
+        *fh = 1.0;
+        *fv = 1.0;
+        C.u[CP_FLAGS][i] = deferred_flags;
+        return 1;
+    }
     double factor_h = C.f[CP_DRAG_AIR_H][i];
     if (ground) {
-        const uint32_t c = has_support
-                ? L.at(support[0], ifloor(ny - ON_POS_FRICTION), support[2])
-                : L.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
-        if (c == CP_CELL_COMPLEX) {
-            *fh = 1.0;
-            *fv = 1.0;
-            C.u[CP_FLAGS][i] = deferred_flags;
-            return 1;
-        }
-        factor_h = (double) (t->friction[c] * (float) C.f[CP_GROUND_SCALE][i]);
+        factor_h = (double) (t->friction[below] * (float) C.f[CP_GROUND_SCALE][i]);
     }
 
     // Commit

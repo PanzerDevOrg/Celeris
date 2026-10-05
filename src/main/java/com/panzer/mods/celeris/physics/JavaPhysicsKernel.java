@@ -400,15 +400,18 @@ final class JavaPhysicsKernel {
             }
         }
 
+        // getBlockPosBelowThatAffectsMyMovement: its friction on the ground, and
+        // its getSpeedFactor always -- Entity.move applies the speed factor of
+        // the block half a block down even mid-air (soul sand, honey: COMPLEX).
+        int below = hasSupport
+                ? l.at(sup[0], ifloor(ny - ON_POS_FRICTION), sup[2])
+                : l.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
+        if (below == CellClass.COMPLEX) {
+            return defer(b, i, deferredFlags);
+        }
         double factorH = b.dragAirH[i];
         if (ground) {
-            int c = hasSupport
-                    ? l.at(sup[0], ifloor(ny - ON_POS_FRICTION), sup[2])
-                    : l.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
-            if (c == CellClass.COMPLEX) {
-                return defer(b, i, deferredFlags);
-            }
-            factorH = l.friction[c] * (float) b.groundScale[i];
+            factorH = l.friction[below] * (float) b.groundScale[i];
         }
 
         // Commit
