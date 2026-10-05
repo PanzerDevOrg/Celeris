@@ -1,5 +1,7 @@
 package com.panzer.mods.celeris.network;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -33,9 +35,16 @@ public final class NetworkRegistry {
     private NetworkRegistry() {
     }
 
-    /** Wires up {@link CompressedPayload}'s handlers. Called once by Celeris during mod startup. */
+    /**
+     * Wires up {@link CompressedPayload}'s handlers. Called once by Celeris during mod startup.
+     *
+     * <p>The channel is optional: NeoForge refuses a connection when either side
+     * has a required channel the other lacks (and refuses vanilla peers outright),
+     * so a required channel would make every player install Celeris to join a
+     * server that has it, and keep Celeris users off servers without it.
+     */
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
+        PayloadRegistrar registrar = event.registrar(NETWORK_VERSION).optional();
 
         registrar.playBidirectional(
                 CompressedPayload.TYPE,
@@ -78,16 +87,39 @@ public final class NetworkRegistry {
         });
     }
 
-    /** Compresses {@code rawData} and sends it to the server. Client-side only. */
+    /** Whether the server this client is connected to has Celeris's channel. Client-side only. */
+    public static boolean serverHasChannel() {
+        ClientPacketListener connection = Minecraft.getInstance().getConnection();
+        return connection != null && connection.hasChannel(CompressedPayload.TYPE);
+    }
+
+    /** Whether {@code player}'s client has Celeris's channel. Server-side only. */
+    public static boolean playerHasChannel(ServerPlayer player) {
+        return player.connection != null && player.connection.hasChannel(CompressedPayload.TYPE);
+    }
+
+    /**
+     * Compresses {@code rawData} and sends it to the server. Client-side only.
+     * Does nothing when the server has no Celeris ({@link #serverHasChannel}).
+     */
     public static void sendToServer(byte[] rawData) {
+        if (!serverHasChannel()) {
+            return;
+        }
         //? >1.21.6 {
         /*ClientPacketDistributor.sendToServer(PayloadCompression.compress(rawData));
         *///?} else
         PacketDistributor.sendToServer(PayloadCompression.compress(rawData));
     }
 
-    /** Compresses {@code rawData} and sends it to one player. Server-side only. */
+    /**
+     * Compresses {@code rawData} and sends it to one player. Server-side only.
+     * Does nothing when the player has no Celeris ({@link #playerHasChannel}).
+     */
     public static void sendToPlayer(ServerPlayer player, byte[] rawData) {
+        if (!playerHasChannel(player)) {
+            return;
+        }
         PacketDistributor.sendToPlayer(player, PayloadCompression.compress(rawData));
     }
 }

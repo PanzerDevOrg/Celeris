@@ -49,8 +49,8 @@ maven_pages = true
 modrinth_id = "sQphaM3I"
 curseforge_id = "1722411"
 platforms = ["windows", "linux", "macos", "java"]
-client_side = "required"
-server_side = "required"
+client_side = "optional"
+server_side = "optional"
 
 [tools.oxipng]
 enabled = false
@@ -60,7 +60,7 @@ id = "celeris"
 name = "Celeris"
 group = "com.panzer.mods"
 package = "com.panzer.mods.celeris"
-version = "0.2.0"
+version = "0.2.1"
 authors = "Bichal"
 description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge."
 side = "BOTH"

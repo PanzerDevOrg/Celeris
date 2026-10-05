@@ -10,6 +10,9 @@ logoFile = "${mod_banner}"
 displayName = "${mod_name}"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
+# A client without Celeris can join a server with it (and the reverse): the
+# network channel is optional, so the server list should not flag a mismatch.
+displayTest = "IGNORE_ALL_VERSION"
 
 [[mixins]]
 config = "${mod_id}.mixins.json"
