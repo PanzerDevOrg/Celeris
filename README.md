@@ -1,16 +1,28 @@
 ![Celeris](./docs/media/banner.png)
 
-Celeris is the part of a mod you don't see: the memory, threading and math underneath. It runs a few thousand
-entity bodies through one SIMD pass per tick, hands worker results to the game thread without a lock, and compresses
-what goes over the wire. If a faster backend isn't there, it uses the next one down, so it behaves the same on a
-stock launcher as on a tuned one.
+**Celeris helps other mods run faster.** It does nothing on its own: you only need it when a mod such as
+[Tessera](https://github.com/PanzerDevOrg/Tessera) or [Velox](https://github.com/PanzerDevOrg/Velox) asks for it.
 
-> On its own it changes nothing in game. You install it because a mod such as
-> [Tessera](https://github.com/PanzerDevOrg/Tessera) asks for it.
+- Put it in your `mods` folder next to the mod that needs it. That's it.
+- Works on any computer and any server. If something can't run the fast way on your machine, Celeris quietly uses a
+  slower one instead of crashing.
+- Works in singleplayer and on servers.
 
----
+**Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3, on NeoForge. Download the file made for your version.
 
-## Inside
+## Learn more
+
+Extra speed tips, how it works, the full version list and the guide for mod authors are on GitHub.
+
+<p align="center">
+<a href="https://github.com/PanzerDevOrg/Celeris"><img src="https://img.shields.io/badge/GitHub-Guide%20%26%20source-24292f?style=for-the-badge&logo=github&logoColor=white" alt="Guide and source on GitHub"></a>
+<a href="https://github.com/PanzerDevOrg/Celeris/issues"><img src="https://img.shields.io/badge/Found%20a%20bug%3F-Tell%20us-d73a4a?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug"></a>
+<a href="https://github.com/PanzerDevOrg/Celeris/tree/master/docs/changelogs"><img src="https://img.shields.io/badge/What's%20new-Changelog-2f81f7?style=for-the-badge&logo=github&logoColor=white" alt="Changelog"></a>
+</p>
+
+<!-- publish:off -->
+
+## What's inside
 
 | | |
 |---|---|
@@ -24,7 +36,7 @@ stock launcher as on a tuned one.
 Packets between client and server always use deflate, so a Java 21 client and a Java 25 server never disagree on the
 format. Oversized or malformed payloads are dropped, not trusted.
 
-## Versions
+## Files per version
 
 | Minecraft | File | Java |
 |---|---|---|
@@ -37,7 +49,7 @@ NeoForge, client and server. Each jar has been booted on every Minecraft version
 GitHub releases also carry per-system builds (Windows, Linux, macOS, or Java only) if you'd rather not ship natives
 you won't load.
 
-## Flags
+## JVM flags (optional)
 
 None are required. These open the fast paths that the JVM keeps closed by default:
 
@@ -63,8 +75,6 @@ dependencies {
 ```
 
 Source, examples and the package map: **[github.com/PanzerDevOrg/Celeris](https://github.com/PanzerDevOrg/Celeris)**
-
-<!-- publish:off -->
 
 ## Package overview
 
