@@ -11,20 +11,41 @@ add_modules = "jdk.incubator.vector"
 enable_preview = true
 add_to_runtime = true
 
+# Native libraries, staged from natives/<os>/<arch>/ into the jar as
+# natives/<os>-<arch>/ by panzer-build-logic (collectNatives).
+#
+# zstd: committed prebuilt binaries, renamed inside the jar to the names the
+# loader looks for.
+[natives.zstd]
+platforms = ["windows-x86_64", "windows-aarch64", "linux-x86_64", "linux-aarch64", "linux-ppc64le", "linux-riscv64", "macos-x86_64", "macos-aarch64"]
+jar_name_linux = "libzstd.so.1"
+jar_name_windows = "libzstd.dll"
+
 # Batch physics kernel (native/). panzer-build-logic registers
 # buildNativeCelerisPhysics (CMake, host platform -> natives/<os>/<arch>/) and
-# nativeHeadersCelerisPhysics (native/include, published as `native-headers`).
-# -Ppanzer.native.build=true rebuilds it before packaging; otherwise the
-# committed binaries are used. Platforms without a binary use the Java kernel.
+# nativeHeadersCelerisPhysics (native/include, published as `native-headers`);
+# CI builds every platform on its own runner. -Ppanzer.native.build=true
+# rebuilds it before packaging; otherwise the committed binaries are used.
+# Optional: platforms without a binary use the Java kernel.
 [natives.celeris_physics]
 cmake_dir = "native"
 headers = "native/include"
 platforms = ["linux-x86_64", "linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64"]
+required = false
+
+# Third-party code inside the jar (ids from panzer-build-logic/legal/catalog.toml):
+# its notice and license go into NOTICE. Code and asset licenses: [legal] in
+# the common TOML.
+[legal.third_party]
+components = ["zstd"]
 
 # Releases and descriptions (panzer-build-logic/publishing). README.md is the
 # description on GitHub, Modrinth and CurseForge. Per-system jars (only that
 # OS's natives; "java" = none) are attached to GitHub releases only.
+# maven_pages: v* tags also publish com.panzer.mods:celeris-<mc> to
+# https://panzerdevorg.github.io/Celeris/maven (gh-pages), which dependent mods use.
 [publish]
+maven_pages = true
 modrinth_id = "sQphaM3I"
 curseforge_id = "1722411"
 platforms = ["windows", "linux", "macos", "java"]
@@ -40,8 +61,6 @@ name = "Celeris"
 group = "com.panzer.mods"
 package = "com.panzer.mods.celeris"
 version = "0.2.0"
-license = "AGPLv3"
-resources_license = "CC-BY-NC-SA-4.0"
 authors = "Bichal"
 description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge."
 side = "BOTH"
@@ -57,9 +76,11 @@ banner = ""
 # game_versions is what CI publishes to Modrinth/CurseForge and how the release
 # name is built (e.g. 0.1.0-1.21(.0-.6)); minecraft_version_range must cover
 # exactly the same versions.
+# branches: extra projects built per version too (example/, against Celeris).
 [stonecutter]
 versions = ["1.21.1", "1.21.10", "1.21.11", "26.1"]
 vcs_version = "1.21.1"
+branches = ["example"]
 
 [ring_buffer]
 default_capacity_pow2 = 16

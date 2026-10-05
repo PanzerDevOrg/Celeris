@@ -166,18 +166,26 @@ git tag v0.2.0 && git push origin v0.2.0
 CI publishes the Maven repository, a GitHub release with every jar, and the Modrinth and CurseForge files. Every other
 push runs the same release as a dry run and uploads a `release-preview` artifact with the pages as they would look.
 
+<!-- panzer:license -->
 ## License
 
 | Content | License |
 |---|---|
 | Source code | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html), see [`LICENSE-AGPL`](./LICENSE-AGPL) |
-| Artwork and branding | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), see [`LICENSE-CC`](./LICENSE-CC) |
-| Bundled zstd binaries | [BSD-3-Clause](https://github.com/facebook/zstd/blob/dev/LICENSE) (zstd) |
+| Artwork, branding and documentation | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), see [`LICENSE-CC`](./LICENSE-CC) |
+| Zstandard (zstd) (bundled) | [BSD-3-Clause](https://github.com/facebook/zstd), see [`NOTICE`](./NOTICE) |
+
+**Source code:** you may study, modify and redistribute it under the AGPL; if you run a modified version as a network service, its source must be available to that service's users.
+
+**Artwork:** credit Panzer, no commercial use without permission, and share derivatives under the same license.
 
 See [`LICENSE`](./LICENSE) for the full summary.
+<!-- /panzer:license -->
 
 <!-- publish:on -->
 
 ---
 
-Source code is licensed under **AGPL-3.0**; artwork under **CC BY-NC-SA 4.0**. Made by **Panzer**.
+<!-- panzer:footer -->
+Code: **AGPL-3.0** · Art: **CC BY-NC-SA 4.0** · Made by **Panzer**
+<!-- /panzer:footer -->
