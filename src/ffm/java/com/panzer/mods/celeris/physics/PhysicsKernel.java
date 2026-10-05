@@ -2,7 +2,7 @@ package com.panzer.mods.celeris.physics;
 
 import java.lang.foreign.MemorySegment;
 
-/** A step/broadphase implementation over a {@link SegmentBodyBatch} slab. */
+/** A step/broadphase implementation over a {@link SegmentBodyBatch} slab (the native kernel). */
 @SuppressWarnings({"Since15", "preview", "RedundantSuppression"})
 interface PhysicsKernel {
 

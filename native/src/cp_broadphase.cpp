@@ -1,7 +1,7 @@
 // Entity-vs-entity broadphase: spatial hash + counting sort, O(n), no
 // allocation. Baseline ISA only: the work is hashing and pointer chasing,
 // which wide vectors do not speed up. Must stay in lock-step with
-// ScalarPhysicsKernel.broadphase (same hash, same visiting order), so
+// JavaPhysicsKernel.broadphase (same hash, same visiting order), so
 // results are reproducible across the native and Java paths.
 #include <cstring>
 

@@ -6,29 +6,29 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Entry point of the batch physics engine. Selected once per JVM, like
- * {@link CelerisRuntime} and the SIMD runtime:
+ * {@link CelerisRuntime} and the SIMD runtime, and always available unless
+ * turned off -- no JVM flags are required:
  *
  * <ol>
- *   <li>{@code native}: the C++ kernel (AVX-512 / AVX2+FMA / NEON / generic,
- *       chosen from CPUID) through the FFM {@code Linker}.</li>
- *   <li>{@code java+simd}: the Java reference kernel with its streaming passes
- *       on {@code jdk.incubator.vector}.</li>
- *   <li>{@code java}: the Java reference kernel, scalar.</li>
- *   <li>unavailable: no FFM on this JVM (Java 21 without
- *       {@code --enable-preview}) or compat mode. {@link #isAvailable()} is
- *       false and callers keep the vanilla tick: physics has no heap
- *       fallback, because a heap SoA would be slower than the vanilla code it
- *       replaces.</li>
+ *   <li>{@code native}: the C++ kernel (AVX2 / AVX-512 / NEON / generic,
+ *       chosen from CPUID) on off-heap memory, through the FFM {@code Linker}.
+ *       Needs FFM: Java 22+ (Minecraft 26.x), or Java 21 with
+ *       {@code --enable-preview} (Minecraft 1.21.x).</li>
+ *   <li>{@code java}: the pure-Java reference kernel on Java arrays
+ *       ({@link HeapPhysicsFactory}). Same results, same parallel chunking;
+ *       used whenever the native kernel cannot be (no FFM, no library for
+ *       this platform, compat mode).</li>
  * </ol>
  *
- * <p>{@code -Dceleris.physics.engine=java} skips the native kernel, {@code
- * =off} disables the engine; {@code -Dceleris.physics.isa=generic|avx2|avx512|neon}
- * pins the native ISA.
+ * <p>{@code -Dceleris.physics.engine=java} forces the Java kernel, {@code
+ * =off} disables the engine ({@link #isAvailable()} false: callers keep
+ * vanilla code); {@code -Dceleris.physics.isa=generic|avx2|avx512|neon} pins
+ * the native ISA.
  */
 public final class CelerisPhysics {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Celeris/Physics");
-    private static final String FACTORY_CLASS = "com.panzer.mods.celeris.physics.SegmentPhysicsFactory";
+    private static final String NATIVE_FACTORY_CLASS = "com.panzer.mods.celeris.physics.SegmentPhysicsFactory";
 
     private static volatile PhysicsFactory factory;
     private static volatile String unavailableReason;
@@ -100,19 +100,26 @@ public final class CelerisPhysics {
         String engine = System.getProperty("celeris.physics.engine", "auto");
         if ("off".equalsIgnoreCase(engine)) {
             unavailableReason = "disabled by -Dceleris.physics.engine=off";
+            LOGGER.info("Celeris physics engine disabled (-Dceleris.physics.engine=off)");
+            return;
+        }
+        String skipped = null;
+        if ("java".equalsIgnoreCase(engine)) {
+            skipped = "-Dceleris.physics.engine=java";
         } else if (CelerisRuntime.isCompatModeForced()) {
-            unavailableReason = "compat mode";
+            skipped = "compat mode";
         } else if (!CelerisRuntime.isFfmActive()) {
-            unavailableReason = "FFM not available on this JVM";
+            skipped = "FFM not available; on Java 21 add --enable-preview --enable-native-access=ALL-UNNAMED";
         } else {
             try {
-                factory = (PhysicsFactory) Class.forName(FACTORY_CLASS).getDeclaredConstructor().newInstance();
+                factory = (PhysicsFactory) Class.forName(NATIVE_FACTORY_CLASS).getDeclaredConstructor().newInstance();
                 LOGGER.info("Celeris physics engine: {}", factory.engineName());
                 return;
             } catch (Throwable t) {
-                unavailableReason = t.getClass().getSimpleName() + ": " + t.getMessage();
+                skipped = "native kernel unavailable: " + t.getClass().getSimpleName() + ": " + t.getMessage();
             }
         }
-        LOGGER.info("Celeris physics engine unavailable ({}) -- vanilla entity physics stays in charge", unavailableReason);
+        factory = new HeapPhysicsFactory();
+        LOGGER.info("Celeris physics engine: {} ({})", factory.engineName(), skipped);
     }
 }

@@ -13,7 +13,7 @@
 // <cmath>'s plain double overloads, which resolve to C library functions.
 //
 // Semantics: Minecraft 1.21 Entity.move() + ItemEntity.tick() restricted to
-// terrain made of full cubes. The Java reference (ScalarPhysicsKernel) is
+// terrain made of full cubes. The Java reference (JavaPhysicsKernel) is
 // line-for-line the same algorithm; NativePhysicsParityTest checks both
 // agree bit for bit on every ISA.
 

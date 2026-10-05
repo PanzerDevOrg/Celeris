@@ -1,26 +1,23 @@
 package com.panzer.mods.celeris.physics;
 
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-
-import static com.panzer.mods.celeris.physics.BodyLayout.*;
+import static com.panzer.mods.celeris.physics.BodyLayout.LANE_PAD;
 
 /**
- * Reference implementation of the kernel, in Java over the slab. This is the
+ * Reference implementation of the physics kernel, in plain Java over a
+ * {@link HeapBodyBatch}. It is both the engine on JVMs without FFM and the
  * specification: {@code native/src/cp_kernel.inc} and {@code
  * cp_broadphase.cpp} are line-for-line ports of it, and the parity tests
  * require bit-identical results. Keep the three in lock-step.
  *
  * <p>Semantics: Minecraft 1.21 {@code Entity.move} + {@code ItemEntity.tick}
  * restricted to terrain of full cubes (see {@link CellClass}); constants keep
- * vanilla's float literals widened to double exactly as javac does.
- *
- * <p>Optionally hands the two streaming passes to a {@link StreamKernel}
- * (Vector API). Only the per-body collision pass then runs scalar, and it is
- * gather-bound, not arithmetic-bound.
+ * vanilla's float literals widened to double exactly as javac does. No
+ * {@code Math.fma} outside {@link PhysicsMode#FUSED}, so results match the
+ * native kernel compiled with {@code -ffp-contract=off}.
  */
-@SuppressWarnings({"Since15", "preview", "RedundantSuppression"})
-final class ScalarPhysicsKernel implements PhysicsKernel {
+final class JavaPhysicsKernel {
+
+    static final String NAME = "java";
 
     static final double EPS = 1.0e-7;
     static final double MTH_EQUAL_EPS = 1.0E-5F;
@@ -33,81 +30,55 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
     static final int NO_RANK = Integer.MAX_VALUE;
     static final double MIN_CELL = 0.0625;
 
-    private static final ValueLayout.OfDouble F64 = ValueLayout.JAVA_DOUBLE;
-    private static final ValueLayout.OfInt U32 = ValueLayout.JAVA_INT;
-    private static final ValueLayout.OfFloat F32 = ValueLayout.JAVA_FLOAT;
+    /** Per-thread scratch (one per worker, created once). */
+    private static final ThreadLocal<Local> LOCALS = ThreadLocal.withInitial(Local::new);
 
-    private final StreamKernel streams;
-    /** Per-thread scratch for the gathered cells (one Local per worker, created once). */
-    private final ThreadLocal<Local> locals = ThreadLocal.withInitial(Local::new);
-
-    ScalarPhysicsKernel(StreamKernel streams) {
-        this.streams = streams;
-    }
-
-    @Override
-    public String name() {
-        return streams != null ? "java+" + streams.name() : "java";
+    private JavaPhysicsKernel() {
     }
 
     // ------------------------------------------------------------------ step
 
-    @Override
-    public int step(MemorySegment slab, int capacity, SegmentTerrain terrain, int begin, int end, int mode) {
+    static int step(HeapBodyBatch b, HeapTerrain terrain, int begin, int end, int mode) {
         if (begin >= end) {
             return 0;
         }
-        int lanesEnd = Math.min((end + LANE_PAD - 1) & -LANE_PAD, capacity);
+        int lanesEnd = Math.min((end + LANE_PAD - 1) & -LANE_PAD, b.capacity());
         boolean fused = (mode & 0xFF) == PhysicsMode.FUSED.nativeMode();
+        double[] vx = b.vx, vy = b.vy, vz = b.vz, g = b.gravity, fh = b.factorH, fv = b.factorV;
         if (!fused) {
-            if (streams != null) {
-                streams.gravity(slab, capacity, begin, lanesEnd);
-            } else {
-                long vy = f64Offset(VEL_Y, capacity);
-                long g = f64Offset(GRAVITY, capacity);
-                for (int i = begin; i < lanesEnd; i++) {
-                    long o = (long) i << 3;
-                    slab.set(F64, vy + o, slab.get(F64, vy + o) - slab.get(F64, g + o));
-                }
+            for (int i = begin; i < lanesEnd; i++) {
+                vy[i] = vy[i] - g[i];
             }
         }
 
-        Local local = locals.get();
+        Local local = LOCALS.get();
         local.bind(terrain);
         int deferred = 0;
-        long list = u32Offset(DEFERRED_LIST, capacity);
+        int[] list = b.deferredList;
         for (int i = begin; i < end; i++) {
-            if (collideBody(slab, capacity, i, mode, local)) {
-                slab.set(U32, list + ((long) (begin + deferred++) << 2), i);
+            if (collideBody(b, i, mode, local)) {
+                list[begin + deferred++] = i;
             }
         }
-        long fhCol = f64Offset(FACTOR_H, capacity);
-        long fvCol = f64Offset(FACTOR_V, capacity);
         for (int i = end; i < lanesEnd; i++) {
-            slab.set(F64, fhCol + ((long) i << 3), 1.0);
-            slab.set(F64, fvCol + ((long) i << 3), 1.0);
+            fh[i] = 1.0;
+            fv[i] = 1.0;
         }
 
-        if (streams != null) {
-            streams.damp(slab, capacity, begin, lanesEnd, fused);
+        if (fused) {
+            for (int i = begin; i < lanesEnd; i++) {
+                vx[i] = vx[i] * fh[i];
+                vy[i] = Math.fma(vy[i], fv[i], -g[i]);
+                vz[i] = vz[i] * fh[i];
+            }
         } else {
-            damp(slab, capacity, begin, lanesEnd, fused);
+            for (int i = begin; i < lanesEnd; i++) {
+                vx[i] = vx[i] * fh[i];
+                vy[i] = vy[i] * fv[i];
+                vz[i] = vz[i] * fh[i];
+            }
         }
         return deferred;
-    }
-
-    static void damp(MemorySegment slab, int capacity, int begin, int end, boolean fused) {
-        long vx = f64Offset(VEL_X, capacity), vy = f64Offset(VEL_Y, capacity), vz = f64Offset(VEL_Z, capacity);
-        long fh = f64Offset(FACTOR_H, capacity), fv = f64Offset(FACTOR_V, capacity), g = f64Offset(GRAVITY, capacity);
-        for (int i = begin; i < end; i++) {
-            long o = (long) i << 3;
-            double h = slab.get(F64, fh + o);
-            slab.set(F64, vx + o, slab.get(F64, vx + o) * h);
-            slab.set(F64, vz + o, slab.get(F64, vz + o) * h);
-            slab.set(F64, vy + o, fused
-                    ? Math.fma(slab.get(F64, vy + o), slab.get(F64, fv + o), -slab.get(F64, g + o))
-                    : slab.get(F64, vy + o) * slab.get(F64, fv + o));
-        }
     }
 
     /** Cells of the expanded box, z-major / y / x like vanilla's Cursor3D. */
@@ -121,18 +92,18 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         final double[] boxHi = new double[3];
         final int[] seen = new int[27];
         int lastRank;
-        MemorySegment directory;
-        MemorySegment pages;
-        MemorySegment friction;
+        int[] directory;
+        byte[] pages;
+        float[] friction;
         int ox, oy, oz, sx, sy, sz;
 
-        void bind(SegmentTerrain t) {
+        void bind(HeapTerrain t) {
             directory = t.directory;
             pages = t.pages;
             friction = t.friction;
-            ox = t.originX();
-            oy = t.originY();
-            oz = t.originZ();
+            ox = t.originX;
+            oy = t.originY;
+            oz = t.originZ;
             sx = t.sizeX();
             sy = t.sizeY();
             sz = t.sizeZ();
@@ -144,15 +115,11 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
                     | Integer.compareUnsigned(dz, sz) >= 0) {
                 return CellClass.COMPLEX;
             }
-            int page = directory.getAtIndex(U32, ((long) dy * sz + dz) * sx + dx);
+            int page = directory[(dy * sz + dz) * sx + dx];
             if (page < 0) {
                 return CellClass.COMPLEX;
             }
-            return pages.get(ValueLayout.JAVA_BYTE, (long) page * TerrainView.SECTION_BYTES + SegmentTerrain.local(x, y, z)) & 0xFF;
-        }
-
-        float terrainFriction(int cellClass) {
-            return friction.getAtIndex(F32, cellClass);
+            return pages[page * TerrainView.SECTION_BYTES + HeapTerrain.local(x, y, z)] & 0xFF;
         }
 
         int rank(int x, int y, int z) {
@@ -185,7 +152,14 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         return cell != CellClass.AIR && cell != CellClass.COMPLEX;
     }
 
-    /** VoxelShape.collide over every full cube in the list, along axis {@code a}; see cp_kernel.inc. */
+    /**
+     * VoxelShape.collide for every full cube in the list, along axis {@code a}.
+     * Nearest layer first: the first layer with a solid cube in the footprint
+     * decides (vanilla takes min/max over all cubes, the same value). The
+     * |d| &lt; EPS snap reproduces Shapes.collide's check at the top of each
+     * list iteration: it fires when any shape follows the first cube that
+     * brought d within EPS of zero.
+     */
     static double sweep(Local l, int a, double d, double[] lo, double[] hi) {
         if (Math.abs(d) < EPS) {
             return 0.0;
@@ -210,8 +184,7 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
                 for (int qq = q0; qq <= q1; qq++) {
                     c[q] = qq;
                     if (solid(l.atC())) {
-                        int r = l.rank(c[0], c[1], c[2]);
-                        first = Math.min(r, first);
+                        first = Math.min(l.rank(c[0], c[1], c[2]), first);
                     }
                 }
             }
@@ -227,7 +200,11 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         return d;
     }
 
-    /** Level.findSupportingBlock; see cp_kernel.inc. Result in {@code l.support}. */
+    /**
+     * Level.findSupportingBlock over the full cubes strictly intersecting the
+     * box: nearest block centre to the entity position, ties to the greatest
+     * BlockPos (Vec3i.compareTo: y, then z, then x). Result in {@code l.support}.
+     */
     static boolean findSupport(Local l, double bx0, double by0, double bz0, double bx1, double by1, double bz1,
                                double px, double py, double pz) {
         int x0 = ifloor(bx0), x1 = iceil(bx1) - 1;
@@ -260,32 +237,31 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         return found;
     }
 
-    /** One body, one tick, between gravity and drag. Returns true when deferred. */
-    static boolean collideBody(MemorySegment s, int cap, int i, int mode, Local l) {
-        long o = (long) i << 3;
-        long flagsAt = u32Offset(FLAGS, cap) + ((long) i << 2);
-        long fhAt = f64Offset(FACTOR_H, cap) + o;
-        long fvAt = f64Offset(FACTOR_V, cap) + o;
-        int flags = s.get(U32, flagsAt);
+    private static boolean defer(HeapBodyBatch b, int i, int deferredFlags) {
+        b.factorH[i] = 1.0;
+        b.factorV[i] = 1.0;
+        b.flags[i] = deferredFlags;
+        return true;
+    }
+
+    /** One body, one tick, between gravity and drag. Returns true when deferred to vanilla. */
+    static boolean collideBody(HeapBodyBatch b, int i, int mode, Local l) {
+        int flags = b.flags[i];
         int phase = (flags >>> BodyFlags.PHASE_SHIFT) & 3;
         int nextPhase = ((phase + 1) & 3) << BodyFlags.PHASE_SHIFT;
 
-        double x = s.get(F64, f64Offset(POS_X, cap) + o);
-        double y = s.get(F64, f64Offset(POS_Y, cap) + o);
-        double z = s.get(F64, f64Offset(POS_Z, cap) + o);
-        double vx = s.get(F64, f64Offset(VEL_X, cap) + o);
-        double vy = s.get(F64, f64Offset(VEL_Y, cap) + o);
-        double vz = s.get(F64, f64Offset(VEL_Z, cap) + o);
-        double hw = s.get(F64, f64Offset(HALF_WIDTH, cap) + o);
-        double h = s.get(F64, f64Offset(HEIGHT, cap) + o);
+        double x = b.px[i], y = b.py[i], z = b.pz[i];
+        double vx = b.vx[i], vy = b.vy[i], vz = b.vz[i];
+        double hw = b.halfWidth[i], h = b.height[i];
         boolean onGround = (flags & BodyFlags.ON_GROUND) != 0;
-        boolean mayChange = vx != 0.0 | vy != 0.0 | vz != 0.0 | s.get(F64, f64Offset(GRAVITY, cap) + o) != 0.0;
+        boolean mayChange = vx != 0.0 | vy != 0.0 | vz != 0.0 | b.gravity[i] != 0.0;
 
+        // ItemEntity: moves only if !onGround || horizontalDistanceSqr() > 1.0E-5F || (tickCount + id) % 4 == 0
         if ((flags & BodyFlags.THROTTLE_RESTING) != 0 && onGround && !(vx * vx + vz * vz > HOLD_SPEED_SQR) && phase != 0) {
-            s.set(F64, fhAt, 1.0);
-            s.set(F64, fvAt, 1.0);
-            s.set(U32, flagsAt, (flags & ~(BodyFlags.DEFERRED | BodyFlags.MOVED | BodyFlags.PHASE_MASK))
-                    | BodyFlags.HELD | nextPhase | (mayChange ? BodyFlags.MOVED : 0));
+            b.factorH[i] = 1.0;
+            b.factorV[i] = 1.0;
+            b.flags[i] = (flags & ~(BodyFlags.DEFERRED | BodyFlags.MOVED | BodyFlags.PHASE_MASK))
+                    | BodyFlags.HELD | nextPhase | (mayChange ? BodyFlags.MOVED : 0);
             return false;
         }
 
@@ -295,6 +271,7 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         double x0 = x - hw, x1 = x + hw, y0 = y, y1 = y + h, z0 = z - hw, z1 = z + hw;
         double mx = vx, my = vy, mz = vz;
 
+        // AABB.expandTowards
         double e0x = mx < 0.0 ? x0 + mx : x0, e0y = my < 0.0 ? y0 + my : y0, e0z = mz < 0.0 ? z0 + mz : z0;
         double e1x = mx > 0.0 ? x1 + mx : x1, e1y = my > 0.0 ? y1 + my : y1, e1z = mz > 0.0 ? z1 + mz : z1;
         l.lo[0] = ifloor(e0x);
@@ -305,9 +282,10 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         l.n[2] = Math.max(0, iceil(e1z) - l.lo[2]);
         long cells = (long) l.n[0] * l.n[1] * l.n[2];
         if (cells > MAX_CELLS) {
-            return defer(s, fhAt, fvAt, flagsAt, deferredFlags);
+            return defer(b, i, deferredFlags);
         }
 
+        // Gather. Anything not modelled exactly in the swept region defers the body.
         boolean anySolid = false;
         boolean anyComplex = false;
         l.lastRank = NO_RANK;
@@ -326,21 +304,23 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
             }
         }
         if (anyComplex) {
-            return defer(s, fhAt, fvAt, flagsAt, deferredFlags);
+            return defer(b, i, deferredFlags);
         }
 
+        // ItemEntity: noPhysics = !level.noCollision(this, box.deflate(1.0E-7)) -> moveTowardsClosestSpace
         if (anySolid) {
             for (int cz = ifloor(z0 + EPS); cz <= iceil(z1 - EPS) - 1; cz++) {
                 for (int cy = ifloor(y0 + EPS); cy <= iceil(y1 - EPS) - 1; cy++) {
                     for (int cx = ifloor(x0 + EPS); cx <= iceil(x1 - EPS) - 1; cx++) {
                         if (solid(l.at(cx, cy, cz))) {
-                            return defer(s, fhAt, fvAt, flagsAt, deferredFlags);
+                            return defer(b, i, deferredFlags);
                         }
                     }
                 }
             }
         }
 
+        // Entity.collideWithShapes: Y, then the larger horizontal axis last.
         double dx = mx, dy = my, dz = mz;
         if (anySolid && mx * mx + my * my + mz * mz != 0.0) {
             double[] lo = l.boxLo;
@@ -378,6 +358,7 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
             }
         }
 
+        // Entity.move
         double movedSqr = dx * dx + dy * dy + dz * dz;
         double nx = x, ny = y, nz = z;
         boolean apply = (mode & PhysicsMode.RULE_SMALL_MOVES) != 0
@@ -393,6 +374,7 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         boolean vColl = my != dy;
         boolean ground = vColl && my < 0.0;
 
+        // checkSupportingBlock / getOnPos, on the bounding box rebuilt by setPos
         double bx0 = nx - hw, bx1 = nx + hw, by0 = ny, bz0 = nz - hw, bz1 = nz + hw;
         int[] sup = l.support;
         sup[0] = 0;
@@ -408,55 +390,49 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
             noBlocks = !hasSupport;
         }
 
+        // getOnPosLegacy: only the default updateEntityAfterFallOn / stepOn / fallOn is modelled.
         if (vColl) {
             int c = hasSupport
                     ? l.at(sup[0], ifloor(ny - ON_POS_LEGACY), sup[2])
                     : l.at(ifloor(nx), ifloor(ny - ON_POS_LEGACY), ifloor(nz));
             if (c == CellClass.COMPLEX) {
-                return defer(s, fhAt, fvAt, flagsAt, deferredFlags);
+                return defer(b, i, deferredFlags);
             }
         }
 
-        double factorH = s.get(F64, f64Offset(DRAG_AIR_H, cap) + o);
+        double factorH = b.dragAirH[i];
         if (ground) {
             int c = hasSupport
                     ? l.at(sup[0], ifloor(ny - ON_POS_FRICTION), sup[2])
                     : l.at(ifloor(nx), ifloor(ny - ON_POS_FRICTION), ifloor(nz));
             if (c == CellClass.COMPLEX) {
-                return defer(s, fhAt, fvAt, flagsAt, deferredFlags);
+                return defer(b, i, deferredFlags);
             }
-            float friction = l.terrainFriction(c);
-            factorH = friction * (float) s.get(F64, f64Offset(GROUND_SCALE, cap) + o);
+            factorH = l.friction[c] * (float) b.groundScale[i];
         }
 
-        s.set(F64, f64Offset(POS_X, cap) + o, nx);
-        s.set(F64, f64Offset(POS_Y, cap) + o, ny);
-        s.set(F64, f64Offset(POS_Z, cap) + o, nz);
+        // Commit
+        b.px[i] = nx;
+        b.py[i] = ny;
+        b.pz[i] = nz;
         if (hitX | hitZ) {
-            s.set(F64, f64Offset(VEL_X, cap) + o, hitX ? 0.0 : vx);
-            s.set(F64, f64Offset(VEL_Z, cap) + o, hitZ ? 0.0 : vz);
+            b.vx[i] = hitX ? 0.0 : vx;
+            b.vz[i] = hitZ ? 0.0 : vz;
         }
         if (vColl) {
-            s.set(F64, f64Offset(VEL_Y, cap) + o, vy * 0.0);
+            b.vy[i] = vy * 0.0; // Block.updateEntityAfterFallOn: multiply(1.0, 0.0, 1.0)
         }
-        s.set(F64, fhAt, factorH);
-        s.set(F64, fvAt, s.get(F64, f64Offset(DRAG_V, cap) + o));
+        b.factorH[i] = factorH;
+        b.factorV[i] = b.dragV[i];
         boolean posChanged = nx != x | ny != y | nz != z;
-        s.set(U32, flagsAt, (flags & ~(BodyFlags.OUT_MASK | BodyFlags.ON_GROUND | BodyFlags.GROUND_NO_BLOCKS | BodyFlags.PHASE_MASK))
+        b.flags[i] = (flags & ~(BodyFlags.OUT_MASK | BodyFlags.ON_GROUND | BodyFlags.GROUND_NO_BLOCKS | BodyFlags.PHASE_MASK))
                 | nextPhase
                 | (ground ? BodyFlags.ON_GROUND : 0)
                 | (noBlocks ? BodyFlags.GROUND_NO_BLOCKS : 0)
                 | ((hitX | hitZ) ? BodyFlags.H_COLLISION : 0)
                 | (vColl ? BodyFlags.V_COLLISION : 0)
-                | ((posChanged | mayChange) ? BodyFlags.MOVED : 0));
+                | ((posChanged | mayChange) ? BodyFlags.MOVED : 0);
         return false;
-    }
-
-    private static boolean defer(MemorySegment s, long fhAt, long fvAt, long flagsAt, int deferredFlags) {
-        s.set(F64, fhAt, 1.0);
-        s.set(F64, fvAt, 1.0);
-        s.set(U32, flagsAt, deferredFlags);
-        return true;
     }
 
     // ------------------------------------------------------------ broadphase
@@ -465,23 +441,18 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         return (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
     }
 
-    @Override
-    public int broadphase(MemorySegment s, int cap, int count, MemorySegment buckets, double margin,
-                          MemorySegment pairs, int pairCapacity) {
-        if (count < 2 || count > cap) {
+    /** Spatial hash + counting sort, O(n); same hash and visiting order as cp_broadphase.cpp. */
+    static int broadphase(HeapBodyBatch b, int count, double margin, int[] pairs, int pairCapacity) {
+        if (count < 2 || count > b.capacity()) {
             return 0;
         }
-        long px = f64Offset(POS_X, cap), py = f64Offset(POS_Y, cap), pz = f64Offset(POS_Z, cap);
-        long hwc = f64Offset(HALF_WIDTH, cap), hc = f64Offset(HEIGHT, cap);
-        long hashCol = u32Offset(CELL_HASH, cap), sortedCol = u32Offset(SORTED, cap);
+        double[] px = b.px, py = b.py, pz = b.pz, hw = b.halfWidth, hh = b.height;
+        int[] cellHash = b.cellHash, sorted = b.sorted, buckets = b.buckets;
 
         double maxExt = 0.0;
         for (int i = 0; i < count; i++) {
-            long o = (long) i << 3;
-            double hwi = s.get(F64, hwc + o);
-            double w = hwi + hwi;
-            double hi = s.get(F64, hc + o);
-            double e = w > hi ? w : hi;
+            double w = hw[i] + hw[i];
+            double e = w > hh[i] ? w : hh[i];
             maxExt = e > maxExt ? e : maxExt;
         }
         double cell = maxExt + margin;
@@ -493,73 +464,62 @@ final class ScalarPhysicsKernel implements PhysicsKernel {
         }
         double inv = 1.0 / cell;
 
-        int bucketsN = bucketCount(cap);
+        int bucketsN = BodyLayout.bucketCount(b.capacity());
         int mask = bucketsN - 1;
         for (int i = 0; i < count; i++) {
-            long o = (long) i << 3;
-            double hwi = s.get(F64, hwc + o);
-            int hsh = hashCell(ifloor((s.get(F64, px + o) - hwi) * inv), ifloor(s.get(F64, py + o) * inv),
-                    ifloor((s.get(F64, pz + o) - hwi) * inv)) & mask;
-            s.set(U32, hashCol + ((long) i << 2), hsh);
+            cellHash[i] = hashCell(ifloor((px[i] - hw[i]) * inv), ifloor(py[i] * inv), ifloor((pz[i] - hw[i]) * inv)) & mask;
         }
 
-        buckets.asSlice(0, (long) (bucketsN + 1) * Integer.BYTES).fill((byte) 0);
+        // Counting sort; afterwards buckets[b] is the END of bucket b, its start buckets[b - 1].
+        java.util.Arrays.fill(buckets, 0, bucketsN + 1, 0);
         for (int i = 0; i < count; i++) {
-            long b = (long) s.get(U32, hashCol + ((long) i << 2)) << 2;
-            buckets.set(U32, b, buckets.get(U32, b) + 1);
+            buckets[cellHash[i]]++;
         }
         int run = 0;
-        for (int b = 0; b < bucketsN; b++) {
-            int c = buckets.getAtIndex(U32, b);
-            buckets.setAtIndex(U32, b, run);
+        for (int k = 0; k < bucketsN; k++) {
+            int c = buckets[k];
+            buckets[k] = run;
             run += c;
         }
         for (int i = 0; i < count; i++) {
-            long b = (long) s.get(U32, hashCol + ((long) i << 2)) << 2;
-            int at = buckets.get(U32, b);
-            buckets.set(U32, b, at + 1);
-            s.set(U32, sortedCol + ((long) at << 2), i);
+            sorted[buckets[cellHash[i]]++] = i;
         }
 
         long found = 0;
-        int[] seen = locals.get().seen;
+        int[] seen = LOCALS.get().seen;
         for (int i = 0; i < count; i++) {
-            long o = (long) i << 3;
-            double xi = s.get(F64, px + o), yi = s.get(F64, py + o), zi = s.get(F64, pz + o);
-            double hwi = s.get(F64, hwc + o), hi = s.get(F64, hc + o);
-            double ax0 = xi - hwi - margin, ax1 = xi + hwi + margin;
-            double ay0 = yi - margin, ay1 = yi + hi + margin;
-            double az0 = zi - hwi - margin, az1 = zi + hwi + margin;
-            int cx = ifloor((xi - hwi) * inv), cy = ifloor(yi * inv), cz = ifloor((zi - hwi) * inv);
+            double ax0 = px[i] - hw[i] - margin, ax1 = px[i] + hw[i] + margin;
+            double ay0 = py[i] - margin, ay1 = py[i] + hh[i] + margin;
+            double az0 = pz[i] - hw[i] - margin, az1 = pz[i] + hw[i] + margin;
+            int cx = ifloor((px[i] - hw[i]) * inv), cy = ifloor(py[i] * inv), cz = ifloor((pz[i] - hw[i]) * inv);
             int seenN = 0;
             for (int dz = -1; dz <= 1; dz++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dx = -1; dx <= 1; dx++) {
-                        int b = hashCell(cx + dx, cy + dy, cz + dz) & mask;
+                        int bucket = hashCell(cx + dx, cy + dy, cz + dz) & mask;
                         boolean dup = false;
                         for (int t = 0; t < seenN; t++) {
-                            dup |= seen[t] == b;
+                            dup |= seen[t] == bucket;
                         }
                         if (dup) {
                             continue;
                         }
-                        seen[seenN++] = b;
-                        int lo = b == 0 ? 0 : buckets.getAtIndex(U32, b - 1);
-                        int hiIdx = buckets.getAtIndex(U32, b);
-                        for (int q = lo; q < hiIdx; q++) {
-                            int j = s.get(U32, sortedCol + ((long) q << 2));
+                        seen[seenN++] = bucket;
+                        int lo = bucket == 0 ? 0 : buckets[bucket - 1];
+                        int hi = buckets[bucket];
+                        for (int q = lo; q < hi; q++) {
+                            int j = sorted[q];
                             if (j <= i) {
                                 continue;
                             }
-                            long oj = (long) j << 3;
-                            double xj = s.get(F64, px + oj), yj = s.get(F64, py + oj), zj = s.get(F64, pz + oj);
-                            double hwj = s.get(F64, hwc + oj), hj = s.get(F64, hc + oj);
-                            double bx0 = xj - hwj, bx1 = xj + hwj, bz0 = zj - hwj, bz1 = zj + hwj;
-                            boolean overlap = ax0 < bx1 & ax1 > bx0 & ay0 < yj + hj & ay1 > yj & az0 < bz1 & az1 > bz0;
+                            double bx0 = px[j] - hw[j], bx1 = px[j] + hw[j];
+                            double bz0 = pz[j] - hw[j], bz1 = pz[j] + hw[j];
+                            boolean overlap = ax0 < bx1 & ax1 > bx0 & ay0 < py[j] + hh[j] & ay1 > py[j]
+                                    & az0 < bz1 & az1 > bz0;
                             if (overlap) {
                                 if (found < pairCapacity) {
-                                    pairs.setAtIndex(U32, 2 * found, i);
-                                    pairs.setAtIndex(U32, 2 * found + 1, j);
+                                    pairs[(int) (2 * found)] = i;
+                                    pairs[(int) (2 * found + 1)] = j;
                                 }
                                 found++;
                             }

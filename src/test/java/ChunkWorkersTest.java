@@ -30,7 +30,7 @@ class ChunkWorkersTest {
     void parallelStepEqualsSequentialStep() {
         // Above the parallel threshold, so the shared worker pool runs the chunks.
         int n = 20_000;
-        PhysicsFactory f = PhysicsTestAccess.javaFactory(false);
+        PhysicsFactory f = PhysicsTestAccess.javaFactory();
         try (TerrainView t = PhysicsTestSupport.randomWorld(f, 21);
              BodyBatch parallel = f.newBatch(n, PhysicsMode.VANILLA, 0);
              BodyBatch serial = f.newBatch(n, PhysicsMode.VANILLA, 0)) {

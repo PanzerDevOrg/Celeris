@@ -1,7 +1,9 @@
 package com.panzer.mods.celeris.physics;
 
 /**
- * A dense, off-heap batch of simulated bodies (SoA, see {@link BodyLayout}).
+ * A dense batch of simulated bodies, Structure-of-Arrays (see {@link
+ * BodyLayout}): off-heap for the native engine, on Java arrays for the
+ * pure-Java one.
  * Slots {@code [0, size())} are always live: {@link #remove} swap-removes, so
  * kernels never test an "active" mask.
  *
@@ -48,6 +50,11 @@ public interface BodyBatch extends AutoCloseable {
     double vy(int slot);
 
     double vz(int slot);
+
+    /** Half the box width, as {@code (double) (width / 2.0F)}. */
+    double halfWidth(int slot);
+
+    double height(int slot);
 
     int flags(int slot);
 

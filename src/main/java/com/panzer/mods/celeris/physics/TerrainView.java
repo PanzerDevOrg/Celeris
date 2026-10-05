@@ -1,7 +1,8 @@
 package com.panzer.mods.celeris.physics;
 
 /**
- * Off-heap voxel snapshot the kernels collide against: a dense window of
+ * Voxel snapshot the kernels collide against (off-heap for the native engine,
+ * Java arrays for the pure-Java one): a dense window of
  * {@code sizeX * sizeY * sizeZ} chunk sections, each either unloaded (every
  * cell {@link CellClass#COMPLEX}) or backed by a 4 KiB page of {@link
  * CellClass} bytes, index {@code (y << 8) | (z << 4) | x}. Pages come from a

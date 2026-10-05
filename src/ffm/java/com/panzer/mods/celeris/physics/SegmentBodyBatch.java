@@ -160,6 +160,16 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     }
 
     @Override
+    public double halfWidth(int slot) {
+        return get(HALF_WIDTH, slot);
+    }
+
+    @Override
+    public double height(int slot) {
+        return get(HEIGHT, slot);
+    }
+
+    @Override
     public int flags(int slot) {
         return slab.get(U32, flagsAt(slot));
     }

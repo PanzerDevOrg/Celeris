@@ -30,7 +30,7 @@ native/
   which could hand AVX-512 code to the generic path.
 - **IEEE results identical to Java.** `-ffp-contract=off`, no `-ffast-math`,
   `/fp:precise`. `CP_MODE_VANILLA` is bit-identical to the Java reference kernel
-  (`ScalarPhysicsKernel`) on every ISA; `PhysicsParityTest` and `cp_selftest`
+  (`JavaPhysicsKernel`) on every ISA; `PhysicsParityTest` and `cp_selftest`
   enforce it. FMA is used only in `CP_MODE_FUSED`, where it is the defined semantics.
 - **No allocation, no exceptions, no callbacks into Java.** Every buffer comes from
   the caller, so the entry points can be linked as critical (no thread-state
@@ -57,5 +57,7 @@ or through Gradle (panzer-build-logic, `[natives.celeris_physics]` in
 ```
 
 CI builds and self-tests it on Linux x86_64/AArch64, Windows x86_64 and macOS
-x86_64/AArch64, and bundles all of them in the jar. Platforms without a binary
-run the Java kernel.
+x86_64/AArch64, and bundles all of them in the jar. JVMs without FFM (Minecraft
+1.21.x without `--enable-preview`) and platforms without a binary run the
+pure-Java kernel (`JavaPhysicsKernel`, on Java arrays) instead, with the same
+results.

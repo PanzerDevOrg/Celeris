@@ -9,11 +9,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Every kernel must produce the same bytes as the Java reference: the native
- * library on every ISA this CPU supports, and the Vector API streaming
- * passes. Randomised scenes cover landings, walls, ledges, throttled items,
- * friction classes and deferral; 60 ticks let state (onGround, phase,
- * onGroundNoBlocks) feed back into later ticks.
+ * The native kernel must produce exactly what the pure-Java reference engine
+ * produces, on every ISA this CPU supports: positions, velocities, flags and
+ * deferred lists compared bit for bit after every tick. Randomised scenes
+ * cover landings, walls, ledges, throttled items, friction classes and
+ * deferral; 60 ticks let state (onGround, phase, onGroundNoBlocks) feed back
+ * into later ticks.
  */
 class PhysicsParityTest {
 
@@ -21,17 +22,20 @@ class PhysicsParityTest {
     private static final int TICKS = 60;
     private static final int[] RULES = {0, PhysicsMode.RULE_SMALL_MOVES};
 
-    @Test
-    void nativeMatchesReferenceOnEveryIsa() {
-        PhysicsFactory nat;
+    private static PhysicsFactory nativeOrSkip() {
         try {
-            nat = PhysicsTestAccess.nativeFactory();
+            return PhysicsTestAccess.nativeFactory();
         } catch (Throwable t) {
             assumeTrue(false, "celeris_physics not built for this platform (" + t.getMessage()
-                    + "); run ./gradlew buildPhysicsNative");
-            return;
+                    + "); run ./gradlew buildNativeCelerisPhysics");
+            return null;
         }
-        PhysicsFactory ref = PhysicsTestAccess.javaFactory(false);
+    }
+
+    @Test
+    void nativeMatchesReferenceOnEveryIsa() {
+        PhysicsFactory nat = nativeOrSkip();
+        PhysicsFactory ref = PhysicsTestAccess.javaFactory();
         for (String isa : PhysicsTestAccess.nativeIsas(nat)) {
             assertEquals(isa, PhysicsTestAccess.forceNativeIsa(nat, isa));
             for (PhysicsMode mode : PhysicsMode.values()) {
@@ -43,30 +47,9 @@ class PhysicsParityTest {
     }
 
     @Test
-    void vectorStreamsMatchReference() {
-        PhysicsFactory simd;
-        try {
-            simd = PhysicsTestAccess.javaFactory(true);
-        } catch (Throwable t) {
-            assumeTrue(false, "jdk.incubator.vector not enabled on the test JVM");
-            return;
-        }
-        PhysicsFactory ref = PhysicsTestAccess.javaFactory(false);
-        for (PhysicsMode mode : PhysicsMode.values()) {
-            assertSameRun(ref, simd, mode, 0, simd.engineName());
-        }
-    }
-
-    @Test
     void nativeBroadphaseMatchesReferenceOrder() {
-        PhysicsFactory nat;
-        try {
-            nat = PhysicsTestAccess.nativeFactory();
-        } catch (Throwable t) {
-            assumeTrue(false, "celeris_physics not built for this platform");
-            return;
-        }
-        PhysicsFactory ref = PhysicsTestAccess.javaFactory(false);
+        PhysicsFactory nat = nativeOrSkip();
+        PhysicsFactory ref = PhysicsTestAccess.javaFactory();
         try (BodyBatch a = ref.newBatch(BODIES, PhysicsMode.VANILLA, 50_000);
              BodyBatch b = nat.newBatch(BODIES, PhysicsMode.VANILLA, 50_000)) {
             PhysicsTestSupport.randomBodies(a, BODIES, 3);
@@ -90,25 +73,29 @@ class PhysicsParityTest {
             PhysicsTestSupport.randomBodies(b, BODIES, 5);
             int deferred = 0;
             for (int tick = 0; tick < TICKS; tick++) {
+                String at = label + " " + mode + " rules " + rules + " tick " + tick;
                 int da = a.step(ta, rules);
-                int db = b.step(tb, rules);
-                assertEquals(da, db, label + " " + mode + " tick " + tick + ": deferred count");
+                assertEquals(da, b.step(tb, rules), at + ": deferred count");
                 for (int k = 0; k < da; k++) {
-                    assertEquals(a.deferred(k), b.deferred(k), label + " deferred[" + k + "]");
+                    assertEquals(a.deferred(k), b.deferred(k), at + ": deferred[" + k + "]");
+                }
+                for (int i = 0; i < BODIES; i++) {
+                    if (!sameBits(a.x(i), b.x(i)) || !sameBits(a.y(i), b.y(i)) || !sameBits(a.z(i), b.z(i))
+                            || !sameBits(a.vx(i), b.vx(i)) || !sameBits(a.vy(i), b.vy(i)) || !sameBits(a.vz(i), b.vz(i))
+                            || a.flags(i) != b.flags(i)) {
+                        fail(at + ": body " + i + " differs: java (" + a.x(i) + ", " + a.y(i) + ", " + a.z(i) + ") v("
+                                + a.vx(i) + ", " + a.vy(i) + ", " + a.vz(i) + ") flags " + Integer.toHexString(a.flags(i))
+                                + " vs " + label + " (" + b.x(i) + ", " + b.y(i) + ", " + b.z(i) + ") v("
+                                + b.vx(i) + ", " + b.vy(i) + ", " + b.vz(i) + ") flags " + Integer.toHexString(b.flags(i)));
+                    }
                 }
                 deferred += da;
             }
-            byte[] sa = PhysicsTestAccess.snapshot(a);
-            byte[] sb = PhysicsTestAccess.snapshot(b);
-            // Scratch columns after FLAGS (deferred list, broadphase) may differ in stale bytes.
-            int compared = (int) com.panzer.mods.celeris.physics.BodyLayout.u32Offset(
-                    com.panzer.mods.celeris.physics.BodyLayout.DEFERRED_LIST, a.capacity());
-            for (int i = 0; i < compared; i++) {
-                if (sa[i] != sb[i]) {
-                    fail(label + " " + mode + " rules " + rules + ": slab differs from reference at byte " + i);
-                }
-            }
             assertTrue(deferred > 0 && deferred < TICKS * BODIES, "scene exercises both paths");
         }
+    }
+
+    private static boolean sameBits(double a, double b) {
+        return Double.doubleToRawLongBits(a) == Double.doubleToRawLongBits(b);
     }
 }

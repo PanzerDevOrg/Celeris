@@ -20,7 +20,7 @@
  *
  * Floating point: built with -ffp-contract=off and without -ffast-math, so
  * CP_MODE_VANILLA results are bit-identical to the Java reference kernel
- * (ScalarPhysicsKernel) on every ISA. CP_MODE_FUSED uses FMA by definition.
+ * (JavaPhysicsKernel) on every ISA. CP_MODE_FUSED uses FMA by definition.
  */
 #ifndef CELERIS_PHYSICS_H
 #define CELERIS_PHYSICS_H

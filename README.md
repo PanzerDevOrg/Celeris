@@ -26,7 +26,7 @@ Celeris is a library mod: on its own it adds no gameplay. Other mods (for exampl
 | `core.topology`, `graph.*`   | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs        |
 | `pipeline.*`                 | Event-driven and continuous (SIMD) pipeline solvers                                         |
 | `network`                    | `PayloadCompression` / `CompressedPayload`: compressed custom payloads                      |
-| `physics`                    | Batch physics engine: off-heap SoA bodies, native C++ kernel (AVX2/AVX-512/NEON), broadphase, entity bridge |
+| `physics`                    | Batch physics engine: SoA bodies, native C++ kernel (AVX2/AVX-512/NEON) or pure-Java kernel, broadphase, entity bridge |
 
 ### Which jar for which Minecraft version
 
@@ -50,7 +50,7 @@ Everything is chosen at startup and logged once. No configuration or launch flag
 | Memory       | FFM (26.x build; 1.21.x builds with `--enable-preview`) | `sun.misc.Unsafe`, then Java heap |
 | SIMD         | `jdk.incubator.vector` (`--add-modules`)                | Scalar code, same results         |
 | Compression  | zstd (native, needs FFM)                                | deflate (JDK zlib)                |
-| Physics      | Native kernel `celeris_physics` (needs FFM)             | Java kernel; without FFM, vanilla |
+| Physics      | Native kernel `celeris_physics` (needs FFM)             | Java kernel, same results         |
 | Network wire | Always deflate, so client and server always agree       |                                   |
 
 Force the pure-Java paths with `-Dceleris.compatMode=true`.
@@ -61,7 +61,7 @@ Celeris works without flags. These unlock its fastest paths (verified on real Ne
 
 | Minecraft (Java)       | Add to your JVM arguments                                                                | Unlocks                            |
 |------------------------|------------------------------------------------------------------------------------------|------------------------------------|
-| 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD             |
+| 1.21.x (Java 21)       | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM, native zstd, SIMD, native physics |
 | 26.x and up (Java 25+) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED`                  | SIMD (FFM and zstd are already on) |
 
 Where to put them: 

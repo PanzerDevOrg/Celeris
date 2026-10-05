@@ -31,7 +31,7 @@ class EntityBodyBridgeTest {
         }
     }
 
-    private final PhysicsFactory factory = PhysicsTestAccess.javaFactory(false);
+    private final PhysicsFactory factory = PhysicsTestAccess.javaFactory();
     private EntityBodyBridge<FakeEntity> bridge;
     private final List<FakeEntity> removedDuringTick = new ArrayList<>();
 

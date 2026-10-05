@@ -10,13 +10,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Behaviour of the Java reference kernel (the specification the native
- * kernel is checked against), on hand-built scenes with values worked out
- * from vanilla's ItemEntity/Entity.move arithmetic.
+ * Behaviour of the pure-Java reference engine (the specification the native
+ * kernel is checked against, and the engine on JVMs without FFM), on
+ * hand-built scenes with values worked out from vanilla's
+ * ItemEntity/Entity.move arithmetic.
  */
 class PhysicsKernelReferenceTest {
 
-    private final PhysicsFactory factory = PhysicsTestAccess.javaFactory(false);
+    private final PhysicsFactory factory = PhysicsTestAccess.javaFactory();
 
     @Test
     void freeFallMatchesVanillaArithmetic() {
@@ -132,8 +133,12 @@ class PhysicsKernelReferenceTest {
             }
             double m = 0.5;
             int pairs = b.broadphase(m);
-            double[] hw = column(b, com.panzer.mods.celeris.physics.BodyLayout.HALF_WIDTH);
-            double[] h = column(b, com.panzer.mods.celeris.physics.BodyLayout.HEIGHT);
+            double[] hw = new double[b.size()];
+            double[] h = new double[b.size()];
+            for (int i = 0; i < b.size(); i++) {
+                hw[i] = b.halfWidth(i);
+                h[i] = b.height(i);
+            }
             int brute = 0;
             for (int i = 0; i < b.size(); i++) {
                 for (int j = i + 1; j < b.size(); j++) {
@@ -154,16 +159,5 @@ class PhysicsKernelReferenceTest {
         return b.x(i) - hw[i] - m < b.x(j) + hw[j] && b.x(i) + hw[i] + m > b.x(j) - hw[j]
                 && b.y(i) - m < b.y(j) + h[j] && b.y(i) + h[i] + m > b.y(j)
                 && b.z(i) - hw[i] - m < b.z(j) + hw[j] && b.z(i) + hw[i] + m > b.z(j) - hw[j];
-    }
-
-    /** Reads a column through the raw slab layout, keeping test-only getters out of the API. */
-    private static double[] column(BodyBatch b, int column) {
-        java.nio.ByteBuffer raw = java.nio.ByteBuffer.wrap(PhysicsTestAccess.snapshot(b)).order(java.nio.ByteOrder.nativeOrder());
-        double[] out = new double[b.size()];
-        long base = com.panzer.mods.celeris.physics.BodyLayout.f64Offset(column, b.capacity());
-        for (int i = 0; i < out.length; i++) {
-            out[i] = raw.getDouble((int) (base + 8L * i));
-        }
-        return out;
     }
 }
