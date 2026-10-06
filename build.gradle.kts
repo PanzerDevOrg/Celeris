@@ -86,7 +86,7 @@ tasks {
 
     processResources {
         dependsOn(generateRuntimeRequirements)
-        from(generateRuntimeRequirements.map { it.outputs.files })
+        from(generateRuntimeRequirements.map { it.outputs.files }) { into("META-INF") }
     }
 }
 

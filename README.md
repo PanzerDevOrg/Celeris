@@ -92,8 +92,11 @@ None are required. These open the fast paths that the JVM keeps closed by defaul
 
 | Java | JVM arguments | Opens |
 |---|---|---|
-| 21 (Minecraft 1.21.x) | `--enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | FFM memory, native zstd, SIMD, native physics |
-| 25 (Minecraft 26.x) | `--add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED` | SIMD (the rest is already open on 25) |
+| 21 (Minecraft 1.21.x) | `--enable-preview --add-modules=jdk.incubator.vector` | FFM memory, native zstd, SIMD, native physics |
+| 25 (Minecraft 26.x) | `--add-modules=jdk.incubator.vector` | SIMD (the rest is already open on 25) |
+
+Leave `--enable-native-access` out: NeoForge loads mods as named modules that the flag cannot cover, and on Java 21 it
+then blocks their native code, so native physics and zstd stop working.
 
 Modrinth App: *Settings → Java and memory*. CurseForge: *Settings → Minecraft → Additional arguments*. Prism: instance
 *Settings → Java*. Servers: `user_jvm_args.txt`. `--enable-preview` belongs to Java 21 only.
