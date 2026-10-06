@@ -43,9 +43,14 @@ FetchContent_MakeAvailable(zstd)
 # libzstd.so.1.5.7 symlink chain), zstd.dll, libzstd.dylib.
 set_target_properties(libzstd_shared PROPERTIES
         OUTPUT_NAME zstd
-        NO_SONAME ON
         VERSION ""
         SOVERSION "")
+if(APPLE)
+    # The jar's loader opens it by absolute path; @rpath lets the CTest check find it too.
+    set_target_properties(libzstd_shared PROPERTIES INSTALL_NAME_DIR "@rpath" BUILD_WITH_INSTALL_NAME_DIR ON)
+elseif(UNIX)
+    set_target_properties(libzstd_shared PROPERTIES NO_SONAME ON)
+endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Self-contained: no dependency on the player's libgcc.
     target_link_options(libzstd_shared PRIVATE -static-libgcc)
