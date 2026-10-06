@@ -17,9 +17,12 @@ add_to_runtime = true
 # zstd: Zstandard 1.5.7 built from its official release tarball (native/zstd,
 # pinned by SHA-256) on each platform's CI runner, renamed inside the jar to the
 # names the loader looks for. Platforms without a runner use deflate (pure Java).
+# Optional for local builds (no binary: deflate); CI builds every platform and its
+# strict check refuses a release jar without them.
 [natives.zstd]
 cmake_dir = "native/zstd"
 platforms = ["windows-x86_64", "windows-aarch64", "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64"]
+required = false
 jar_name_linux = "libzstd.so.1"
 jar_name_windows = "libzstd.dll"
 
