@@ -9,7 +9,7 @@ Zstandard (zstd)
 https://github.com/facebook/zstd
 Copyright (c) Meta Platforms, Inc. and affiliates.
 License: BSD-3-Clause
-Included as: prebuilt native libraries (natives/<os>-<arch>/libzstd, zstd.dll)
+Included as: native libraries (natives/<os>-<arch>/libzstd, zstd.dll) built by CI from the official 1.5.7 release source (zstd-1.5.7.tar.gz, SHA-256 eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3)
 ----------------------------------------------------------------------
 BSD License
 

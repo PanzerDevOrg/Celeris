@@ -20,8 +20,10 @@ Celeris is made of two kinds of content, each under its own license.
    Full text: LICENSE-CC, or https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 3. THIRD-PARTY COMPONENTS
-   Zstandard (zstd) (BSD-3-Clause): prebuilt native libraries
-   (natives/<os>-<arch>/libzstd, zstd.dll).
+   Zstandard (zstd) (BSD-3-Clause): native libraries
+   (natives/<os>-<arch>/libzstd, zstd.dll) built by CI from the
+   official 1.5.7 release source (zstd-1.5.7.tar.gz, SHA-256 eb33e5
+   1f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3).
    https://github.com/facebook/zstd
    Their copyright notices and license texts are in NOTICE.
 
