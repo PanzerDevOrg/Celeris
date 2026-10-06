@@ -1,0 +1,124 @@
+[jvm.modules.ffm]
+enable_preview = true
+enable_native_access = "ALL-UNNAMED"
+add_to_runtime = true
+
+[jvm.modules.vector]
+add_modules = "jdk.incubator.vector"
+# Preview is needed only by SimdSegmentLanes, which touches java.lang.foreign
+# lanes on JDK 21. javac marks solely the classes that touch preview APIs,
+# so SimdVectorBackend itself stays loadable without --enable-preview.
+enable_preview = true
+add_to_runtime = true
+
+# Native libraries, staged from natives/<os>/<arch>/ into the jar as
+# natives/<os>-<arch>/ by panzer-build-logic (collectNatives).
+#
+# zstd: Zstandard 1.5.7 built from its official release tarball (native/zstd,
+# pinned by SHA-256) on each platform's CI runner, renamed inside the jar to the
+# names the loader looks for. Platforms without a runner use deflate (pure Java).
+# Optional for local builds (no binary: deflate); CI builds every platform and its
+# strict check refuses a release jar without them.
+[natives.zstd]
+cmake_dir = "native/zstd"
+platforms = ["windows-x86_64", "windows-aarch64", "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64"]
+required = false
+jar_name_linux = "libzstd.so.1"
+jar_name_windows = "libzstd.dll"
+
+# Batch physics kernel (native/). panzer-build-logic registers
+# buildNativeCelerisPhysics (CMake, host platform -> natives/<os>/<arch>/) and
+# nativeHeadersCelerisPhysics (native/include, published as `native-headers`);
+# CI builds every platform on its own runner. -Ppanzer.native.build=true
+# rebuilds it before packaging; otherwise the committed binaries are used.
+# Optional: platforms without a binary use the Java kernel.
+[natives.celeris_physics]
+cmake_dir = "native"
+headers = "native/include"
+platforms = ["linux-x86_64", "linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64"]
+required = false
+
+# Third-party code inside the jar (ids from panzer-build-logic/legal/catalog.toml):
+# its notice and license go into NOTICE. Code and asset licenses: [legal] in
+# the common TOML.
+[legal.third_party]
+components = ["zstd"]
+
+# Releases and descriptions (panzer-build-logic/publishing). README.md is the
+# description on GitHub, Modrinth and CurseForge. Per-system jars (only that
+# OS's natives; "java" = none) are attached to GitHub releases only.
+# maven_pages: v* tags also publish com.panzer.mods:celeris-<mc> to
+# https://panzerdevorg.github.io/Celeris/maven (gh-pages), which dependent mods use.
+[publish]
+maven_pages = true
+modrinth_id = "sQphaM3I"
+curseforge_id = "1722411"
+platforms = ["windows", "linux", "macos", "java"]
+client_side = "optional"
+server_side = "optional"
+
+[tools.oxipng]
+enabled = false
+
+[mod]
+id = "celeris"
+name = "Celeris"
+group = "com.panzer.mods"
+package = "com.panzer.mods.celeris"
+version = "0.2.2"
+authors = "Bichal"
+description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge."
+side = "BOTH"
+issues = "https://github.com/PanzerDevOrg/Celeris/issues"
+banner = ""
+
+# One build per binary-compatible group of Minecraft versions, each boot-tested
+# on real NeoForge servers for every version listed in its game_versions:
+#   1.21.1  -> 1.21 .. 1.21.6    (pre-1.21.7 payload registration API)
+#   1.21.10 -> 1.21.7 .. 1.21.10 (new payload API, still ResourceLocation)
+#   1.21.11 -> 1.21.11           (ResourceLocation renamed to Identifier)
+#   26.1    -> 26.1 .. 26.3      (Java 25 build: final FFM API, native zstd)
+# game_versions is what CI publishes to Modrinth/CurseForge and how the release
+# name is built (e.g. 0.1.0-1.21(.0-.6)); minecraft_version_range must cover
+# exactly the same versions.
+# Versions: panzer-build-logic's "panzer" profile (1.21.1, 1.21.10, 1.21.11,
+# 26.1; Minecraft/NeoForge builds in its common TOML). branches: extra projects
+# built per version too (example/, against Celeris).
+# `panzer compat` (Mods workflow, action compat): each build's jar on the other
+# versions in its game_versions, as a smoke test on a NeoForge dedicated server
+# (starts with the jar, stops cleanly).
+[compat]
+timeout_minutes = 10
+
+[stonecutter]
+profile = "panzer"
+vcs_version = "1.21.1"
+branches = ["example"]
+
+[ring_buffer]
+default_capacity_pow2 = 16
+cache_line_bytes = 64
+
+[network]
+compression_threshold_bytes = 256
+compression_algo = "zstd"
+
+["1.21.1"]
+minecraft_version_range = "[1.21,1.21.7)"
+neo_version_range = "[21.0,21.7)"
+game_versions = ["1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6"]
+
+["1.21.10"]
+minecraft_version_range = "[1.21.7,1.21.11)"
+neo_version_range = "[21.7,21.11)"
+game_versions = ["1.21.7", "1.21.8", "1.21.9", "1.21.10"]
+
+["1.21.11"]
+minecraft_version_range = "[1.21.11,1.21.12)"
+neo_version_range = "[21.11,21.12)"
+game_versions = ["1.21.11"]
+
+["26.1"]
+minecraft_version_range = "[26.1,26.4)"
+neo_version_range = "[26.1,26.4)"
+game_versions = ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"]

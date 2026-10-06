@@ -1,0 +1,136 @@
+package com.panzer.mods.celeris.physics;
+
+import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.locks.LockSupport;
+
+/**
+ * Minimal fork-join for chunked batch work with zero allocation per run:
+ * persistent daemon threads, a shared chunk counter claimed with one atomic
+ * increment per chunk (dynamic load balancing -- collision cost varies a lot
+ * between chunks), and the calling thread working alongside. Unlike a
+ * {@code ForkJoinPool}, submitting a run creates no task objects.
+ *
+ * <p>The claim counter carries the run's generation in its high 32 bits, so
+ * a worker still finishing the previous run can never claim a chunk of the
+ * next one with a stale task. The claim and done counters live 64 bytes
+ * apart in one {@link AtomicLongArray}, so they never share a cache line.
+ */
+public final class ChunkWorkers implements AutoCloseable {
+
+    /** Work for one chunk index. Implement it once (e.g. on the batch); never capture per call. */
+    @FunctionalInterface
+    public interface ChunkTask {
+        void run(int chunk);
+    }
+
+    private static final int NEXT = 0;
+    private static final int DONE = 8;
+
+    private final Thread[] threads;
+    private final AtomicLongArray counters = new AtomicLongArray(16);
+    private volatile ChunkTask task;
+    private volatile int chunks;
+    private volatile int generation;
+    private volatile Throwable failure;
+    private volatile boolean closed;
+
+    public ChunkWorkers(int threadCount) {
+        threads = new Thread[Math.max(0, threadCount)];
+        for (int i = 0; i < threads.length; i++) {
+            Thread t = new Thread(this::workerLoop, "Celeris Physics Worker #" + i);
+            t.setDaemon(true);
+            threads[i] = t;
+            t.start();
+        }
+    }
+
+    public int threadCount() {
+        return threads.length;
+    }
+
+    /** Runs {@code task} for every chunk in {@code [0, chunkCount)} and returns when all are done. */
+    public void run(ChunkTask task, int chunkCount) {
+        if (chunkCount <= 0) {
+            return;
+        }
+        if (threads.length == 0 || chunkCount == 1) {
+            for (int c = 0; c < chunkCount; c++) {
+                task.run(c);
+            }
+            return;
+        }
+        failure = null;
+        int gen = generation + 1;
+        // Retag the claim counter BEFORE publishing the new task: a worker
+        // that read the previous generation may already be about to pick up
+        // the new task/chunks, and must then find a tag it does not match
+        // rather than the previous run's exhausted counter.
+        counters.set(NEXT, (long) gen << 32);
+        counters.set(DONE, 0);
+        this.task = task;
+        this.chunks = chunkCount;
+        generation = gen; // volatile write publishes task/chunks/counters
+        for (Thread t : threads) {
+            LockSupport.unpark(t);
+        }
+        drain(task, chunkCount, gen);
+        int spins = 0;
+        while (counters.get(DONE) < chunkCount) {
+            if (++spins < 1 << 12) {
+                Thread.onSpinWait();
+            } else {
+                Thread.yield();
+            }
+        }
+        this.task = null;
+        Throwable t = failure;
+        if (t != null) {
+            throw new IllegalStateException("Celeris physics worker failed", t);
+        }
+    }
+
+    private void drain(ChunkTask t, int n, int gen) {
+        while (true) {
+            long v = counters.get(NEXT);
+            int c = (int) v;
+            if ((int) (v >>> 32) != gen || c >= n) {
+                return;
+            }
+            if (!counters.compareAndSet(NEXT, v, v + 1)) {
+                continue;
+            }
+            try {
+                t.run(c);
+            } catch (Throwable e) {
+                failure = e;
+            } finally {
+                counters.incrementAndGet(DONE);
+            }
+        }
+    }
+
+    private void workerLoop() {
+        int seen = 0;
+        while (!closed) {
+            int gen = generation;
+            if (gen == seen) {
+                LockSupport.park(this);
+                continue;
+            }
+            seen = gen;
+            ChunkTask t = task;
+            int n = chunks;
+            if (t != null) {
+                drain(t, n, gen);
+            }
+        }
+    }
+
+    @Override
+    public void close() {
+        closed = true;
+        for (Thread t : threads) {
+            LockSupport.unpark(t);
+        }
+    }
+}
