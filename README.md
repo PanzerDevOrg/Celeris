@@ -1,18 +1,55 @@
 ![Celeris](./docs/media/banner.png)
 
-**Celeris helps other mods run faster.** It does nothing on its own: you only need it when a mod such as
-[Tessera](https://github.com/PanzerDevOrg/Tessera) or [Velox](https://github.com/PanzerDevOrg/Velox) asks for it.
+**Celeris is a performance library for NeoForge mods.** It gives other mods fast building blocks (memory handled
+outside Java's garbage collector, lock-free queues between threads, vector math, compression and a batch physics
+engine) so they can do heavy work without slowing the game down. On its own it adds nothing you can see in game: you
+install it because a mod you want needs it.
 
-- Put it in your `mods` folder next to the mod that needs it. That's it.
-- Works on any computer and any server. If something can't run the fast way on your machine, Celeris quietly uses a
+## Mods that use it
+
+- **[Tessera](https://github.com/PanzerDevOrg/Tessera)** shrinks Minecraft's textures on the graphics card by up to
+  75% with no visible difference.
+- **Velox** works out where dropped items go all together instead of one by one, to take that work off servers
+  with lots of items lying around.
+
+## What it gives those mods
+
+- **Work off the main thread.** Mods hand heavy jobs to worker threads and get the results back on the game thread
+  through lock-free queues, without stalling a tick or a frame.
+- **Less garbage-collector pressure.** Large buffers live in off-heap memory, so big data does not cause GC pauses.
+- **Vector math.** Bulk number crunching uses the CPU's SIMD units when Java allows it, with identical results
+  when it does not.
+- **Compression.** zstd and deflate for mods' own data and network packets.
+- **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly (Velox
+  uses it for dropped items).
+
+## Safe everywhere
+
+- Every fast path has a pure-Java fallback. If something can't run the fast way on your machine, Celeris uses the
   slower one instead of crashing.
-- Works in singleplayer and on servers.
+- Optional on both sides of a connection: players without Celeris can join a server that has it, and you can join
+  any server with it.
+- Network payloads are size-capped and malformed packets are dropped.
 
-**Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3, on NeoForge. Download the file made for your version.
+**Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3, on NeoForge, client and server. Download the file made for your
+version. Java 21 for 1.21.x, 25 for 26.x.
+
+## Native code
+
+Celeris ships two kinds of native libraries, both built from public source by GitHub Actions on each platform's own
+runner, from the same tagged commit as every file published here:
+
+- **zstd 1.5.7** (Meta's Zstandard, BSD-3-Clause), compiled from the official release tarball
+  ([`zstd-1.5.7.tar.gz`](https://github.com/facebook/zstd/releases/tag/v1.5.7), SHA-256 `eb33e51f…6fa3`, checked
+  by the build): [`native/zstd`](https://github.com/PanzerDevOrg/Celeris/tree/master/native/zstd).
+- **The physics kernel**, Celeris's own C++ code: [`native/`](https://github.com/PanzerDevOrg/Celeris/tree/master/native).
+
+The release workflow builds them, packs the jars and uploads them here; GitHub releases also carry a Java-only file
+with no native code at all.
 
 ## Learn more
 
-Extra speed tips, how it works, the full version list and the guide for mod authors are on GitHub.
+Speed tips, how it works, the full version list and the guide for mod authors are on GitHub.
 
 <p align="center">
 <a href="https://github.com/PanzerDevOrg/Celeris"><img src="https://img.shields.io/badge/GitHub-Guide%20%26%20source-24292f?style=for-the-badge&logo=github&logoColor=white" alt="Guide and source on GitHub"></a>
@@ -139,9 +176,10 @@ Requirements: JDK 21. JDK 25, for the 26.1 target, is downloaded automatically t
 ./gradlew buildAndCollect           # release jars (universal, per-system, sources) in build/libs/<version>/
 ```
 
-Native zstd libraries for every supported platform are committed under `natives/<os>/<arch>/` and bundled into the
-jar. The physics kernel is built from [`native/`](./native) with CMake (`./gradlew buildNativeCelerisPhysics`, or
-`-Ppanzer.native.build=true` on any build); CI builds it for every platform.
+Both native libraries are built with CMake: zstd 1.5.7 from its official release tarball ([`native/zstd`](./native/zstd),
+`./gradlew buildNativeZstd`) and the physics kernel from [`native/`](./native) (`./gradlew buildNativeCelerisPhysics`),
+or both with `-Ppanzer.native.build=true` on any build. CI builds them for every platform and bundles those builds
+into the released jars; a local build without them uses deflate and the Java physics kernel.
 
 ## Releasing
 

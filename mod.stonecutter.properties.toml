@@ -14,10 +14,12 @@ add_to_runtime = true
 # Native libraries, staged from natives/<os>/<arch>/ into the jar as
 # natives/<os>-<arch>/ by panzer-build-logic (collectNatives).
 #
-# zstd: committed prebuilt binaries, renamed inside the jar to the names the
-# loader looks for.
+# zstd: Zstandard 1.5.7 built from its official release tarball (native/zstd,
+# pinned by SHA-256) on each platform's CI runner, renamed inside the jar to the
+# names the loader looks for. Platforms without a runner use deflate (pure Java).
 [natives.zstd]
-platforms = ["windows-x86_64", "windows-aarch64", "linux-x86_64", "linux-aarch64", "linux-ppc64le", "linux-riscv64", "macos-x86_64", "macos-aarch64"]
+cmake_dir = "native/zstd"
+platforms = ["windows-x86_64", "windows-aarch64", "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64"]
 jar_name_linux = "libzstd.so.1"
 jar_name_windows = "libzstd.dll"
 
