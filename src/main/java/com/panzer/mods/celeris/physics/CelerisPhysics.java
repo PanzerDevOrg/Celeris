@@ -1,6 +1,7 @@
 package com.panzer.mods.celeris.physics;
 
 import com.panzer.mods.celeris.core.memory.backend.CelerisRuntime;
+import java.lang.reflect.InvocationTargetException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,14 +110,18 @@ public final class CelerisPhysics {
         } else if (CelerisRuntime.isCompatModeForced()) {
             skipped = "compat mode";
         } else if (!CelerisRuntime.isFfmActive()) {
-            skipped = "FFM not available; on Java 21 add --enable-preview --enable-native-access=ALL-UNNAMED";
+            skipped = "FFM not available; on Java 21 add --enable-preview";
         } else {
             try {
                 factory = (PhysicsFactory) Class.forName(NATIVE_FACTORY_CLASS).getDeclaredConstructor().newInstance();
                 LOGGER.info("Celeris physics engine: {}", factory.engineName());
                 return;
             } catch (Throwable t) {
-                skipped = "native kernel unavailable: " + t.getClass().getSimpleName() + ": " + t.getMessage();
+                // The constructor runs reflectively: report what it threw, not the wrapper.
+                Throwable cause = t instanceof InvocationTargetException && t.getCause() != null ? t.getCause() : t;
+                skipped = "native kernel unavailable: " + cause.getClass().getSimpleName() + ": " + cause.getMessage()
+                        + (cause instanceof IllegalCallerException && Runtime.version().feature() == 21
+                                ? " (on Java 21 --enable-native-access blocks native calls from mods: remove it)" : "");
             }
         }
         factory = new HeapPhysicsFactory();

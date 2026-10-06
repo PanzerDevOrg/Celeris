@@ -1,6 +1,9 @@
 [jvm.modules.ffm]
+# No enable_native_access: FML loads Celeris as a named module, and on Java 21
+# --enable-native-access=ALL-UNNAMED makes its restricted FFM calls (the native
+# physics kernel, zstd) throw IllegalCallerException. Without the flag they work
+# with a one-time warning.
 enable_preview = true
-enable_native_access = "ALL-UNNAMED"
 add_to_runtime = true
 
 [jvm.modules.vector]
