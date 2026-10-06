@@ -70,7 +70,7 @@ authors = "Bichal"
 description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge."
 side = "BOTH"
 issues = "https://github.com/PanzerDevOrg/Celeris/issues"
-banner = ""
+banner = "banner.png"
 
 # One build per binary-compatible group of Minecraft versions, each boot-tested
 # on real NeoForge servers for every version listed in its game_versions:
