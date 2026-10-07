@@ -38,6 +38,21 @@
   any server with it. A Fabric client with Celeris can also join a NeoForge server with it.
 - ✅ Network payloads are size-capped and malformed packets are dropped.
 
+## 🏁 How fast
+
+Measured against what a mod would otherwise use (JMH, Java 21, a 4-core machine; full tables and method in
+[the benchmarks page](./docs/benchmarks.md)):
+
+- 🗜️ **12× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
+  **3× faster decompression**. As fast as zstd-jni, the usual Java zstd library, in a jar a quarter of its size.
+- 🏃 **10,000 dropped items moved in 0.66 ms** per tick with the native kernel, 1.6× faster than the same rules in
+  Java; 32,768 items on 3 threads take 0.87 ms, under 2% of a tick.
+- 🧵 **6× faster hand-off** from one worker thread to the game thread than JCTools, the go-to lock-free queue library.
+
+![Compression benchmark](./docs/media/benchmarks/compression.png)
+![Physics benchmark](./docs/media/benchmarks/physics.png)
+![Queue benchmark](./docs/media/benchmarks/queues.png)
+
 ## 📦 Requirements
 
 - 🟩 **Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3. Download the file made for your version.
