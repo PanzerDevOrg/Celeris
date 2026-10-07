@@ -12,9 +12,9 @@ import java.util.Arrays;
  * these outside the managed heap exactly like FFM segments) and still
  * zero-copy for bulk transfers via {@link ByteBuffer#put}/{@link ByteBuffer#get}
  * -- what's lost versus {@link FfmMemoryBackend} is the ability to hand a raw
- * pointer to a native downcall (so {@code ZstdCodec}'s native path is
- * unavailable in this mode; callers fall back to a pure-Java codec instead,
- * see {@code PacketPipeline}).
+ * pointer to native code (so native zstd is unavailable in this mode and
+ * {@code CelerisCodecs} picks deflate instead; {@link #byteBuffer} still lets
+ * deflate work on these buffers in place).
  *
  * <p>Byte order is pinned to {@link ByteOrder#LITTLE_ENDIAN} to match the
  * layout {@link FfmMemoryBackend} produces via {@code JAVA_INT_UNALIGNED}/
@@ -221,6 +221,11 @@ public final class HeapMemoryBackend implements MemoryBackend {
     @Override
     public void copy(long srcHandle, long srcOffset, long dstHandle, long dstOffset, long length) {
         bufferOf(dstHandle).put((int) dstOffset, bufferOf(srcHandle), (int) srcOffset, (int) length);
+    }
+
+    @Override
+    public ByteBuffer byteBuffer(long handle, long offset, int length) {
+        return bufferOf(handle).slice(Math.toIntExact(offset), length);
     }
 
     @Override

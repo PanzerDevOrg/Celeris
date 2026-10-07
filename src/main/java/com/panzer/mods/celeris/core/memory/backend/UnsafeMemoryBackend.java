@@ -250,6 +250,16 @@ public final class UnsafeMemoryBackend implements MemoryBackend {
     }
 
     @Override
+    public boolean supportsRawAddress() {
+        return true;
+    }
+
+    @Override
+    public long rawAddress(long handle, long offset, long length) {
+        return address(handle, offset, length);
+    }
+
+    @Override
     public String name() {
         return "Unsafe";
     }

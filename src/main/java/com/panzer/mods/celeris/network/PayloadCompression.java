@@ -1,28 +1,21 @@
 package com.panzer.mods.celeris.network;
 
-import com.panzer.mods.celeris.core.memory.CelerisCodecs;
-import com.panzer.mods.celeris.core.memory.PacketPipeline;
-import com.panzer.mods.celeris.core.memory.backend.CelerisRuntime;
-import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
+import com.panzer.mods.celeris.core.memory.HeapDeflate;
 
 /**
  * Byte-array-in, byte-array-out compression for outbound/inbound network
- * payloads. Public API is unchanged by the FFM/compat-mode split -- callers
- * never see a {@code MemoryBackend} or a handle, only {@code byte[]} --
- * only the internals route through {@link PacketPipeline} on whichever
- * backend {@link CelerisRuntime} selected.
+ * payloads, in the network format ({@code CelerisCodecs.wireCodec()}:
+ * deflate, so every peer can read it whatever its JVM or platform).
+ *
+ * <p>Works on the caller's arrays directly with per-thread reusable
+ * Deflaters ({@link HeapDeflate}): one compression pass and one copy of the
+ * result, with no off-heap staging. The bytes on the wire are the same as in
+ * earlier versions, which went through off-heap scratch to produce them.
  */
 public final class PayloadCompression {
 
     private static final int DEFAULT_THRESHOLD_BYTES = 256;
     private static final int DEFAULT_COMPRESSION_LEVEL = 3;
-
-    // One pipeline (and its scratch allocations) per thread, so buffers are
-    // reused without concurrency issues. Cleaner frees each pipeline's
-    // scratch memory once its owning thread becomes unreachable, so
-    // pooled/recycled server threads don't leak off-heap memory on either
-    // backend.
-    private static final java.lang.ref.Cleaner CLEANER = java.lang.ref.Cleaner.create();
 
     /**
      * Upper bound on a peer-declared decompressed size. originalSize arrives
@@ -31,76 +24,46 @@ public final class PayloadCompression {
      */
     public static final int MAX_DECOMPRESSED_SIZE = 8 * 1024 * 1024;
 
-    private static final ThreadLocal<PacketPipeline> PIPELINE = ThreadLocal.withInitial(() -> {
-        // Wire codec, not the local best codec: both peers must agree on the format.
-        PacketPipeline pipeline = new PacketPipeline(DEFAULT_THRESHOLD_BYTES, DEFAULT_COMPRESSION_LEVEL,
-                CelerisRuntime.backend(), CelerisCodecs.wireCodec());
-        CLEANER.register(Thread.currentThread(), pipeline::close);
-        return pipeline;
-    });
-
     private PayloadCompression() {}
 
-    /** Compresses {@code rawData} using the default threshold and compression level. */
+    /** Compresses {@code rawData} using the default threshold (256 bytes) and level (3). */
     public static CompressedPayload compress(byte[] rawData) {
         return compress(rawData, DEFAULT_THRESHOLD_BYTES, DEFAULT_COMPRESSION_LEVEL);
     }
 
     /**
-     * Compresses {@code rawData}.
-     *
-     * <p><b>{@code thresholdBytes} and {@code compressionLevel} are not
-     * currently applied.</b> Each thread's {@link PacketPipeline} is built
-     * once, lazily, using the class defaults ({@value #DEFAULT_THRESHOLD_BYTES}
-     * bytes / level {@value #DEFAULT_COMPRESSION_LEVEL}) -- these two
-     * parameters are accepted but silently ignored on every call, including
-     * the first. Until that's wired through, prefer {@link #compress(byte[])}
-     * so the call site doesn't imply a control it doesn't have.
+     * Compresses {@code rawData} if it is at least {@code thresholdBytes} long
+     * and compression actually makes it smaller; otherwise the payload carries
+     * a copy of the input, uncompressed. {@code compressionLevel} is on zstd's
+     * 1-22 scale, mapped onto deflate's 1-9 (the default, 3, is deflate's fastest).
      */
-    @SuppressWarnings("resource")
     public static CompressedPayload compress(byte[] rawData, int thresholdBytes, int compressionLevel) {
-        PacketPipeline pipeline = PIPELINE.get();
-        MemoryBackend backend = CelerisRuntime.backend();
-
-        long srcHandle = backend.allocate(rawData.length, 8L);
-        try {
-            backend.copyFromHeap(srcHandle, 0L, rawData, 0, rawData.length);
-
-            PacketPipeline.EncodedFrame frame = pipeline.encodeOutbound(srcHandle, 0L, rawData.length);
-
-            byte[] wireBytes = new byte[(int) frame.size()];
-            backend.copyToHeap(frame.handle(), frame.offset(), wireBytes, 0, wireBytes.length);
-
-            return new CompressedPayload(wireBytes, frame.compressed(), rawData.length);
-        } finally {
-            backend.free(srcHandle);
+        if (rawData.length >= thresholdBytes) {
+            byte[] packed = HeapDeflate.compressIfSmaller(rawData, compressionLevel);
+            if (packed != null) {
+                return new CompressedPayload(packed, true, rawData.length);
+            }
         }
+        return new CompressedPayload(rawData.clone(), false, rawData.length);
     }
 
-    /** Reverses {@link #compress}, returning the original bytes. */
-    @SuppressWarnings("resource")
+    /**
+     * Reverses {@link #compress}, returning the original bytes.
+     *
+     * @throws IllegalArgumentException if the payload declares more than {@link #MAX_DECOMPRESSED_SIZE} bytes
+     * @throws IllegalStateException if the compressed data is malformed or does not decompress to exactly the declared size
+     */
     public static byte[] decompress(CompressedPayload payload) {
+        if (!payload.compressed()) {
+            return payload.data().clone();
+        }
         int declared = payload.originalSize();
         if (declared < 0 || declared > MAX_DECOMPRESSED_SIZE) {
             throw new IllegalArgumentException("Celeris payload declares " + declared
                     + " decompressed bytes (max " + MAX_DECOMPRESSED_SIZE + ")");
         }
-        PacketPipeline pipeline = PIPELINE.get();
-        MemoryBackend backend = CelerisRuntime.backend();
-        byte[] wireBytes = payload.data();
-
-        long srcHandle = backend.allocate(wireBytes.length, 8L);
-        try {
-            backend.copyFromHeap(srcHandle, 0L, wireBytes, 0, wireBytes.length);
-
-            PacketPipeline.DecodedFrame decoded = pipeline.decodeInbound(
-                    srcHandle, 0L, wireBytes.length, payload.compressed(), payload.originalSize());
-
-            byte[] result = new byte[(int) decoded.size()];
-            backend.copyToHeap(decoded.handle(), decoded.offset(), result, 0, result.length);
-            return result;
-        } finally {
-            backend.free(srcHandle);
-        }
+        byte[] result = new byte[declared];
+        HeapDeflate.inflateExactly(payload.data(), result);
+        return result;
     }
 }

@@ -135,8 +135,8 @@ public final class FfmMemoryBackend implements MemoryBackend {
     }
 
     /**
-     * Raw segment behind {@code handle} (used by {@code ZstdCompressionCodec}
-     * for native downcalls). Lock-free: one volatile read of the table, then
+     * Raw segment behind {@code handle} (used by native downcalls and the
+     * SIMD lane bridge). Lock-free: one volatile read of the table, then
      * plain element reads. A plain read is safe here: MemorySegment's state
      * is final-field-published, and observing a just-freed segment only
      * reaches its closed shared arena, which throws IllegalStateException.
@@ -164,6 +164,27 @@ public final class FfmMemoryBackend implements MemoryBackend {
     public Object nativeSegment(long handle) {
         return segmentOf(handle);
     }
+
+    @Override
+    public boolean supportsRawAddress() {
+        return true;
+    }
+
+    @Override
+    public long rawAddress(long handle, long offset, long length) {
+        MemorySegment segment = segmentOf(handle);
+        // (offset | length) < 0 catches negatives; the subtraction form avoids overflow.
+        if ((offset | length) < 0 || offset > segment.byteSize() - length) {
+            throw new IndexOutOfBoundsException("Celeris: access [" + offset + ", " + (offset + length)
+                    + ") outside allocation of " + segment.byteSize() + " bytes");
+        }
+        return segment.address() + offset;
+    }
+
+    // No byteBuffer() view: buffers over shared-arena segments are rejected by
+    // JDK APIs that read their address (Deflater/Inflater throw "ByteBuffer
+    // derived from closeable shared sessions not supported"), so callers take
+    // their copy path instead.
 
     @Override
     public byte getByte(long handle, long offset) {
