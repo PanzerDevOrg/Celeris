@@ -70,7 +70,7 @@ group = "com.panzer.mods"
 package = "com.panzer.mods.celeris"
 version = "0.2.2"
 authors = "Bichal"
-description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge."
+description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge and Fabric."
 side = "BOTH"
 issues = "https://github.com/PanzerDevOrg/Celeris/issues"
 banner = "banner.png"
@@ -97,6 +97,9 @@ timeout_minutes = 10
 profile = "panzer"
 vcs_version = "1.21.1"
 branches = ["example"]
+# Every version is built for NeoForge ("1.21.1") and Fabric ("1.21.1-fabric");
+# loader-specific code reads //? if fabric { ... } (Stonecutter constants).
+loaders = ["neoforge", "fabric"]
 
 [ring_buffer]
 default_capacity_pow2 = 16
