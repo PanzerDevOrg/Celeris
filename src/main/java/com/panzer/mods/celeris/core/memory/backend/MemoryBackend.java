@@ -110,6 +110,41 @@ public interface MemoryBackend extends AutoCloseable {
         return null;
     }
 
+    /**
+     * Whether {@link #rawAddress} returns real addresses, so native code
+     * (zstd, the physics kernel) can work on this backend's memory in place.
+     * True for FFM and Unsafe, false for the heap fallback.
+     */
+    default boolean supportsRawAddress() {
+        return false;
+    }
+
+    /**
+     * Absolute native address of {@code [offset, offset + length)} inside the
+     * allocation, after checking that range lies within it; {@code 0} when
+     * {@link #supportsRawAddress()} is false. The address is valid only until
+     * {@code handle} is freed, and native code using it is not covered by the
+     * backend's liveness checks: the caller must keep the allocation alive for
+     * the duration of the native call.
+     *
+     * @throws IndexOutOfBoundsException if the range falls outside the allocation
+     */
+    default long rawAddress(long handle, long offset, long length) {
+        return 0L;
+    }
+
+    /**
+     * A direct {@link java.nio.ByteBuffer} view of {@code [offset, offset + length)},
+     * sharing memory with the allocation (no copy), that JDK APIs such as
+     * {@link java.util.zip.Deflater} accept; {@code null} if this backend
+     * cannot produce one (Unsafe has no buffers, and FFM's shared-arena
+     * buffers are refused by those APIs). Position 0, limit {@code length};
+     * same lifetime rule as {@link #rawAddress}.
+     */
+    default java.nio.ByteBuffer byteBuffer(long handle, long offset, int length) {
+        return null;
+    }
+
     void copyFromHeap(long handle, long dstOffset, byte[] src, int srcOffset, int length);
 
     void copyToHeap(long handle, long srcOffset, byte[] dst, int dstOffset, int length);

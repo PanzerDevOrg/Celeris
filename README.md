@@ -19,7 +19,7 @@ install it because a mod you want needs it.
 - **Less garbage-collector pressure.** Large buffers live in off-heap memory, so big data does not cause GC pauses.
 - **Vector math.** Bulk number crunching uses the CPU's SIMD units when Java allows it, with identical results
   when it does not.
-- **Compression.** zstd and deflate for mods' own data and network packets.
+- **Compression.** Native zstd for mods' own data (no JVM flags needed), and deflate for network packets.
 - **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly (Velox
   uses it for dropped items).
 
@@ -41,7 +41,8 @@ runner, from the same tagged commit as every file published here:
 
 - **zstd 1.5.7** (Meta's Zstandard, BSD-3-Clause), compiled from the official release tarball
   ([`zstd-1.5.7.tar.gz`](https://github.com/facebook/zstd/releases/tag/v1.5.7), SHA-256 `eb33e51f…6fa3`, checked
-  by the build): [`native/zstd`](https://github.com/PanzerDevOrg/Celeris/tree/master/native/zstd).
+  by the build), plus a few small functions of Celeris's own that let Java 21 call it without extra flags:
+  [`native/zstd`](https://github.com/PanzerDevOrg/Celeris/tree/master/native/zstd).
 - **The physics kernel**, Celeris's own C++ code: [`native/`](https://github.com/PanzerDevOrg/Celeris/tree/master/native).
 
 The release workflow builds them, packs the jars and uploads them here; GitHub releases also carry a Java-only file
@@ -66,7 +67,7 @@ Speed tips, how it works, the full version list and the guide for mod authors ar
 | **Memory** | FFM on Java 22+, `Unsafe` on 21, plain heap as a last resort |
 | **Threads** | `MpscRingBuffer` and `AsyncResultQueue`: workers produce, the tick consumes |
 | **Math** | `jdk.incubator.vector` when the module is loaded; the scalar path gives bit-identical results |
-| **Compression** | zstd and deflate, and a compressed payload type for custom packets |
+| **Compression** | Native zstd (FFM on Java 25 or with `--enable-preview`, JNI otherwise; contexts pooled across calls) and deflate, plus a compressed payload type for custom packets |
 | **Graphs** | Segmented networks (pipes, wires) and discrete ones (signals), with pipeline solvers |
 | **Physics** | Batch bodies on a native kernel (AVX2, AVX-512, NEON) or in Java, following vanilla's movement rules |
 
@@ -92,11 +93,11 @@ None are required. These open the fast paths that the JVM keeps closed by defaul
 
 | Java | JVM arguments | Opens |
 |---|---|---|
-| 21 (Minecraft 1.21.x) | `--enable-preview --add-modules=jdk.incubator.vector` | FFM memory, native zstd, SIMD, native physics |
+| 21 (Minecraft 1.21.x) | `--enable-preview --add-modules=jdk.incubator.vector` | FFM memory, SIMD, native physics (native zstd works without flags) |
 | 25 (Minecraft 26.x) | `--add-modules=jdk.incubator.vector` | SIMD (the rest is already open on 25) |
 
 Leave `--enable-native-access` out: NeoForge loads mods as named modules that the flag cannot cover, and on Java 21 it
-then blocks their native code, so native physics and zstd stop working.
+then blocks their FFM calls, so native physics stops working (zstd falls back to its flag-free JNI path).
 
 Modrinth App: *Settings → Java and memory*. CurseForge: *Settings → Minecraft → Additional arguments*. Prism: instance
 *Settings → Java*. Servers: `user_jvm_args.txt`. `--enable-preview` belongs to Java 21 only.

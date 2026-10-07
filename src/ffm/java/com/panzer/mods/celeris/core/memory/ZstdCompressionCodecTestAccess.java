@@ -1,13 +1,14 @@
 package com.panzer.mods.celeris.core.memory;
 
 /**
- * Test-only accessor exposing the package-private {@link ZstdCompressionCodec}
- * to tests living outside this package.
+ * Test-only accessor building {@link ZstdCompressionCodec} on the FFM binding,
+ * for tests living outside this package. The JNI counterpart is
+ * {@link ZstdJniTestAccess}.
  */
 public final class ZstdCompressionCodecTestAccess {
     private ZstdCompressionCodecTestAccess() {}
 
     public static CompressionCodec create() {
-        return new ZstdCompressionCodec();
+        return new ZstdCompressionCodec(new ZstdFfmBinding());
     }
 }

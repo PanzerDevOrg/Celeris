@@ -5,8 +5,8 @@ import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
 
 /**
  * Compresses/decompresses packet payloads through whichever {@link
- * CompressionCodec} {@link CelerisCodecs} selected (zstd on the FFM
- * backend, Deflate in compat mode) -- this class itself is codec-agnostic
+ * CompressionCodec} {@link CelerisCodecs} selected (native zstd on the FFM
+ * and Unsafe backends, deflate in compat mode) -- this class itself is codec-agnostic
  * and backend-agnostic, operating purely through {@link MemoryBackend}
  * handles.
  */

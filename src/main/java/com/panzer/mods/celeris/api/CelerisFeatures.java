@@ -16,7 +16,7 @@ import com.panzer.mods.celeris.api.simd.VectorOperations;
  *
  * <pre>{@code
  * if (CelerisFeatures.isFfmActive()) {
- *     // native memory / zstd available -- use the fast path
+ *     // FFM memory available -- use the fast path
  * } else {
  *     // running in compat mode -- heap-backed, still correct, just slower
  * }
@@ -58,12 +58,13 @@ public final class CelerisFeatures {
     }
 
     /**
-     * Whether network payload compression is using native zstd rather than
-     * the pure-Java deflate fallback.
+     * Whether Celeris's local compression codec ({@code CelerisCodecs.compressionCodec()})
+     * is native zstd rather than the deflate fallback.
      *
-     * <p>This always mirrors {@link #isFfmActive()} -- native compression
-     * needs the FFM backend's raw pointers -- but is exposed separately so
-     * you don't have to remember that relationship.
+     * <p>Independent of {@link #isFfmActive()}: on Java 21 without flags,
+     * zstd runs over JNI on the Unsafe memory backend. False only in compat
+     * mode or on a platform without a bundled libzstd. Network payloads use
+     * deflate either way, so peers always understand each other.
      */
     public static boolean isNativeCompressionActive() {
         return CelerisCodecs.isNativeActive();

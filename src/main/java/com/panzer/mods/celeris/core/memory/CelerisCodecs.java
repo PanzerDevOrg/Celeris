@@ -1,39 +1,42 @@
 package com.panzer.mods.celeris.core.memory;
 
 import com.panzer.mods.celeris.core.memory.backend.CelerisRuntime;
+import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
+
 /**
- * Resolves the {@link CompressionCodec} to use, mirroring the same
- * once-per-JVM, cache-after-first-call pattern {@code CelerisRuntime} uses
- * for {@code MemoryBackend} selection. Kept separate from {@code
- * CelerisRuntime} itself (which lives in the {@code backend} package)
- * because the backend layer has no business knowing about compression --
- * {@code ZstdCompressionCodec}/{@code ZstdCodec} live in this package
- * specifically so {@code backend} never has a reason to reference them.
+ * Resolves the {@link CompressionCodec} to use, once per JVM, mirroring
+ * {@code CelerisRuntime}'s backend selection:
  *
- * <p>The choice is entirely derived from {@link CelerisRuntime#backend()}'s
- * result -- there is no independent detection here. If the backend is
- * {@link com.panzer.mods.celeris.core.memory.backend.FfmMemoryBackend}, zstd is used (native, fast); for anything else
- * (currently only {@code HeapMemoryBackend}), Deflate is used (pure Java,
- * slower, no native/preview dependency). This keeps exactly one source of
- * truth for "is FFM available" instead of two independent probes that could
- * disagree.
+ * <ol>
+ *   <li>Compat mode forced, or a backend without raw addresses (heap):
+ *       deflate.</li>
+ *   <li>Otherwise native zstd through the first binding that loads and
+ *       passes a round-trip self-test: FFM when the FFM backend is active
+ *       (Java 25, or 21 with {@code --enable-preview}), then JNI, which needs
+ *       no launch flag and so gives Java 21 players native zstd by default
+ *       (on the Unsafe backend).</li>
+ *   <li>No binding works (no libzstd for this platform, or it fails to load):
+ *       deflate, with the reasons logged once.</li>
+ * </ol>
+ *
+ * <p>Network payloads always use {@link #wireCodec()} instead, see there.
  *
  * <p>External consumers should not call this class directly -- use
- * {@code CelerisFeatures#isNativeCompressionActive()}
- * instead, which is the supported public entry point for this same
- * information.
+ * {@code CelerisFeatures#isNativeCompressionActive()} instead, which is the
+ * supported public entry point for this same information.
  */
 @SuppressWarnings("JavadocReference")
 public final class CelerisCodecs {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Celeris/Runtime");
 
-    private static final String FFM_MEMORY_PATH = "com.panzer.mods.celeris.core.memory.";
-    private static final String FFM_BACKEND_CLASS = FFM_MEMORY_PATH + "backend.FfmMemoryBackend";
-    private static final String ZSTD_CODEC_CLASS = FFM_MEMORY_PATH + "ZstdCompressionCodec";
+    /** In the {@code ffm} source set: named only as a string so this class never links against it. */
+    private static final String FFM_BINDING_CLASS = "com.panzer.mods.celeris.core.memory.ZstdFfmBinding";
+    private static final int SELF_TEST_BYTES = 4096;
 
     private static volatile CompressionCodec codec;
 
@@ -54,17 +57,8 @@ public final class CelerisCodecs {
     }
 
     /**
-     * Whether the active {@link CompressionCodec} is native zstd, as
-     * opposed to the pure-Java deflate fallback. Triggers codec selection
-     * on first call, exactly like {@link #compressionCodec()}.
-     *
-     * <p>This is the method backing the public
-     * {@code CelerisFeatures.isNativeCompressionActive()} -- prefer that
-     * entry point from outside this package.
-     */
-    /**
      * Codec for anything that crosses the network. Always deflate: the local
-     * codec depends on each JVM's flags/version (zstd needs FFM), and payloads
+     * codec depends on each JVM's flags, version and platform, and payloads
      * carry no codec id, so a zstd server and a deflate client could not read
      * each other. JDK Deflater is native zlib, so this is not a pure-Java path.
      */
@@ -76,22 +70,98 @@ public final class CelerisCodecs {
         static final CompressionCodec INSTANCE = new DeflateCompressionCodec();
     }
 
+    /**
+     * Whether the active {@link CompressionCodec} is native zstd, as opposed
+     * to the deflate fallback. Triggers codec selection on first call, exactly
+     * like {@link #compressionCodec()}. Backs the public
+     * {@code CelerisFeatures.isNativeCompressionActive()}.
+     */
     public static boolean isNativeActive() {
-        return ZSTD_CODEC_CLASS.equals(compressionCodec().getClass().getName());
+        return compressionCodec() instanceof ZstdCompressionCodec;
     }
 
     @SuppressWarnings("resource")
     private static CompressionCodec selectCodec() {
-        if (FFM_BACKEND_CLASS.equals(CelerisRuntime.backend().getClass().getName())) {
-            try {
-                LOGGER.info("Celeris compression codec: zstd (native)");
-                return (CompressionCodec) Class.forName(ZSTD_CODEC_CLASS)
-                        .getDeclaredConstructor().newInstance();
-            } catch (ReflectiveOperationException e) {
-                LOGGER.warn("Zstd codec unavailable despite FFM backend -- falling back to deflate", e);
+        if (CelerisRuntime.isCompatModeForced()) {
+            LOGGER.info("Celeris compression codec: deflate (compat mode forced)");
+            return new DeflateCompressionCodec();
+        }
+        MemoryBackend backend = CelerisRuntime.backend();
+        if (!backend.supportsRawAddress()) {
+            LOGGER.info("Celeris compression codec: deflate ({} backend has no native addresses)", backend.name());
+            return new DeflateCompressionCodec();
+        }
+
+        StringBuilder failures = new StringBuilder();
+        if (CelerisRuntime.isFfmActive()) {
+            CompressionCodec ffm = tryBinding("FFM", () -> (ZstdBinding) Class.forName(FFM_BINDING_CLASS)
+                    .getDeclaredConstructor().newInstance(), backend, failures);
+            if (ffm != null) {
+                return ffm;
             }
         }
-        LOGGER.info("Celeris compression codec: deflate (pure Java compat mode)");
+        CompressionCodec jni = tryBinding("JNI", () -> ZstdJniBinding.INSTANCE, backend, failures);
+        if (jni != null) {
+            return jni;
+        }
+        LOGGER.warn("Celeris native zstd unavailable ({}) -- compression codec: deflate", failures);
         return new DeflateCompressionCodec();
+    }
+
+    @FunctionalInterface
+    private interface BindingLoader {
+        ZstdBinding load() throws Exception;
+    }
+
+    private static CompressionCodec tryBinding(String label, BindingLoader loader, MemoryBackend backend,
+                                               StringBuilder failures) {
+        try {
+            ZstdCompressionCodec candidate = new ZstdCompressionCodec(loader.load());
+            selfTest(candidate, backend);
+            LOGGER.info("Celeris compression codec: zstd {} (native, {})", candidate.nativeVersion(), candidate.bindingName());
+            return candidate;
+        } catch (Throwable t) {
+            // Missing library, missing symbol, wrong ABI, or a JVM without FFM:
+            // each surfaces as a different Throwable, so none is singled out.
+            if (failures.length() > 0) {
+                failures.append("; ");
+            }
+            Throwable cause = t;
+            while ((cause instanceof ExceptionInInitializerError || cause instanceof InvocationTargetException)
+                    && cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            failures.append(label).append(": ").append(cause.getClass().getSimpleName()).append(' ').append(cause.getMessage());
+            if (cause instanceof IllegalCallerException && Runtime.version().feature() == 21) {
+                failures.append(" (on Java 21 --enable-native-access blocks native calls from mods: remove it)");
+            }
+            return null;
+        }
+    }
+
+    /** One real round trip before committing to a binding, so a broken library degrades to deflate instead of failing later. */
+    private static void selfTest(CompressionCodec candidate, MemoryBackend backend) {
+        byte[] sample = new byte[SELF_TEST_BYTES];
+        for (int i = 0; i < sample.length; i++) {
+            sample[i] = (byte) (i * 7 % 61);
+        }
+        long bound = candidate.compressBound(sample.length);
+        long src = backend.allocate(sample.length, 8L);
+        long packed = backend.allocate(bound, 8L);
+        long out = backend.allocate(sample.length, 8L);
+        try {
+            backend.copyFromHeap(src, 0L, sample, 0, sample.length);
+            long size = candidate.compress(backend, packed, bound, src, 0L, sample.length, 3);
+            long restored = candidate.decompress(backend, out, sample.length, packed, 0L, size);
+            byte[] check = new byte[sample.length];
+            backend.copyToHeap(out, 0L, check, 0, check.length);
+            if (restored != sample.length || !java.util.Arrays.equals(sample, check)) {
+                throw new IllegalStateException("self-test round trip mismatch");
+            }
+        } finally {
+            backend.free(src);
+            backend.free(packed);
+            backend.free(out);
+        }
     }
 }
