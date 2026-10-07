@@ -41,8 +41,9 @@ concurrency:
 
 jobs:
   mod:
-    uses: PanzerDevOrg/PanzerBuildLogic/.github/workflows/mod-ci.yml@master
+    uses: PanzerDevOrg/PanzerBuildLogic/.github/workflows/mod-ci.yml@ccr-fe9b5332-vdxpc5
     with:
       dry-run: ${{ format('{0}', inputs.dry_run) }}
       targets: ${{ inputs.targets || 'github,modrinth,curseforge' }}
+      build-logic-ref: ccr-fe9b5332-vdxpc5
     secrets: inherit

@@ -1,9 +1,12 @@
 @file:Suppress("AvoidDuplicateDependencies")
 
 import com.panzer.gradle.PanzerModExtension
+import net.neoforged.moddevgradle.dsl.NeoForgeExtension
 
+// panzer.mod: panzer.neoforge-mod on the NeoForge nodes ("1.21.1"),
+// panzer.fabric-mod on the Fabric ones ("1.21.1-fabric").
 plugins {
-    id("panzer.neoforge-mod")
+    id("panzer.mod")
     `maven-publish`
     idea
 }
@@ -17,7 +20,7 @@ val netCompressAlgo: String = modProps.req(project, "network.compression_algo")
 
 val mainSourceSet = sourceSets.main.get()
 
-neoForge {
+pluginManager.withPlugin("net.neoforged.moddev") { configure<NeoForgeExtension> {
     runs {
         all {
             val runDir = rootProject.file("versions/${modProps.currentVersion}/run")
@@ -43,7 +46,7 @@ neoForge {
             systemProperty("neoforge.enabledGameTestNamespaces", modProps.modId)
         }
     }
-}
+} }
 
 sourceSets.main {
     resources {
