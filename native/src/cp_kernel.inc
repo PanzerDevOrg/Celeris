@@ -46,6 +46,21 @@ inline int32_t ifloor(double v) { return (int32_t) std::floor(v); }
 inline int32_t iceil(double v) { return (int32_t) std::ceil(v); }
 inline bool is_solid(uint32_t c) { return (c - 1u) < 0xFEu; }
 
+// c ? a : b without a branch: the operands are data-dependent coin flips
+// (signs of random velocities), which the branch predictor gets wrong half
+// the time. Both sides are computed anyway; the bit select returns exactly
+// one of them, so results stay bit-identical to the ternary.
+inline double pick(bool c, double a, double b) {
+    uint64_t ia, ib;
+    std::memcpy(&ia, &a, 8);
+    std::memcpy(&ib, &b, 8);
+    const uint64_t m = (uint64_t) 0 - (uint64_t) c;
+    const uint64_t r = (ia & m) | (ib & ~m);
+    double out;
+    std::memcpy(&out, &r, 8);
+    return out;
+}
+
 inline uint32_t terrain_cell(const cp_terrain* t, int32_t x, int32_t y, int32_t z) {
     const int32_t sx = (x >> 4) - t->origin_x;
     const int32_t sy = (y >> 4) - t->origin_y;
@@ -62,6 +77,65 @@ inline uint32_t terrain_cell(const cp_terrain* t, int32_t x, int32_t y, int32_t 
     }
     const uint32_t local = (((uint32_t) y & 15u) << 8) | (((uint32_t) z & 15u) << 4) | ((uint32_t) x & 15u);
     return t->pages[(size_t) page * CP_PAGE_BYTES + local];
+}
+
+// The section page holding block (x, y, z), or nullptr when the section is
+// outside the window or not loaded (terrain_cell's CP_CELL_COMPLEX cases).
+inline const uint8_t* section_page(const cp_terrain* t, int32_t x, int32_t y, int32_t z) {
+    const int32_t sx = (x >> 4) - t->origin_x;
+    const int32_t sy = (y >> 4) - t->origin_y;
+    const int32_t sz = (z >> 4) - t->origin_z;
+    if (((uint32_t) sx >= (uint32_t) t->size_x) | ((uint32_t) sy >= (uint32_t) t->size_y)
+            | ((uint32_t) sz >= (uint32_t) t->size_z)) {
+        return nullptr;
+    }
+    const int32_t page = t->directory[((int64_t) sy * t->size_z + sz) * t->size_x + sx];
+    return page < 0 ? nullptr : t->pages + (size_t) page * CP_PAGE_BYTES;
+}
+
+// The page every block of [x0, x1] x [y0, y1] x [z0, z1] lies in, when the box
+// fits in one loaded section -- the usual case for an item, whose swept box
+// spans a few blocks. Lets the scans below index the page directly instead of
+// resolving the section again for every block.
+inline const uint8_t* single_page(const cp_terrain* t, int32_t x0, int32_t y0, int32_t z0,
+                                  int32_t x1, int32_t y1, int32_t z1) {
+    if (((x0 ^ x1) | (y0 ^ y1) | (z0 ^ z1)) & ~15) {
+        return nullptr;
+    }
+    return section_page(t, x0, y0, z0);
+}
+
+inline uint32_t page_cell(const uint8_t* page, int32_t x, int32_t y, int32_t z) {
+    return page[(((uint32_t) y & 15u) << 8) | (((uint32_t) z & 15u) << 4) | ((uint32_t) x & 15u)];
+}
+
+// Whether any block of the box is solid or not modelled (COMPLEX).
+inline bool box_blocked(const cp_terrain* t, int32_t x0, int32_t y0, int32_t z0, int32_t x1, int32_t y1, int32_t z1) {
+    if (x0 > x1 || y0 > y1 || z0 > z1) {
+        return false;
+    }
+    if (const uint8_t* page = single_page(t, x0, y0, z0, x1, y1, z1)) {
+        for (int32_t cz = z0; cz <= z1; cz++) {
+            for (int32_t cy = y0; cy <= y1; cy++) {
+                for (int32_t cx = x0; cx <= x1; cx++) {
+                    if (page_cell(page, cx, cy, cz) != CP_CELL_AIR) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    for (int32_t cz = z0; cz <= z1; cz++) {
+        for (int32_t cy = y0; cy <= y1; cy++) {
+            for (int32_t cx = x0; cx <= x1; cx++) {
+                if (terrain_cell(t, cx, cy, cz) != CP_CELL_AIR) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // Cells of the expanded box, gathered once per body so the three axis sweeps
@@ -200,16 +274,10 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
         *fv = 1.0;
         // noPhysics is decided before that test: a box overlapping a block pushes the
         // item out (moveTowardsClosestSpace), which may make it move this tick.
-        for (int32_t cz = ifloor(z0 + EPS); cz <= iceil(z1 - EPS) - 1; cz++) {
-            for (int32_t cy = ifloor(y0 + EPS); cy <= iceil(y1 - EPS) - 1; cy++) {
-                for (int32_t cx = ifloor(x0 + EPS); cx <= iceil(x1 - EPS) - 1; cx++) {
-                    const uint32_t c = terrain_cell(t, cx, cy, cz);
-                    if (c == CP_CELL_COMPLEX || is_solid(c)) {
-                        C.u[CP_FLAGS][i] = deferred_flags;
-                        return 1;
-                    }
-                }
-            }
+        if (box_blocked(t, ifloor(x0 + EPS), ifloor(y0 + EPS), ifloor(z0 + EPS),
+                        iceil(x1 - EPS) - 1, iceil(y1 - EPS) - 1, iceil(z1 - EPS) - 1)) {
+            C.u[CP_FLAGS][i] = deferred_flags;
+            return 1;
         }
         C.u[CP_FLAGS][i] = (flags & ~(CP_FLAG_DEFERRED | CP_FLAG_MOVED | CP_PHASE_MASK))
                 | CP_FLAG_HELD | next_phase | (may_change ? CP_FLAG_MOVED : 0u);
@@ -218,13 +286,13 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     const double mx = vx, my = vy, mz = vz;
 
     // AABB.expandTowards
-    const double e0[3] = {mx < 0.0 ? x0 + mx : x0, my < 0.0 ? y0 + my : y0, mz < 0.0 ? z0 + mz : z0};
-    const double e1[3] = {mx > 0.0 ? x1 + mx : x1, my > 0.0 ? y1 + my : y1, mz > 0.0 ? z1 + mz : z1};
+    const double e0[3] = {pick(mx < 0.0, x0 + mx, x0), pick(my < 0.0, y0 + my, y0), pick(mz < 0.0, z0 + mz, z0)};
+    const double e1[3] = {pick(mx > 0.0, x1 + mx, x1), pick(my > 0.0, y1 + my, y1), pick(mz > 0.0, z1 + mz, z1)};
     int64_t cells = 1;
     for (int a = 0; a < 3; a++) {
         L.lo[a] = ifloor(e0[a]);
-        L.n[a] = iceil(e1[a]) - L.lo[a];
-        if (L.n[a] < 0) L.n[a] = 0;
+        const int32_t n = iceil(e1[a]) - L.lo[a];
+        L.n[a] = n & ~(n >> 31);  // max(n, 0)
         cells *= L.n[a];
     }
     if (cells > MAX_CELLS) {
@@ -241,15 +309,42 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     bool any_complex = false;
     L.last_rank = NO_RANK;
     int32_t k = 0;
-    for (int32_t cz = 0; cz < L.n[2]; cz++) {
-        for (int32_t cy = 0; cy < L.n[1]; cy++) {
-            for (int32_t cx = 0; cx < L.n[0]; cx++, k++) {
-                const uint32_t c = terrain_cell(t, L.lo[0] + cx, L.lo[1] + cy, L.lo[2] + cz);
-                L.cell[k] = (uint8_t) c;
-                any_complex |= c == CP_CELL_COMPLEX;
-                if (is_solid(c)) {
-                    any_solid = true;
-                    L.last_rank = k;
+    const uint8_t* page = cells > 0
+            ? single_page(t, L.lo[0], L.lo[1], L.lo[2], L.lo[0] + L.n[0] - 1, L.lo[1] + L.n[1] - 1, L.lo[2] + L.n[2] - 1)
+            : nullptr;
+    if (page != nullptr) {
+        // One flat loop over the box (x fastest): a single exit branch
+        // instead of one per row and layer, each mispredicted for the
+        // 1-3 block spans items have.
+        const uint32_t x0c = (uint32_t) L.lo[0] & 15u;
+        uint32_t row = (((uint32_t) L.lo[1] & 15u) << 8) | (((uint32_t) L.lo[2] & 15u) << 4);
+        int32_t cx = 0, cy = 0, cz = 0;
+        for (; k < (int32_t) cells; k++) {
+            const uint32_t c = page[row | (x0c + (uint32_t) cx)];
+            L.cell[k] = (uint8_t) c;
+            any_complex |= c == CP_CELL_COMPLEX;
+            const bool solid = is_solid(c);
+            any_solid |= solid;
+            L.last_rank = solid ? k : L.last_rank;
+            // advance x, carrying into y, then z (all within the one section)
+            const bool wrap_x = ++cx == L.n[0];
+            cx = wrap_x ? 0 : cx;
+            cy += wrap_x;
+            const bool wrap_y = cy == L.n[1];
+            cy = wrap_y ? 0 : cy;
+            cz += wrap_y;
+            row = (((uint32_t) (L.lo[1] + cy) & 15u) << 8) | (((uint32_t) (L.lo[2] + cz) & 15u) << 4);
+        }
+    } else {
+        for (int32_t cz = 0; cz < L.n[2]; cz++) {
+            for (int32_t cy = 0; cy < L.n[1]; cy++) {
+                for (int32_t cx = 0; cx < L.n[0]; cx++, k++) {
+                    const uint32_t c = terrain_cell(t, L.lo[0] + cx, L.lo[1] + cy, L.lo[2] + cz);
+                    L.cell[k] = (uint8_t) c;
+                    any_complex |= c == CP_CELL_COMPLEX;
+                    const bool solid = is_solid(c);
+                    any_solid |= solid;
+                    L.last_rank = solid ? k : L.last_rank;
                 }
             }
         }
