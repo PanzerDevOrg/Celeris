@@ -1,3 +1,4 @@
+//? if neoforge {
 package com.panzer.mods.celeris.network;
 
 import net.minecraft.client.Minecraft;
@@ -123,3 +124,88 @@ public final class NetworkRegistry {
         PacketDistributor.sendToPlayer(player, PayloadCompression.compress(rawData));
     }
 }
+//?} else {
+/*package com.panzer.mods.celeris.network;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/^*
+ * Registers {@link CompressedPayload} with Fabric API's networking and
+ * handles receiving it on both sides; the same public methods as on NeoForge.
+ * External mods don't call {@link #register} / {@link #registerClient}
+ * directly (Celeris does that at startup) -- use {@link #sendToServer} /
+ * {@link #sendToPlayer} to actually send data.
+ *
+ * <p>Fabric channels are optional: players without Celeris can join a server
+ * that has it, and the reverse; the send methods check the other side first.
+ ^/
+public final class NetworkRegistry {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(NetworkRegistry.class);
+
+    private NetworkRegistry() {
+    }
+
+    /^* Registers the payload type both ways and the server-side receiver. Called once by Celeris at startup. ^/
+    public static void register() {
+        FabricPayloads.registerBothWays();
+        ServerPlayNetworking.registerGlobalReceiver(CompressedPayload.TYPE,
+                (payload, context) -> context.server().execute(() -> handlePayload("server", payload)));
+    }
+
+    /^* Registers the client-side receiver. Called once by Celeris's client entrypoint. ^/
+    public static void registerClient() {
+        ClientPlayNetworking.registerGlobalReceiver(CompressedPayload.TYPE,
+                (payload, context) -> context.client().execute(() -> handlePayload("client", payload)));
+    }
+
+    private static void handlePayload(String side, CompressedPayload payload) {
+        byte[] decompressed;
+        try {
+            decompressed = PayloadCompression.decompress(payload);
+        } catch (RuntimeException e) {
+            // Peer-controlled input: a malformed or oversized payload is
+            // dropped, never allowed to throw into the main thread's task queue.
+            LOGGER.warn("Celeris ({}): dropping invalid payload ({} bytes on wire): {}",
+                    side, payload.data().length, e.toString());
+            return;
+        }
+        LOGGER.debug("Celeris ({}): received {} bytes ({} on wire, compressed={})",
+                side, decompressed.length, payload.data().length, payload.compressed());
+    }
+
+    /^* Whether the server this client is connected to has Celeris's channel. Client-side only. ^/
+    public static boolean serverHasChannel() {
+        return ClientPlayNetworking.canSend(CompressedPayload.TYPE);
+    }
+
+    /^* Whether {@code player}'s client has Celeris's channel. Server-side only. ^/
+    public static boolean playerHasChannel(ServerPlayer player) {
+        return ServerPlayNetworking.canSend(player, CompressedPayload.TYPE);
+    }
+
+    /^*
+     * Compresses {@code rawData} and sends it to the server. Client-side only.
+     * Does nothing when the server has no Celeris ({@link #serverHasChannel}).
+     ^/
+    public static void sendToServer(byte[] rawData) {
+        if (serverHasChannel()) {
+            ClientPlayNetworking.send(PayloadCompression.compress(rawData));
+        }
+    }
+
+    /^*
+     * Compresses {@code rawData} and sends it to one player. Server-side only.
+     * Does nothing when the player has no Celeris ({@link #playerHasChannel}).
+     ^/
+    public static void sendToPlayer(ServerPlayer player, byte[] rawData) {
+        if (playerHasChannel(player)) {
+            ServerPlayNetworking.send(player, PayloadCompression.compress(rawData));
+        }
+    }
+}
+*///?}
