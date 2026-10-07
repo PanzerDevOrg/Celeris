@@ -55,8 +55,8 @@ public final class MpscRingBuffer implements AutoCloseable {
     }
 
     private final MemoryBackend backend;
+    /** Slots: each is its state word followed by its payload, so one cache line carries both. */
     private final long dataHandle;
-    private final long stateHandle;
     private final int slotBytes;
     private final int slotStride;
     private final int capacity;
@@ -70,6 +70,12 @@ public final class MpscRingBuffer implements AutoCloseable {
 
     private final PaddedCursor writeReservation;
     private final PaddedCursor readCursor;
+    /**
+     * readCursor + capacity as last seen by a producer: tickets below it are
+     * free without touching readCursor. It only lags (readCursor only grows),
+     * so a stale value costs a refresh, never an overwrite.
+     */
+    private final PaddedCursor producerLimit;
 
     public MpscRingBuffer(int capacityPow2, int slotBytes) {
         this(CelerisRuntime.backend(), capacityPow2, slotBytes);
@@ -84,23 +90,23 @@ public final class MpscRingBuffer implements AutoCloseable {
         this.indexMask = capacityPow2 - 1L;
         this.slotBytes = BranchlessTables.alignUp(slotBytes, 8);
         this.longFastPath = this.slotBytes == Long.BYTES;
-        // Slots are packed densely by default. Padding each slot to a cache line
-        // never actually removed producer false sharing: every publish also
-        // writes the (unpadded, 8-per-line) state array, so the contended line
-        // just moved there, while the data array cost 8x memory for 8-byte slots
-        // and the consumer lost sequential prefetch. PAD_SLOTS re-enables it
-        // for benchmarking.
+        // Each slot is [state word][payload], packed densely: a publish or a
+        // consume touches one cache line instead of one in a separate state
+        // array plus one in the data array. PAD_SLOTS pads every slot to a
+        // cache line (no two producers ever share one) for benchmarking.
+        int slotWithState = Long.BYTES + this.slotBytes;
         this.slotStride = PAD_SLOTS
-                ? BranchlessTables.alignUp(this.slotBytes, CACHE_LINE_BYTES)
-                : this.slotBytes;
+                ? BranchlessTables.alignUp(slotWithState, CACHE_LINE_BYTES)
+                : slotWithState;
         this.dataHandle = backend.allocate((long) this.slotStride * capacityPow2, CACHE_LINE_BYTES);
-        this.stateHandle = backend.allocate((long) Long.BYTES * capacityPow2, CACHE_LINE_BYTES);
 
-        // All-ones bytes == -1L in every state word; one bulk fill instead of
-        // a per-slot store loop.
-        backend.fill(stateHandle, 0, (long) Long.BYTES * capacityPow2, (byte) 0xFF);
+        // All-ones bytes == -1L in every state word (payload bytes are don't-care);
+        // one bulk fill instead of a per-slot store loop.
+        backend.fill(dataHandle, 0, (long) this.slotStride * capacityPow2, (byte) 0xFF);
         this.writeReservation = new PaddedCursor();
         this.readCursor = new PaddedCursor();
+        this.producerLimit = new PaddedCursor();
+        this.producerLimit.setRelease(capacityPow2);
     }
 
     // State words MUST go through the backend's acquire/release accessors,
@@ -110,16 +116,20 @@ public final class MpscRingBuffer implements AutoCloseable {
     // this being lock-free rather than merely unsynchronized. See
     // MemoryBackend#getLongAcquire.
     private long getStateAcquire(long slotIndex) {
-        return backend.getLongAcquire(stateHandle, slotIndex * Long.BYTES);
+        return backend.getLongAcquire(dataHandle, slotIndex * slotStride);
     }
 
     @SuppressWarnings("SameParameterValue")
     private void setState(long slotIndex, long value) {
-        backend.setLong(stateHandle, slotIndex * Long.BYTES, value);
+        backend.setLong(dataHandle, slotIndex * slotStride, value);
     }
 
     private void setStateRelease(long slotIndex, long value) {
-        backend.setLongRelease(stateHandle, slotIndex * Long.BYTES, value);
+        backend.setLongRelease(dataHandle, slotIndex * slotStride, value);
+    }
+
+    private long payloadOffset(long slotIndex) {
+        return slotIndex * slotStride + Long.BYTES;
     }
 
     /** Fast path: publishes an 8-byte value directly, no backing memory needed from the caller. */
@@ -134,7 +144,7 @@ public final class MpscRingBuffer implements AutoCloseable {
             return -1L;
         }
         long slotIndex = ticket & indexMask;
-        backend.setLong(dataHandle, slotIndex * slotStride, value);
+        backend.setLong(dataHandle, payloadOffset(slotIndex), value);
         setStateRelease(slotIndex, ticket);
         return slotIndex;
     }
@@ -198,11 +208,18 @@ public final class MpscRingBuffer implements AutoCloseable {
      *         or {@code -1} if the ring was full
      */
     public long reserveSlot() {
+        long limit = producerLimit.getPlain();
         long ticket;
         do {
             ticket = writeReservation.getAcquire();
-            if (ticket - readCursor.getAcquire() >= capacity) {
-                return -1L;
+            if (ticket >= limit) {
+                // Only now look at the consumer's cursor: reading it on every
+                // publish would pull its cache line away from the consumer.
+                limit = readCursor.getAcquire() + capacity;
+                if (ticket >= limit) {
+                    return -1L;
+                }
+                producerLimit.setRelease(limit);
             }
         } while (
                 !writeReservation.compareAndSet(ticket, ticket + 1L)
@@ -218,7 +235,7 @@ public final class MpscRingBuffer implements AutoCloseable {
     /** Split-publish counterpart of {@link #tryPublish(long)} for the 8-byte fast path. */
     public void publishReserved(long reservationTicket, long value) {
         long slotIndex = reservationTicket & indexMask;
-        backend.setLong(dataHandle, slotIndex * slotStride, value);
+        backend.setLong(dataHandle, payloadOffset(slotIndex), value);
         setStateRelease(slotIndex, reservationTicket);
     }
 
@@ -238,7 +255,7 @@ public final class MpscRingBuffer implements AutoCloseable {
     }
 
     private void writePayload(MemoryBackend srcBackend, long srcHandle, long srcOffset, long slotIndex) {
-        transferPayload(srcBackend, srcHandle, srcOffset, backend, dataHandle, slotIndex * slotStride);
+        transferPayload(srcBackend, srcHandle, srcOffset, backend, dataHandle, payloadOffset(slotIndex));
     }
 
     // Cross-backend copies (source/destination not on this ring's backend)
@@ -296,7 +313,7 @@ public final class MpscRingBuffer implements AutoCloseable {
             return emptySentinel;
         }
 
-        long value = backend.getLong(dataHandle, slotIndex * slotStride);
+        long value = backend.getLong(dataHandle, payloadOffset(slotIndex));
         setState(slotIndex, -1L);
         readCursor.setRelease(ticket + 1L);
         return value;
@@ -316,7 +333,7 @@ public final class MpscRingBuffer implements AutoCloseable {
         if (getStateAcquire(slotIndex) != ticket) {
             return null;
         }
-        long value = backend.getLong(dataHandle, slotIndex * slotStride);
+        long value = backend.getLong(dataHandle, payloadOffset(slotIndex));
         setState(slotIndex, -1L);
         readCursor.setRelease(ticket + 1L);
         return value;
@@ -389,7 +406,7 @@ public final class MpscRingBuffer implements AutoCloseable {
     }
 
     private void readPayload(MemoryBackend dstBackend, long dstHandle, long dstOffset, long slotIndex) {
-        transferPayload(backend, dataHandle, slotIndex * slotStride, dstBackend, dstHandle, dstOffset);
+        transferPayload(backend, dataHandle, payloadOffset(slotIndex), dstBackend, dstHandle, dstOffset);
     }
 
     /**
@@ -433,7 +450,7 @@ public final class MpscRingBuffer implements AutoCloseable {
             if (published != ticket + drained) {
                 break;
             }
-            dst[dstOffset + drained] = backend.getLong(dataHandle, slotIndex * slotStride);
+            dst[dstOffset + drained] = backend.getLong(dataHandle, payloadOffset(slotIndex));
             setState(slotIndex, -1L);
             drained++;
         }
@@ -507,7 +524,6 @@ public final class MpscRingBuffer implements AutoCloseable {
     @Override
     public void close() {
         backend.free(dataHandle);
-        backend.free(stateHandle);
     }
 
     // Class-hierarchy padding: HotSpot may reorder fields *within* a class (it
