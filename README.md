@@ -1,40 +1,49 @@
 ![Celeris](./docs/media/banner.png)
 
-**Celeris is a performance library for NeoForge mods.** It gives other mods fast building blocks (memory handled
-outside Java's garbage collector, lock-free queues between threads, vector math, compression and a batch physics
-engine) so they can do heavy work without slowing the game down. On its own it adds nothing you can see in game: you
-install it because a mod you want needs it.
+<p align="center">
+<img src="https://img.shields.io/badge/Minecraft-1.21%20%E2%80%93%201.21.11%20%C2%B7%2026.1%20%E2%80%93%2026.3-3c8527?style=for-the-badge" alt="Minecraft 1.21 – 1.21.11 and 26.1 – 26.3">
+<img src="https://img.shields.io/badge/NeoForge-Client%20%26%20Server-e8710a?style=for-the-badge" alt="NeoForge, client and server">
+<img src="https://img.shields.io/badge/Type-Library-7c3aed?style=for-the-badge" alt="Library">
+</p>
 
-## Mods that use it
+> **Celeris is a performance library for NeoForge mods.** It gives other mods fast building blocks so they can do
+> heavy work without slowing the game down. On its own it adds nothing you can see in game: you install it because
+> a mod you want needs it.
 
-- **[Tessera](https://github.com/PanzerDevOrg/Tessera)** shrinks Minecraft's textures on the graphics card by up to
-  75% with no visible difference.
-- **Velox** works out where dropped items go all together instead of one by one, to take that work off servers
-  with lots of items lying around.
+## 🎮 Mods that use it
 
-## What it gives those mods
+| Mod | What it does for you |
+|---|---|
+| 🧱 **[Tessera](https://github.com/PanzerDevOrg/Tessera)** | Shrinks Minecraft's textures on the graphics card by **up to 75%**, with no visible difference. |
+| 🪶 **Velox** | Works out where dropped items go **all together** instead of one by one, taking that work off busy servers. |
 
-- **Work off the main thread.** Mods hand heavy jobs to worker threads and get the results back on the game thread
-  through lock-free queues, without stalling a tick or a frame.
-- **Less garbage-collector pressure.** Large buffers live in off-heap memory, so big data does not cause GC pauses.
-- **Vector math.** Bulk number crunching uses the CPU's SIMD units when Java allows it, with identical results
+## ⚡ What it gives those mods
+
+- 🧵 **Work off the main thread.** Mods hand heavy jobs to worker threads and get the results back on the game
+  thread through lock-free queues, without stalling a tick or a frame.
+- 🧠 **Less garbage-collector pressure.** Large buffers live in off-heap memory, so big data does not cause GC
+  pauses.
+- 📐 **Vector math.** Bulk number crunching uses the CPU's SIMD units when Java allows it, with identical results
   when it does not.
-- **Compression.** Native zstd for mods' own data (no JVM flags needed), and deflate for network packets.
-- **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly (Velox
+- 🗜️ **Compression.** Native zstd for mods' own data (no JVM flags needed), and deflate for network packets.
+- 🏃 **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly (Velox
   uses it for dropped items).
 
-## Safe everywhere
+## 🛡️ Safe everywhere
 
-- Every fast path has a pure-Java fallback. If something can't run the fast way on your machine, Celeris uses the
-  slower one instead of crashing.
-- Optional on both sides of a connection: players without Celeris can join a server that has it, and you can join
+- ✅ Every fast path has a pure-Java fallback. If something can't run the fast way on your machine, Celeris uses
+  the slower one instead of crashing.
+- ✅ Optional on both sides of a connection: players without Celeris can join a server that has it, and you can join
   any server with it.
-- Network payloads are size-capped and malformed packets are dropped.
+- ✅ Network payloads are size-capped and malformed packets are dropped.
 
-**Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3, on NeoForge, client and server. Download the file made for your
-version. Java 21 for 1.21.x, 25 for 26.x.
+## 📦 Requirements
 
-## Native code
+- 🟩 **Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3. Download the file made for your version.
+- 🔶 **Loader:** NeoForge, on the client and on the server.
+- ☕ **Java:** 21 for 1.21.x, 25 for 26.x.
+
+## 🔧 Native code
 
 Celeris ships two kinds of native libraries, both built from public source by GitHub Actions on each platform's own
 runner, from the same tagged commit as every file published here:
@@ -48,7 +57,7 @@ runner, from the same tagged commit as every file published here:
 The release workflow builds them, packs the jars and uploads them here; GitHub releases also carry a Java-only file
 with no native code at all.
 
-## Learn more
+## 📚 Learn more
 
 Speed tips, how it works, the full version list and the guide for mod authors are on GitHub.
 
