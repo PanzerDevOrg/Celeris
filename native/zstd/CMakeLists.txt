@@ -56,9 +56,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_options(libzstd_shared PRIVATE -static-libgcc)
 endif()
 
-# Smoke test: the library loads and reports the pinned version.
+# Celeris's JNI entry points, in the same library: Java 21 without
+# --enable-preview has no FFM, so this is how it reaches zstd there. Plain
+# integer arguments only, so no jni.h (and no JDK) is needed to build it.
+target_sources(libzstd_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/celeris_zstd_jni.c)
+target_include_directories(libzstd_shared PRIVATE ${zstd_SOURCE_DIR}/lib ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Smoke test: the library loads, reports the pinned version, and its JNI entry
+# points round-trip through reused contexts.
 enable_testing()
 add_executable(zstd_version_check version_check.c)
 target_link_libraries(zstd_version_check PRIVATE libzstd_shared)
-target_include_directories(zstd_version_check PRIVATE ${zstd_SOURCE_DIR}/lib)
+target_include_directories(zstd_version_check PRIVATE ${zstd_SOURCE_DIR}/lib ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME zstd_version COMMAND zstd_version_check ${ZSTD_VERSION})

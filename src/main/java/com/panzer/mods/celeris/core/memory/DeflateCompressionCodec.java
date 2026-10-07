@@ -2,102 +2,138 @@ package com.panzer.mods.celeris.core.memory;
 
 import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
 
+import java.nio.ByteBuffer;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
 /**
- * Pure-JDK fallback codec used when {@code CelerisRuntime} selects the heap
- * backend (no FFM available), so the native zstd path -- and with it
- * {@code ZstdCodec} -- is never loaded at all.
+ * Deflate codec: the network format ({@link CelerisCodecs#wireCodec()}) and
+ * the local fallback when native zstd is unavailable. Needs no preview
+ * features, no incubator modules and no library of Celeris's own, only
+ * {@code java.util.zip} (native zlib inside the JDK).
  *
- * <p>Compression ratio and throughput are both worse than zstd (Deflate is
- * an older, less efficient algorithm, and {@link Deflater}/{@link Inflater}
- * require staging through heap {@code byte[]} since they have no
- * off-heap-buffer entry point) -- this is the expected, documented cost of
- * compat mode, not a bug. It requires no preview features, no incubator
- * modules, and no native library at all, only {@code java.util.zip}, which
- * has shipped unchanged since Java 1.1.
+ * <p>Deflaters and Inflaters are reused per thread ({@link HeapDeflate}), and
+ * when the backend offers {@link MemoryBackend#byteBuffer} views (the heap
+ * backend's direct buffers) zlib reads and writes that memory directly; on
+ * FFM and Unsafe the data goes through per-thread scratch arrays instead,
+ * still without allocating per call.
  *
- * <p>Not a general zstd-compatible codec: bytes compressed by {@link
- * ZstdCompressionCodec} cannot be decompressed here and vice versa. This is
- * fine because a given running instance of Celeris only ever uses one codec
- * for its whole lifetime (whichever {@code CelerisRuntime} selected at
- * startup) -- there is no scenario where the two need to interoperate on
- * the same compressed bytes.
+ * <p>Not interchangeable with {@link ZstdCompressionCodec}: each reads only
+ * its own format. A running instance picks one local codec for its whole
+ * lifetime, and the network always uses deflate, so the two never meet.
  */
-@SuppressWarnings("JavadocReference")
 final class DeflateCompressionCodec implements CompressionCodec {
 
     @Override
     public long compressBound(long srcSize) {
-        // Deflate's worst case (incompressible input) adds a small fixed
-        // overhead per Deflater's own documented bound; zlib's classic
-        // formula is srcLen + srcLen/1000 + 12, rounded up generously here
-        // since callers only need an upper bound to size a buffer, not a
-        // tight one.
+        // zlib's deflateBound for the default zlib wrapper is a little under
+        // srcLen + srcLen/1000 + 12; rounded up generously, since callers only
+        // need an upper bound to size a buffer.
         return srcSize + (srcSize / 1000) + 64;
     }
 
     @Override
     public long compress(MemoryBackend backend, long dstHandle, long dstCapacity, long srcHandle, long srcOffset, long srcSize, int level) {
-        byte[] src = readToHeap(backend, srcHandle, srcOffset, srcSize);
-
-        Deflater deflater = new Deflater(mapLevel(level));
+        int srcLength = Math.toIntExact(srcSize);
+        int capacity = (int) Math.min(dstCapacity, Integer.MAX_VALUE);
+        HeapDeflate.State state = HeapDeflate.state();
+        Deflater deflater = state.deflater(HeapDeflate.deflateLevel(level));
         try {
-            deflater.setInput(src);
+            ByteBuffer srcView = backend.byteBuffer(srcHandle, srcOffset, srcLength);
+            if (srcView != null) {
+                deflater.setInput(srcView);
+            } else {
+                byte[] in = state.in(srcLength);
+                backend.copyToHeap(srcHandle, srcOffset, in, 0, srcLength);
+                deflater.setInput(in, 0, srcLength);
+            }
             deflater.finish();
 
-            byte[] scratch = new byte[(int) Math.min(dstCapacity, Integer.MAX_VALUE)];
-            int written = deflater.deflate(scratch);
-            if (!deflater.finished()) {
-                throw new IllegalStateException(
-                        "Celeris compat-mode compression overflowed the destination buffer "
-                                + "(capacity=" + dstCapacity + ", srcSize=" + srcSize + ") -- "
-                                + "compressBound() under-estimated the worst case for this input");
+            int written;
+            ByteBuffer dstView = backend.byteBuffer(dstHandle, 0L, capacity);
+            if (dstView != null) {
+                while (!deflater.finished() && dstView.hasRemaining()) {
+                    if (deflater.deflate(dstView) == 0) {
+                        break;
+                    }
+                }
+                written = dstView.position();
+            } else {
+                byte[] out = state.out(capacity);
+                written = 0;
+                while (!deflater.finished() && written < capacity) {
+                    int n = deflater.deflate(out, written, capacity - written);
+                    if (n == 0) {
+                        break;
+                    }
+                    written += n;
+                }
+                backend.copyFromHeap(dstHandle, 0L, out, 0, written);
             }
-            backend.copyFromHeap(dstHandle, 0, scratch, 0, written);
+            if (!deflater.finished()) {
+                throw new IllegalStateException("Celeris deflate output overflowed the destination buffer (capacity="
+                        + dstCapacity + ", srcSize=" + srcSize + ")");
+            }
             return written;
         } finally {
-            deflater.end();
+            deflater.reset(); // also drops the reference to the input buffer
         }
     }
 
     @Override
     public long decompress(MemoryBackend backend, long dstHandle, long dstCapacity, long srcHandle, long srcOffset, long srcSize) {
-        byte[] src = readToHeap(backend, srcHandle, srcOffset, srcSize);
-
-        Inflater inflater = new Inflater();
+        int srcLength = Math.toIntExact(srcSize);
+        int capacity = (int) Math.min(dstCapacity, Integer.MAX_VALUE);
+        HeapDeflate.State state = HeapDeflate.state();
+        Inflater inflater = state.inflater;
         try {
-            inflater.setInput(src);
-            byte[] scratch = new byte[(int) Math.min(dstCapacity, Integer.MAX_VALUE)];
-            int written = inflater.inflate(scratch);
-            backend.copyFromHeap(dstHandle, 0, scratch, 0, written);
+            ByteBuffer srcView = backend.byteBuffer(srcHandle, srcOffset, srcLength);
+            if (srcView != null) {
+                inflater.setInput(srcView);
+            } else {
+                byte[] in = state.in(srcLength);
+                backend.copyToHeap(srcHandle, srcOffset, in, 0, srcLength);
+                inflater.setInput(in, 0, srcLength);
+            }
+
+            int written;
+            ByteBuffer dstView = backend.byteBuffer(dstHandle, 0L, capacity);
+            if (dstView != null) {
+                while (!inflater.finished() && dstView.hasRemaining()) {
+                    if (inflater.inflate(dstView) == 0) {
+                        break;
+                    }
+                }
+                written = dstView.position();
+            } else {
+                byte[] out = state.out(capacity);
+                written = 0;
+                while (!inflater.finished() && written < capacity) {
+                    int n = inflater.inflate(out, written, capacity - written);
+                    if (n == 0) {
+                        break;
+                    }
+                    written += n;
+                }
+                backend.copyFromHeap(dstHandle, 0L, out, 0, written);
+            }
+            if (!inflater.finished()) {
+                // Output full with data left over, or the stream simply stops early.
+                if (written == capacity && inflater.inflate(state.probe, 0, 1) != 0) {
+                    throw new IllegalStateException("Celeris deflate data decompresses to more than the destination's "
+                            + dstCapacity + " bytes");
+                }
+                if (!inflater.finished()) {
+                    throw new IllegalStateException("Celeris deflate data is truncated after " + written + " bytes");
+                }
+            }
             return written;
         } catch (DataFormatException e) {
-            throw new IllegalStateException("Celeris compat-mode decompression failed: malformed input", e);
+            throw new IllegalStateException("Celeris deflate decompression failed: malformed input", e);
         } finally {
-            inflater.end();
+            inflater.reset();
         }
-    }
-
-    private static byte[] readToHeap(MemoryBackend backend, long handle, long offset, long length) {
-        byte[] heap = new byte[(int) length];
-        backend.copyToHeap(handle, offset, heap, 0, (int) length);
-        return heap;
-    }
-
-    /**
-     * Celeris's compression level knob is defined against zstd's 1-22
-     * scale; Deflater's is 0-9. Maps proportionally rather than clamping,
-     * so a caller's "max compression" request (zstd level 22) still lands
-     * on Deflater's actual max (9) instead of silently under-compressing.
-     */
-    @SuppressWarnings("MathClampMigration")
-    private static int mapLevel(int zstdLevel) {
-        int clamped = Math.max(1, Math.min(22, zstdLevel));
-        int mapped = (int) Math.round(clamped / 22.0 * Deflater.BEST_COMPRESSION);
-        return Math.max(Deflater.BEST_SPEED, Math.min(Deflater.BEST_COMPRESSION, mapped));
     }
 
     @Override

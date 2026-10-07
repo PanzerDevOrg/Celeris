@@ -1,7 +1,7 @@
 package com.panzer.mods.celeris.physics;
 
-import java.io.IOException;
-import java.io.InputStream;
+import com.panzer.mods.celeris.util.NativeLibraries;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
@@ -9,10 +9,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.Locale;
 
 /**
  * Downcalls into {@code libceleris_physics} (see {@code native/}). One
@@ -129,34 +126,9 @@ final class NativePhysicsKernel implements PhysicsKernel {
     }
 
     private static Path extractLibrary() {
-        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
-        boolean aarch64 = arch.contains("aarch64") || arch.contains("arm64");
-        String file;
-        String platform;
-        if (os.contains("win")) {
-            platform = aarch64 ? "windows-aarch64" : "windows-x86_64";
-            file = "celeris_physics.dll";
-        } else if (os.contains("mac")) {
-            platform = aarch64 ? "macos-aarch64" : "macos-x86_64";
-            file = "libceleris_physics.dylib";
-        } else {
-            platform = aarch64 ? "linux-aarch64" : "linux-x86_64";
-            file = "libceleris_physics.so";
-        }
-        String resource = "natives/" + platform + "/" + file;
-        try (InputStream in = NativePhysicsKernel.class.getClassLoader().getResourceAsStream(resource)) {
-            if (in == null) {
-                throw new IllegalStateException("no bundled " + resource);
-            }
-            Path dir = Files.createTempDirectory("celeris-physics-");
-            dir.toFile().deleteOnExit();
-            Path out = dir.resolve(file);
-            Files.copy(in, out, StandardCopyOption.REPLACE_EXISTING);
-            out.toFile().deleteOnExit();
-            return out;
-        } catch (IOException e) {
-            throw new IllegalStateException("failed extracting " + resource, e);
-        }
+        String file = NativeLibraries.isWindows() ? "celeris_physics.dll"
+                : NativeLibraries.isMac() ? "libceleris_physics.dylib"
+                : "libceleris_physics.so";
+        return NativeLibraries.extract(file);
     }
 }
