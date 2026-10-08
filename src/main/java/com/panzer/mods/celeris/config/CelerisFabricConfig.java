@@ -45,7 +45,7 @@ public final class CelerisFabricConfig {
         CelerisSettings.compressionLevelSource(() -> compressionLevel);
     }
 
-    /** Applies {@code level} (clamped) from the next packet on and writes it to the file. */
+    /^* Applies {@code level} (clamped) from the next packet on and writes it to the file. ^/
     public static void setCompressionLevel(int level) {
         int clamped = CelerisSettings.clampCompressionLevel(level);
         if (clamped != compressionLevel) {
