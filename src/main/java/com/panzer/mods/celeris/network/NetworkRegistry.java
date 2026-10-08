@@ -3,6 +3,7 @@ package com.panzer.mods.celeris.network;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import java.util.Collection;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -105,11 +106,30 @@ public final class NetworkRegistry {
         }
         PacketDistributor.sendToPlayer(player, PayloadCompression.compress(rawData));
     }
+
+    /**
+     * Compresses {@code rawData} once and sends that same payload to every
+     * player in {@code players} whose client has Celeris ({@link
+     * #playerHasChannel}); the others are skipped. Server-side only. Nothing is
+     * compressed when no player has the channel.
+     */
+    public static void sendToPlayers(Collection<ServerPlayer> players, byte[] rawData) {
+        CompressedPayload payload = null;
+        for (ServerPlayer player : players) {
+            if (playerHasChannel(player)) {
+                if (payload == null) {
+                    payload = PayloadCompression.compress(rawData);
+                }
+                PacketDistributor.sendToPlayer(player, payload);
+            }
+        }
+    }
 }
 //?} else {
 /*package com.panzer.mods.celeris.network;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import java.util.Collection;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -168,6 +188,24 @@ public final class NetworkRegistry {
     public static void sendToPlayer(ServerPlayer player, byte[] rawData) {
         if (playerHasChannel(player)) {
             ServerPlayNetworking.send(player, PayloadCompression.compress(rawData));
+        }
+    }
+
+    /^*
+     * Compresses {@code rawData} once and sends that same payload to every
+     * player in {@code players} whose client has Celeris ({@link
+     * #playerHasChannel}); the others are skipped. Server-side only. Nothing is
+     * compressed when no player has the channel.
+     ^/
+    public static void sendToPlayers(Collection<ServerPlayer> players, byte[] rawData) {
+        CompressedPayload payload = null;
+        for (ServerPlayer player : players) {
+            if (playerHasChannel(player)) {
+                if (payload == null) {
+                    payload = PayloadCompression.compress(rawData);
+                }
+                ServerPlayNetworking.send(player, payload);
+            }
         }
     }
 }
