@@ -1,0 +1,77 @@
+{
+ "minecraft": "1.21.1",
+ "neoforge": "21.1.248",
+ "java": 21,
+ "source": "panzer-build-logic perf-test run 37779063591",
+ "results": [
+  {
+   "config": "NeoForge, no mods",
+   "runs": [
+    {
+     "items": 2000,
+     "idle_ms": 0.06,
+     "falling_ms": 5.43,
+     "resting_ms": 3.92
+    },
+    {
+     "items": 8000,
+     "idle_ms": 0.06,
+     "falling_ms": 39.45,
+     "resting_ms": 30.37
+    },
+    {
+     "items": 20000,
+     "idle_ms": 0.06,
+     "falling_ms": 171.52,
+     "resting_ms": 139.95
+    }
+   ]
+  },
+  {
+   "config": "Velox, Java kernel",
+   "runs": [
+    {
+     "items": 2000,
+     "idle_ms": 0.07,
+     "falling_ms": 1.04,
+     "resting_ms": 0.67
+    },
+    {
+     "items": 8000,
+     "idle_ms": 0.07,
+     "falling_ms": 5.98,
+     "resting_ms": 4.17
+    },
+    {
+     "items": 20000,
+     "idle_ms": 0.07,
+     "falling_ms": 15.81,
+     "resting_ms": 13.39
+    }
+   ]
+  },
+  {
+   "config": "Velox, native kernel",
+   "runs": [
+    {
+     "items": 2000,
+     "idle_ms": 0.06,
+     "falling_ms": 0.93,
+     "resting_ms": 0.62
+    },
+    {
+     "items": 8000,
+     "idle_ms": 0.06,
+     "falling_ms": 6.34,
+     "resting_ms": 3.38
+    },
+    {
+     "items": 20000,
+     "idle_ms": 0.06,
+     "falling_ms": 17.48,
+     "resting_ms": 11.91
+    }
+   ]
+  }
+ ]
+}
