@@ -208,7 +208,8 @@ through Gradle toolchains. `-Ppanzer.loaders=neoforge` (or `fabric`) builds one 
 ./gradlew build                     # every Minecraft version, with tests
 ./gradlew :1.21.1:runClient         # dev client for one version (NeoForge)
 ./gradlew :1.21.1-fabric:runClient  # the same on Fabric
-./gradlew publishToMavenLocal       # use your local build from other mods
+./gradlew publishToMavenLocal       # use your local build from other mods (never implied by build)
+./gradlew benchmarkTest             # ring buffer throughput comparison (not part of build/check)
 ./gradlew buildAndCollect           # release jars (universal, per-system, sources) in build/libs/<version>/
 ```
 

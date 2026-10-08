@@ -97,13 +97,57 @@ tasks.named("processTestResources") {
     dependsOn("collectNatives")
 }
 
-tasks.withType<Test>().configureEach {
-    dependsOn("processResources")
-    outputs.upToDateWhen { false }
+/**
+ * What the test JVM picks at run time and Gradle cannot see: the native kernel
+ * variant (AVX2, AVX-512, NEON) and so the code paths the physics and codec tests
+ * exercise. Everything else that decides a test result -- classes, natives on
+ * the classpath, JVM arguments, toolchain -- is already a task input.
+ * A ValueSource, so only the returned value is a configuration input (the rest
+ * of /proc/cpuinfo, like clock speeds, changes on every read).
+ */
+abstract class HostCpu : ValueSource<String, ValueSourceParameters.None> {
+    override fun obtain(): String {
+        val wanted = setOf("avx2", "avx512f", "fma", "bmi2", "asimd", "sve")
+        val cpuinfo = java.io.File("/proc/cpuinfo")
+        val flags = if (cpuinfo.isFile) {
+            cpuinfo.useLines { lines ->
+                lines.firstOrNull { it.startsWith("flags") || it.startsWith("Features") }
+                    ?.substringAfter(':')?.trim()?.split(' ')?.filter { it in wanted }?.sorted()?.joinToString(",")
+            } ?: ""
+        } else {
+            ""
+        }
+        return "${System.getProperty("os.name")}/${System.getProperty("os.arch")} $flags"
+    }
 }
 
-tasks.named("build") {
-    dependsOn("publishToMavenLocal")
+val hostCpu = providers.of(HostCpu::class.java) {}
+
+tasks.withType<Test>().configureEach {
+    dependsOn("processResources")
+    inputs.property("hostCpu", hostCpu)
+}
+
+// Throughput comparisons (@Tag("benchmark")) are not unit tests: they take
+// seconds, assert nothing and depend on the machine. `./gradlew benchmarkTest`
+// runs them on its own, every time.
+tasks.named<Test>("test") {
+    useJUnitPlatform {
+        excludeTags("benchmark")
+    }
+}
+
+tasks.register<Test>("benchmarkTest") {
+    group = "verification"
+    description = "Runs the @Tag(\"benchmark\") throughput comparisons (not part of check/build)."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+    // A measurement, not a result to reuse.
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
 }
 
 idea {
