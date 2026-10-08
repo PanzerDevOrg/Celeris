@@ -1,10 +1,12 @@
 package com.panzer.mods.celeris;
 
+import com.panzer.mods.celeris.config.CelerisSettings;
 import com.panzer.mods.celeris.core.memory.CelerisCodecs;
 import com.panzer.mods.celeris.core.memory.backend.CelerisRuntime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 //? if neoforge {
+import com.panzer.mods.celeris.config.CelerisConfig;
 import com.panzer.mods.celeris.network.NetworkRegistry;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -14,7 +16,8 @@ import net.neoforged.fml.common.Mod;
 /**
  * Mod entry point on NeoForge (on Fabric: {@code CelerisFabric}). Triggers
  * backend/codec selection (see {@link CelerisRuntime}, {@link CelerisCodecs})
- * and network registration on startup; has no state or methods another mod
+ * and network registration on startup, and registers the config file
+ * ({@code CelerisConfig}; its screen is {@code CelerisClient}'s); has no state or methods another mod
  * would call directly -- for runtime feature checks, use
  * {@code com.panzer.mods.celeris.api.CelerisFeatures} instead.
  */
@@ -26,7 +29,9 @@ public final class Celeris {
     private static final Logger LOGGER = LoggerFactory.getLogger(Celeris.class);
 
     //? if neoforge {
-    public Celeris(IEventBus modEventBus, ModContainer ignoredModContainer) {
+    public Celeris(IEventBus modEventBus, ModContainer modContainer) {
+        modContainer.registerConfig(CelerisConfig.type(), CelerisConfig.SPEC);
+        CelerisConfig.install();
         start();
         modEventBus.addListener(NetworkRegistry::register);
     }
@@ -38,6 +43,7 @@ public final class Celeris {
         LOGGER.info("Celeris engine initializing");
         LOGGER.info("Celeris memory backend: {}", CelerisRuntime.backend().name());
         LOGGER.info("Celeris compression codec: {}", CelerisCodecs.compressionCodec().name());
+        LOGGER.info("Celeris network compression level: {}", CelerisSettings.compressionLevel());
         LOGGER.info("Celeris engine working");
     }
 }
