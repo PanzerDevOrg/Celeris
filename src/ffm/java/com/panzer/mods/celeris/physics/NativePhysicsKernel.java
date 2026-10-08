@@ -13,9 +13,10 @@ import java.nio.file.Path;
 
 /**
  * Downcalls into {@code libceleris_physics} (see {@code native/}). One
- * {@code cp_step} call simulates a whole {@link BodyLayout#CHUNK} -- gravity,
- * collision and drag fused while the chunk sits in L1/L2 -- so the
- * fixed cost of a downcall (a few ns) is paid once per thousand bodies.
+ * {@code cp_step} call simulates a whole work unit ({@link BodyLayout#MIN_UNIT}
+ * to {@link BodyLayout#CHUNK} bodies) -- gravity, collision and drag fused while
+ * the unit sits in L1/L2 -- so the fixed cost of a downcall (a few ns) is paid
+ * once per hundreds of bodies.
  *
  * <p>Both hot entry points are linked as critical/trivial: no thread-state
  * transition and no safepoint poll. A chunk call runs tens of microseconds,

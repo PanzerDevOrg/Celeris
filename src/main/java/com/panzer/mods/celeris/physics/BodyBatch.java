@@ -70,7 +70,8 @@ public interface BodyBatch extends AutoCloseable {
     /**
      * Simulates one tick against {@code terrain}. Returns the number of
      * deferred bodies (see {@link #deferred}). Large batches are split into
-     * {@link BodyLayout#CHUNK}-sized chunks run on {@link ChunkWorkers}.
+     * work units of {@link BodyLayout#MIN_UNIT} to {@link BodyLayout#CHUNK} bodies
+     * ({@link BodyLayout#unit}) run on {@link ChunkWorkers}.
      *
      * @param rules extra rule bits, e.g. {@link PhysicsMode#RULE_SMALL_MOVES}
      */
