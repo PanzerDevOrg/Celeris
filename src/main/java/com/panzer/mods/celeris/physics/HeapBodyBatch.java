@@ -216,9 +216,9 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         ChunkWorkers workers = size >= PARALLEL_THRESHOLD ? CelerisPhysics.workers() : null;
         stepUnit = BodyLayout.unit(size, workers == null ? 0 : workers.threadCount());
         int chunks = (size + stepUnit - 1) / stepUnit;
-        if (workers != null) {
-            workers.run(this, chunks);
-        } else {
+        // The pool is shared: if another batch is stepping on it (another thread),
+        // this one runs its chunks itself, with the same results.
+        if (workers == null || !workers.tryRun(this, chunks)) {
             for (int c = 0; c < chunks; c++) {
                 run(c);
             }
