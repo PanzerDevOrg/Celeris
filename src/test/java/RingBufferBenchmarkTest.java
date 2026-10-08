@@ -1,4 +1,5 @@
 import com.panzer.mods.celeris.core.concurrency.MpscRingBuffer;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -11,6 +12,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
+/** Throughput comparison: excluded from {@code test}, run with {@code ./gradlew benchmarkTest}. */
+@Tag("benchmark")
 @SuppressWarnings("unused")
 class RingBufferBenchmarkTest {
 
