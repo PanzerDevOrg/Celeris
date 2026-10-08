@@ -9,6 +9,10 @@
 #include <cstdint>
 #include <cstring>
 
+#if defined(__SSE2__) || defined(_M_X64)
+#  include <emmintrin.h>
+#endif
+
 #include "celeris_physics.h"
 
 namespace cp {

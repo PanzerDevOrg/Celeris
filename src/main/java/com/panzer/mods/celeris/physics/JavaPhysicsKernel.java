@@ -177,12 +177,32 @@ final class JavaPhysicsKernel {
         }
     }
 
+    /**
+     * Inputs a body may carry and still be simulated; anything else (NaN, +-Inf,
+     * 1e300, +-3e9) is deferred before any arithmetic, as in the native kernel.
+     */
+    static final double POS_LIMIT = 1.0e8;
+    static final double VEL_LIMIT = 1.0e7;
+    static final double SIZE_LIMIT = 1.0e4;
+    static final double INT_LO = -1073741824.0;
+    static final double INT_HI = 1073741823.0;
+
+    static boolean within(double v, double limit) {
+        return Math.abs(v) <= limit; // false for NaN
+    }
+
+    /** Clamped to [INT_MIN/2, INT_MAX/2] before the cast (NaN -> INT_MIN/2), exactly like the native kernel. */
+    static double clampInt(double v) {
+        double lo = v > INT_LO ? v : INT_LO; // NaN -> INT_LO
+        return lo < INT_HI ? lo : INT_HI;
+    }
+
     static int ifloor(double v) {
-        return (int) Math.floor(v);
+        return (int) Math.floor(clampInt(v));
     }
 
     static int iceil(double v) {
-        return (int) Math.ceil(v);
+        return (int) Math.ceil(clampInt(v));
     }
 
     static boolean solid(int cell) {
@@ -295,6 +315,13 @@ final class JavaPhysicsKernel {
 
         int deferredFlags = (flags & ~(BodyFlags.DEFERRED | BodyFlags.MOVED | BodyFlags.HELD | BodyFlags.PHASE_MASK))
                 | BodyFlags.DEFERRED | nextPhase;
+
+        // Non-finite or out-of-range state: vanilla handles it, nothing else is read.
+        if (!(within(x, POS_LIMIT) & within(y, POS_LIMIT) & within(z, POS_LIMIT)
+                & within(vx, VEL_LIMIT) & within(vy, VEL_LIMIT) & within(vz, VEL_LIMIT)
+                & within(hw, SIZE_LIMIT) & within(h, SIZE_LIMIT))) {
+            return defer(b, i, deferredFlags);
+        }
 
         double x0 = x - hw, x1 = x + hw, y0 = y, y1 = y + h, z0 = z - hw, z1 = z + hw;
 
