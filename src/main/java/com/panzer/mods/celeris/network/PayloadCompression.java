@@ -1,5 +1,6 @@
 package com.panzer.mods.celeris.network;
 
+import com.panzer.mods.celeris.config.CelerisSettings;
 import com.panzer.mods.celeris.core.memory.HeapDeflate;
 
 /**
@@ -15,7 +16,6 @@ import com.panzer.mods.celeris.core.memory.HeapDeflate;
 public final class PayloadCompression {
 
     private static final int DEFAULT_THRESHOLD_BYTES = 256;
-    private static final int DEFAULT_COMPRESSION_LEVEL = 3;
 
     /**
      * Upper bound on a peer-declared decompressed size. originalSize arrives
@@ -26,16 +26,20 @@ public final class PayloadCompression {
 
     private PayloadCompression() {}
 
-    /** Compresses {@code rawData} using the default threshold (256 bytes) and level (3). */
+    /**
+     * Compresses {@code rawData} using the default threshold (256 bytes) and the
+     * user's level ({@link CelerisSettings#compressionLevel()}: deflate 0-9, where
+     * 0 sends it uncompressed).
+     */
     public static CompressedPayload compress(byte[] rawData) {
-        return compress(rawData, DEFAULT_THRESHOLD_BYTES, DEFAULT_COMPRESSION_LEVEL);
+        return compressAtDeflateLevel(rawData, CelerisSettings.compressionLevel(), true);
     }
 
     /**
      * Compresses {@code rawData} if it is at least {@code thresholdBytes} long
      * and compression actually makes it smaller; otherwise the payload carries
      * a copy of the input, uncompressed. {@code compressionLevel} is on zstd's
-     * 1-22 scale, mapped onto deflate's 1-9 (the default, 3, is deflate's fastest).
+     * 1-22 scale, mapped onto deflate's 1-9 (1-3 all map to deflate 1).
      */
     public static CompressedPayload compress(byte[] rawData, int thresholdBytes, int compressionLevel) {
         return compress(rawData, thresholdBytes, compressionLevel, true);
@@ -49,7 +53,7 @@ public final class PayloadCompression {
      * in-memory connection).
      */
     public static CompressedPayload compressOwned(byte[] rawData) {
-        return compressOwned(rawData, DEFAULT_THRESHOLD_BYTES, DEFAULT_COMPRESSION_LEVEL);
+        return compressAtDeflateLevel(rawData, CelerisSettings.compressionLevel(), false);
     }
 
     /** {@link #compress(byte[], int, int)} that takes ownership of {@code rawData}; see {@link #compressOwned(byte[])}. */
@@ -58,12 +62,17 @@ public final class PayloadCompression {
     }
 
     private static CompressedPayload compress(byte[] rawData, int thresholdBytes, int compressionLevel, boolean copy) {
-        if (rawData.length >= thresholdBytes) {
-            byte[] packed = HeapDeflate.compressIfSmaller(rawData, compressionLevel);
-            if (packed != null) {
-                return new CompressedPayload(packed, true, rawData.length);
-            }
-        }
+        byte[] packed = rawData.length >= thresholdBytes ? HeapDeflate.compressIfSmaller(rawData, compressionLevel) : null;
+        return packed != null ? new CompressedPayload(packed, true, rawData.length) : uncompressed(rawData, copy);
+    }
+
+    private static CompressedPayload compressAtDeflateLevel(byte[] rawData, int deflateLevel, boolean copy) {
+        byte[] packed = deflateLevel > 0 && rawData.length >= DEFAULT_THRESHOLD_BYTES
+                ? HeapDeflate.deflateIfSmaller(rawData, deflateLevel) : null;
+        return packed != null ? new CompressedPayload(packed, true, rawData.length) : uncompressed(rawData, copy);
+    }
+
+    private static CompressedPayload uncompressed(byte[] rawData, boolean copy) {
         return new CompressedPayload(copy ? rawData.clone() : rawData, false, rawData.length);
     }
 

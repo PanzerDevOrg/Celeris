@@ -1,0 +1,9 @@
+{
+  "celeris.configuration.title": "Configuración de Celeris",
+  "celeris.configuration.section.celeris.common.toml": "Ajustes de Celeris",
+  "celeris.configuration.section.celeris.common.toml.title": "Ajustes de Celeris",
+  "celeris.configuration.section.celeris.local.toml": "Ajustes de Celeris",
+  "celeris.configuration.section.celeris.local.toml.title": "Ajustes de Celeris",
+  "celeris.configuration.compressionLevel": "Nivel de compresión de red",
+  "celeris.configuration.compressionLevel.tooltip": "0 envía los paquetes sin comprimir (menos CPU, más ancho de banda), 1 es el más rápido y 9 da los paquetes más pequeños. Se aplica al siguiente paquete."
+}
