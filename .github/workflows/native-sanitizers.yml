@@ -1,0 +1,48 @@
+# The physics kernel's self-test and hostile-input fuzz (native/test) under
+# AddressSanitizer + UndefinedBehaviorSanitizer, float-cast-overflow included:
+# any out-of-bounds access, misaligned load, signed overflow or out-of-range
+# float -> int cast fails the job. x86-64 covers the generic, AVX2 and (where
+# the runner has it) AVX-512 paths; the ARM runner covers NEON.
+# Not managed by panzer-build-logic: this file belongs to Celeris.
+name: Native sanitizers
+
+on:
+  push:
+    branches: [master]
+    paths: ["native/**", ".github/workflows/native-sanitizers.yml"]
+  pull_request:
+    paths: ["native/**", ".github/workflows/native-sanitizers.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-sanitizers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  asan-ubsan:
+    name: ASan + UBSan (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      SANITIZE: -fsanitize=address,undefined,float-cast-overflow -fno-sanitize-recover=all -fno-omit-frame-pointer
+      ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          persist-credentials: false
+      - name: Configure (GCC, Debug, sanitizers)
+        run: >
+          cmake -S native -B build-san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_CXX_FLAGS="-O1 -g $SANITIZE"
+          -DCMAKE_SHARED_LINKER_FLAGS="$SANITIZE" -DCMAKE_EXE_LINKER_FLAGS="$SANITIZE"
+      - name: Build
+        run: cmake --build build-san -j "$(nproc)"
+      - name: Self-test and fuzz on every ISA the runner has
+        run: ctest --test-dir build-san --output-on-failure
