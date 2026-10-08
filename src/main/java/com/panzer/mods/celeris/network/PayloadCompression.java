@@ -38,13 +38,33 @@ public final class PayloadCompression {
      * 1-22 scale, mapped onto deflate's 1-9 (the default, 3, is deflate's fastest).
      */
     public static CompressedPayload compress(byte[] rawData, int thresholdBytes, int compressionLevel) {
+        return compress(rawData, thresholdBytes, compressionLevel, true);
+    }
+
+    /**
+     * {@link #compress(byte[])} that takes ownership of {@code rawData}: when the
+     * data goes out uncompressed, the payload carries {@code rawData} itself
+     * instead of a copy. The caller must not modify or reuse the array afterwards
+     * (the payload may still be waiting to be encoded, or be handed as-is to an
+     * in-memory connection).
+     */
+    public static CompressedPayload compressOwned(byte[] rawData) {
+        return compressOwned(rawData, DEFAULT_THRESHOLD_BYTES, DEFAULT_COMPRESSION_LEVEL);
+    }
+
+    /** {@link #compress(byte[], int, int)} that takes ownership of {@code rawData}; see {@link #compressOwned(byte[])}. */
+    public static CompressedPayload compressOwned(byte[] rawData, int thresholdBytes, int compressionLevel) {
+        return compress(rawData, thresholdBytes, compressionLevel, false);
+    }
+
+    private static CompressedPayload compress(byte[] rawData, int thresholdBytes, int compressionLevel, boolean copy) {
         if (rawData.length >= thresholdBytes) {
             byte[] packed = HeapDeflate.compressIfSmaller(rawData, compressionLevel);
             if (packed != null) {
                 return new CompressedPayload(packed, true, rawData.length);
             }
         }
-        return new CompressedPayload(rawData.clone(), false, rawData.length);
+        return new CompressedPayload(copy ? rawData.clone() : rawData, false, rawData.length);
     }
 
     /**
@@ -54,8 +74,25 @@ public final class PayloadCompression {
      * @throws IllegalStateException if the compressed data is malformed or does not decompress to exactly the declared size
      */
     public static byte[] decompress(CompressedPayload payload) {
+        return decompress(payload, true);
+    }
+
+    /**
+     * {@link #decompress} that takes ownership of the payload's array: for an
+     * uncompressed payload it returns {@code payload.data()} itself instead of a
+     * copy. The payload must not be used again afterwards (not re-sent, not
+     * decompressed a second time), since the returned array is its data.
+     *
+     * @throws IllegalArgumentException if the payload declares more than {@link #MAX_DECOMPRESSED_SIZE} bytes
+     * @throws IllegalStateException if the compressed data is malformed or does not decompress to exactly the declared size
+     */
+    public static byte[] decompressOwned(CompressedPayload payload) {
+        return decompress(payload, false);
+    }
+
+    private static byte[] decompress(CompressedPayload payload, boolean copy) {
         if (!payload.compressed()) {
-            return payload.data().clone();
+            return copy ? payload.data().clone() : payload.data();
         }
         int declared = payload.originalSize();
         if (declared < 0 || declared > MAX_DECOMPRESSED_SIZE) {
