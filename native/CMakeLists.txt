@@ -59,6 +59,7 @@ target_compile_definitions(celeris_physics PRIVATE ${CP_DEFINES} $<$<CONFIG:Rele
 if(MSVC)
     # /fp:precise (default) keeps a*b+c as two roundings; never /fp:fast here:
     # vanilla parity needs IEEE results identical to the Java reference.
+    # /GS (stack canaries) is on by default and stays on.
     target_compile_options(celeris_physics PRIVATE /O2 /GR- /fp:precise)
     string(REGEX REPLACE "/EH[sc]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     target_compile_options(celeris_physics PRIVATE /EHs-c-)
@@ -69,9 +70,17 @@ else()
     target_compile_options(celeris_physics PRIVATE
             -O3 -ffp-contract=off -fno-math-errno -fno-exceptions -fno-rtti -fomit-frame-pointer
             -Wall -Wextra)
+    # Hardening that changes no arithmetic: a stack canary in functions with
+    # local arrays (only the per-batch step entry points get one; GCC on
+    # Ubuntu already did this by default) and, on ELF, a read-only GOT bound
+    # at load (full RELRO). Same generated code otherwise; parity tests and
+    # the physics benchmark show no difference.
+    if(NOT MINGW)
+        target_compile_options(celeris_physics PRIVATE -fstack-protector-strong)
+    endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         # The .so must not depend on the player's libstdc++ version.
-        target_link_options(celeris_physics PRIVATE -static-libstdc++ -static-libgcc)
+        target_link_options(celeris_physics PRIVATE -static-libstdc++ -static-libgcc -Wl,-z,relro,-z,now)
     endif()
     if(MINGW)
         target_link_options(celeris_physics PRIVATE -static)

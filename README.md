@@ -218,6 +218,13 @@ Both native libraries are built with CMake: zstd 1.5.7 from its official release
 or both with `-Ppanzer.native.build=true` on any build. CI builds them for every platform and bundles those builds
 into the released jars; a local build without them uses deflate and the Java physics kernel.
 
+**Native libraries are never committed.** `natives/<os>/<arch>/` is build output (ignored by git): CMake writes it
+locally with `-Ppanzer.native.build=true`, and CI writes it from the per-platform native jobs before packaging, so a
+released jar always carries libraries built from the sources of the same commit; nothing prebuilt in the repository
+can drift from them. The kernel is built with `-ffp-contract=off` and without `-ffast-math` (IEEE parity with the
+Java reference, checked by `PhysicsParityTest` on every ISA), plus `-fstack-protector-strong` and, on Linux, full
+RELRO (`-z relro -z now`), which change no arithmetic.
+
 ## Releasing
 
 This README is the description on Modrinth and CurseForge too (everything outside `publish:off` blocks); see
