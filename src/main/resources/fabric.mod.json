@@ -14,7 +14,8 @@
   "environment": "*",
   "entrypoints": {
     "main": ["com.panzer.mods.celeris.CelerisFabric"],
-    "client": ["com.panzer.mods.celeris.CelerisFabric"]
+    "client": ["com.panzer.mods.celeris.CelerisFabric"],
+    "modmenu": ["com.panzer.mods.celeris.client.CelerisModMenu"]
   },
   "mixins": ["${mod_id}.mixins.json"],
   "depends": {
@@ -22,5 +23,8 @@
     "minecraft": "${fabric_minecraft_version_range}",
     "java": ">=21",
     "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
   }
 }
