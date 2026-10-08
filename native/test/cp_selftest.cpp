@@ -172,6 +172,17 @@ void broadphase() {
     CHECK(got == brute, "broadphase found %d pairs, brute force %lld", got, (long long) brute);
     std::printf("broadphase: %d pairs (brute force agrees)\n", got);
 
+    // Every ISA's broadphase: the same pairs in the same order as the generic one.
+    const int32_t active = cp_active_isa();
+    for (int isa : {CP_ISA_AVX2, CP_ISA_AVX512, CP_ISA_NEON}) {
+        if (cp_force_isa(isa) != isa) continue;
+        std::vector<int32_t> other(pairs.size());
+        int32_t r = cp_broadphase(s.base, s.cap, n, buckets.data(), (int32_t) buckets.size(), m, other.data(), 200000, 0);
+        CHECK(r == got && std::memcmp(other.data(), pairs.data(), sizeof(int32_t) * 2 * (size_t) got) == 0,
+              "isa %d broadphase differs from generic (%d vs %d pairs)", isa, r, got);
+    }
+    cp_force_isa(active);
+
     // Stopping at capacity: the first `cap` pairs of the full list, then one more counted.
     for (int32_t cap : {0, 1, 100, got - 1, got, got + 5}) {
         std::vector<int32_t> cut(2 * (size_t) (cap > 0 ? cap : 1));

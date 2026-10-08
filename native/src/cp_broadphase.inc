@@ -1,60 +1,29 @@
 // Entity-vs-entity broadphase: spatial hash + counting sort, O(n), no
-// allocation. Baseline ISA only: the work is hashing and pointer chasing,
-// which wide vectors do not speed up. Must stay in lock-step with
-// JavaPhysicsKernel.broadphase (same hash, same visiting order), so
-// results are reproducible across the native and Java paths.
-#include <cstring>
-
-#include "cp_prelude.hpp"
-
-namespace {
+// allocation. Included by every cp_isa_*.cpp after cp_kernel.inc (inside the
+// same anonymous namespace, for the reasons given there), so each ISA gets its
+// own copy: with the scan stopping at the pair buffer, the O(n) passes below
+// (hashing with three floors per body, the bucket sweep) are most of a call,
+// and the baseline build has no single-instruction floor. Must stay in
+// lock-step with JavaPhysicsKernel.broadphase (same hash, same visiting
+// order), so results are reproducible across the native and Java paths.
+// Arguments are validated by cp_broadphase (cp_api.cpp).
 
 constexpr double MIN_CELL = 0.0625;
-
-// Same clamp as the kernel (and JavaPhysicsKernel.ifloor): no undefined cast
-// for NaN, +-Inf or huge coordinates, and cell +-1 cannot overflow.
-constexpr double INT_LO = -1073741824.0;
-constexpr double INT_HI = 1073741823.0;
-inline int32_t ifloor(double v) {
-    const double lo = v > INT_LO ? v : INT_LO;  // NaN -> INT_LO
-    return (int32_t) std::floor(lo < INT_HI ? lo : INT_HI);
-}
 
 inline uint32_t hash_cell(int32_t x, int32_t y, int32_t z) {
     return ((uint32_t) x * 73856093u) ^ ((uint32_t) y * 19349663u) ^ ((uint32_t) z * 83492791u);
 }
 
-}  // namespace
-
-extern "C" {
-
-CP_EXPORT int32_t cp_bucket_count(int32_t capacity) {
-    int64_t want = (int64_t) capacity * 2;
-    int64_t t = 16;
-    while (t < want) t <<= 1;
-    return (int32_t) t;
-}
-
-CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_len,
-                                double margin, int32_t* pairs, int32_t pair_capacity, int32_t flags) {
-    if (bodies == nullptr || ((uintptr_t) bodies & 63u) != 0 || capacity <= 0 || (capacity % CP_LANE_PAD) != 0
-            || count < 0 || count > capacity || buckets == nullptr || buckets_len < cp_bucket_count(capacity) + 1
-            || pair_capacity < 0 || (pairs == nullptr && pair_capacity > 0)) {
-        return -1;
-    }
-    if (count < 2) {
-        return 0;
-    }
-    char* base = static_cast<char*>(bodies);
-    const size_t f64 = (size_t) capacity * 8u;
-    const double* px = reinterpret_cast<const double*>(base + CP_POS_X * f64);
-    const double* py = reinterpret_cast<const double*>(base + CP_POS_Y * f64);
-    const double* pz = reinterpret_cast<const double*>(base + CP_POS_Z * f64);
-    const double* hw = reinterpret_cast<const double*>(base + CP_HALF_WIDTH * f64);
-    const double* hh = reinterpret_cast<const double*>(base + CP_HEIGHT * f64);
-    uint32_t* u = reinterpret_cast<uint32_t*>(base + CP_F64_COLUMNS * f64);
-    uint32_t* cell_hash = u + (size_t) CP_CELL_HASH * capacity;
-    uint32_t* sorted = u + (size_t) CP_SORTED * capacity;
+inline int32_t broadphase_impl(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_n,
+                               double margin, int32_t* pairs, int32_t pair_capacity, int32_t flags) {
+    const Columns C = columns(bodies, capacity);
+    const double* px = C.f[CP_POS_X];
+    const double* py = C.f[CP_POS_Y];
+    const double* pz = C.f[CP_POS_Z];
+    const double* hw = C.f[CP_HALF_WIDTH];
+    const double* hh = C.f[CP_HEIGHT];
+    uint32_t* cell_hash = C.u[CP_CELL_HASH];
+    uint32_t* sorted = C.u[CP_SORTED];
 
     // Cell edge >= largest extent + margin: two overlapping bodies then have
     // min corners less than one cell apart, so the 27-cell neighbourhood of
@@ -72,16 +41,15 @@ CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, i
     if (cell < MIN_CELL) cell = MIN_CELL;
     const double inv = 1.0 / cell;
 
-    const int32_t buckets_n = cp_bucket_count(capacity);
+    // Hash and count in one pass. Counting sort; afterwards buckets[b] is the
+    // END of bucket b, and its start is buckets[b - 1] (0 for b == 0).
     const uint32_t mask = (uint32_t) buckets_n - 1u;
-    for (int32_t i = 0; i < count; i++) {
-        cell_hash[i] = hash_cell(ifloor((px[i] - hw[i]) * inv), ifloor(py[i] * inv), ifloor((pz[i] - hw[i]) * inv)) & mask;
-    }
-
-    // Counting sort; afterwards buckets[b] is the END of bucket b, and its
-    // start is buckets[b - 1] (0 for b == 0).
     std::memset(buckets, 0, sizeof(int32_t) * (size_t) (buckets_n + 1));
-    for (int32_t i = 0; i < count; i++) buckets[cell_hash[i]]++;
+    for (int32_t i = 0; i < count; i++) {
+        const uint32_t h = hash_cell(ifloor((px[i] - hw[i]) * inv), ifloor(py[i] * inv), ifloor((pz[i] - hw[i]) * inv)) & mask;
+        cell_hash[i] = h;
+        buckets[h]++;
+    }
     int32_t run = 0;
     for (int32_t b = 0; b < buckets_n; b++) {
         const int32_t c = buckets[b];
@@ -134,5 +102,3 @@ CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, i
     }
     return found > 0x7FFFFFFF ? 0x7FFFFFFF : (int32_t) found;
 }
-
-}  // extern "C"

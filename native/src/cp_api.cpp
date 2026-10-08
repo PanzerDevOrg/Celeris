@@ -111,8 +111,24 @@ cp::step_fn step_for(int32_t isa) {
     }
 }
 
+cp::broadphase_fn broadphase_for(int32_t isa) {
+    switch (isa) {
+#if defined(CP_HAVE_AVX2)
+        case CP_ISA_AVX2: return &cp::avx2::broadphase;
+#endif
+#if defined(CP_HAVE_AVX512)
+        case CP_ISA_AVX512: return &cp::avx512::broadphase;
+#endif
+#if defined(CP_HAVE_NEON)
+        case CP_ISA_NEON: return &cp::neon::broadphase;
+#endif
+        default: return &cp::generic::broadphase;
+    }
+}
+
 std::atomic<int32_t> g_isa{best_isa()};
 std::atomic<cp::step_fn> g_step{step_for(best_isa())};
+std::atomic<cp::broadphase_fn> g_broadphase{broadphase_for(best_isa())};
 
 }  // namespace
 
@@ -133,6 +149,7 @@ CP_EXPORT int32_t cp_active_isa(void) {
 CP_EXPORT int32_t cp_force_isa(int32_t isa) {
     if (isa_supported(isa)) {
         g_step.store(step_for(isa), std::memory_order_relaxed);
+        g_broadphase.store(broadphase_for(isa), std::memory_order_relaxed);
         g_isa.store(isa, std::memory_order_relaxed);
     }
     return g_isa.load(std::memory_order_relaxed);
@@ -152,6 +169,27 @@ CP_EXPORT int32_t cp_step(void* bodies, int32_t capacity, const cp_terrain* terr
         return -1;
     }
     return g_step.load(std::memory_order_relaxed)(bodies, capacity, terrain, begin, end, mode);
+}
+
+CP_EXPORT int32_t cp_bucket_count(int32_t capacity) {
+    int64_t want = (int64_t) capacity * 2;
+    int64_t t = 16;
+    while (t < want) t <<= 1;
+    return (int32_t) t;
+}
+
+CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_len,
+                                double margin, int32_t* pairs, int32_t pair_capacity, int32_t flags) {
+    if (bodies == nullptr || ((uintptr_t) bodies & 63u) != 0 || capacity <= 0 || (capacity % CP_LANE_PAD) != 0
+            || count < 0 || count > capacity || buckets == nullptr || buckets_len < cp_bucket_count(capacity) + 1
+            || pair_capacity < 0 || (pairs == nullptr && pair_capacity > 0)) {
+        return -1;
+    }
+    if (count < 2) {
+        return 0;
+    }
+    return g_broadphase.load(std::memory_order_relaxed)(bodies, capacity, count, buckets, cp_bucket_count(capacity),
+                                                          margin, pairs, pair_capacity, flags);
 }
 
 }  // extern "C"
