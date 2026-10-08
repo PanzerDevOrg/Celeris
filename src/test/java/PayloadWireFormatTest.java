@@ -73,6 +73,26 @@ class PayloadWireFormatTest {
     }
 
     @Test
+    void ownedVariantsSkipTheCopyButNotTheFormat() {
+        byte[] small = compressible(100);
+        CompressedPayload a = PayloadCompression.compressOwned(small);
+        assertFalse(a.compressed());
+        assertSame(small, a.data(), "compressOwned hands the caller's array to the payload");
+        assertSame(a.data(), PayloadCompression.decompressOwned(a), "decompressOwned returns the payload's array");
+
+        byte[] big = compressible(20_000);
+        CompressedPayload copied = PayloadCompression.compress(big);
+        CompressedPayload owned = PayloadCompression.compressOwned(big.clone());
+        assertTrue(owned.compressed());
+        assertArrayEquals(copied.data(), owned.data(), "same bytes on the wire");
+        assertEquals(copied.originalSize(), owned.originalSize());
+        assertArrayEquals(big, PayloadCompression.decompressOwned(owned));
+
+        CompressedPayload tooBig = new CompressedPayload(copied.data(), true, PayloadCompression.MAX_DECOMPRESSED_SIZE + 1);
+        assertThrows(IllegalArgumentException.class, () -> PayloadCompression.decompressOwned(tooBig));
+    }
+
+    @Test
     void declaredSizeIsEnforced() {
         byte[] original = compressible(10_000);
         CompressedPayload good = PayloadCompression.compress(original);
