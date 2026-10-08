@@ -49,6 +49,23 @@ pluginManager.withPlugin("net.neoforged.moddev") { configure<NeoForgeExtension> 
     }
 } }
 
+// Fabric: the Mod Menu config-screen entrypoint (CelerisModMenu) compiles against
+// Mod Menu's API only; Mod Menu is neither bundled nor required (it calls the
+// entrypoint when installed). 1.21.x jars are intermediary-named, so Loom remaps.
+if (modProps.isFabric) {
+    repositories {
+        maven("https://maven.terraformersmc.com/releases/") {
+            name = "Terraformers"
+            content { includeGroup("com.terraformersmc") }
+        }
+    }
+    val modMenu = "com.terraformersmc:modmenu:${modProps.req(project, "modmenu_version")}"
+    val unobfuscated = !modProps.mcVersion.startsWith("1.")  // 26.x ships with Mojang names
+    dependencies {
+        add(if (unobfuscated) "compileOnly" else "modCompileOnly", modMenu) { isTransitive = false }
+    }
+}
+
 sourceSets.main {
     resources {
         srcDir("src/generated/resources")

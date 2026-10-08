@@ -109,22 +109,29 @@ cache_line_bytes = 64
 compression_threshold_bytes = 256
 compression_algo = "zstd"
 
+# modmenu_version: Mod Menu (Fabric) whose API the config-screen entrypoint
+# compiles against (compile only: not bundled, not required). From
+# https://github.com/TerraformersMC/ModMenu/releases, one per Minecraft version.
 ["1.21.1"]
 minecraft_version_range = "[1.21,1.21.7)"
 neo_version_range = "[21.0,21.7)"
 game_versions = ["1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6"]
+modmenu_version = "11.0.5"
 
 ["1.21.10"]
 minecraft_version_range = "[1.21.7,1.21.11)"
 neo_version_range = "[21.7,21.11)"
 game_versions = ["1.21.7", "1.21.8", "1.21.9", "1.21.10"]
+modmenu_version = "16.0.1"
 
 ["1.21.11"]
 minecraft_version_range = "[1.21.11,1.21.12)"
 neo_version_range = "[21.11,21.12)"
 game_versions = ["1.21.11"]
+modmenu_version = "17.0.1"
 
 ["26.1"]
 minecraft_version_range = "[26.1,26.4)"
 neo_version_range = "[26.1,26.4)"
 game_versions = ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"]
+modmenu_version = "18.0.2"
