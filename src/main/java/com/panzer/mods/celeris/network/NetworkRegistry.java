@@ -7,9 +7,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.registration.HandlerThread;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 //? >1.21.6 {
 /*import net.neoforged.neoforge.client.network.ClientPacketDistributor;
@@ -30,7 +29,6 @@ import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
  */
 public final class NetworkRegistry {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NetworkRegistry.class);
     private static final String NETWORK_VERSION = "1";
 
     private NetworkRegistry() {
@@ -45,7 +43,8 @@ public final class NetworkRegistry {
      * server that has it, and keep Celeris users off servers without it.
      */
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(NETWORK_VERSION).optional();
+        // Handled on the network thread (NeoForge's default is the main one): see PayloadReceiver.
+        PayloadRegistrar registrar = event.registrar(NETWORK_VERSION).optional().executesOn(HandlerThread.NETWORK);
 
         registrar.playBidirectional(
                 CompressedPayload.TYPE,
@@ -64,28 +63,11 @@ public final class NetworkRegistry {
     }
 
     private static void handleOnClient(CompressedPayload payload, IPayloadContext context) {
-        handlePayload("client", payload, context);
+        PayloadReceiver.receive("client", payload);
     }
 
     private static void handleOnServer(CompressedPayload payload, IPayloadContext context) {
-        handlePayload("server", payload, context);
-    }
-
-    private static void handlePayload(String side, CompressedPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            byte[] decompressed;
-            try {
-                decompressed = PayloadCompression.decompress(payload);
-            } catch (RuntimeException e) {
-                // Peer-controlled input: a malformed or oversized payload is
-                // dropped, never allowed to throw into the main thread's task queue.
-                LOGGER.warn("Celeris ({}): dropping invalid payload ({} bytes on wire): {}",
-                        side, payload.data().length, e.toString());
-                return;
-            }
-            LOGGER.debug("Celeris ({}): received {} bytes ({} on wire, compressed={})",
-                    side, decompressed.length, payload.data().length, payload.compressed());
-        });
+        PayloadReceiver.receive("server", payload);
     }
 
     /** Whether the server this client is connected to has Celeris's channel. Client-side only. */
@@ -130,8 +112,6 @@ public final class NetworkRegistry {
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /^*
  * Registers {@link CompressedPayload} with Fabric API's networking and
@@ -145,8 +125,6 @@ import org.slf4j.LoggerFactory;
  ^/
 public final class NetworkRegistry {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NetworkRegistry.class);
-
     private NetworkRegistry() {
     }
 
@@ -154,28 +132,13 @@ public final class NetworkRegistry {
     public static void register() {
         FabricPayloads.registerBothWays();
         ServerPlayNetworking.registerGlobalReceiver(CompressedPayload.TYPE,
-                (payload, context) -> context.server().execute(() -> handlePayload("server", payload)));
+                (payload, context) -> PayloadReceiver.receive("server", payload));
     }
 
     /^* Registers the client-side receiver. Called once by Celeris's client entrypoint. ^/
     public static void registerClient() {
         ClientPlayNetworking.registerGlobalReceiver(CompressedPayload.TYPE,
-                (payload, context) -> context.client().execute(() -> handlePayload("client", payload)));
-    }
-
-    private static void handlePayload(String side, CompressedPayload payload) {
-        byte[] decompressed;
-        try {
-            decompressed = PayloadCompression.decompress(payload);
-        } catch (RuntimeException e) {
-            // Peer-controlled input: a malformed or oversized payload is
-            // dropped, never allowed to throw into the main thread's task queue.
-            LOGGER.warn("Celeris ({}): dropping invalid payload ({} bytes on wire): {}",
-                    side, payload.data().length, e.toString());
-            return;
-        }
-        LOGGER.debug("Celeris ({}): received {} bytes ({} on wire, compressed={})",
-                side, decompressed.length, payload.data().length, payload.compressed());
+                (payload, context) -> PayloadReceiver.receive("client", payload));
     }
 
     /^* Whether the server this client is connected to has Celeris's channel. Client-side only. ^/
