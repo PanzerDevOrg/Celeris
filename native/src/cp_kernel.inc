@@ -42,8 +42,36 @@ inline Columns columns(void* base, int32_t capacity) {
     return c;
 }
 
-inline int32_t ifloor(double v) { return (int32_t) std::floor(v); }
-inline int32_t iceil(double v) { return (int32_t) std::ceil(v); }
+// Inputs a body may carry and still be simulated; anything else (NaN, +-Inf,
+// 1e300, teleports to +-3e9) is deferred to vanilla before any arithmetic.
+// With them every coordinate the kernel floors stays far inside the clamp below.
+constexpr double POS_LIMIT = 1.0e8;    // blocks; the world border ends at 3e7
+constexpr double VEL_LIMIT = 1.0e7;    // blocks per tick
+constexpr double SIZE_LIMIT = 1.0e4;   // half width / height, blocks
+
+inline bool within(double v, double limit) { return std::fabs(v) <= limit; }  // false for NaN
+
+// floor/ceil to int without undefined behaviour: the value is clamped to
+// [INT_MIN/2, INT_MAX/2] BEFORE the cast (NaN -> INT_MIN/2), so the cast is
+// always in range and sums/differences of two results cannot overflow.
+// JavaPhysicsKernel.ifloor/iceil clamp the same way, so results stay equal.
+constexpr double INT_LO = -1073741824.0;
+constexpr double INT_HI = 1073741823.0;
+// max then min: lo = v > INT_LO ? v : INT_LO (NaN -> INT_LO), then
+// lo < INT_HI ? lo : INT_HI. On x86 that is exactly MAXSD/MINSD (SSE2, so
+// every x86-64 CPU), written as intrinsics because compilers only emit them
+// for the ternaries under -ffinite-math-only; elsewhere the ternaries.
+inline double clamp_int(double v) {
+#if defined(__SSE2__) || defined(_M_X64)
+    const __m128d c = _mm_min_sd(_mm_max_sd(_mm_set_sd(v), _mm_set_sd(INT_LO)), _mm_set_sd(INT_HI));
+    return _mm_cvtsd_f64(c);
+#else
+    const double lo = v > INT_LO ? v : INT_LO;
+    return lo < INT_HI ? lo : INT_HI;
+#endif
+}
+inline int32_t ifloor(double v) { return (int32_t) std::floor(clamp_int(v)); }
+inline int32_t iceil(double v) { return (int32_t) std::ceil(clamp_int(v)); }
 inline bool is_solid(uint32_t c) { return (c - 1u) < 0xFEu; }
 
 // c ? a : b without a branch: the operands are data-dependent coin flips
@@ -266,6 +294,16 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     const uint32_t deferred_flags = (flags & ~(CP_FLAG_DEFERRED | CP_FLAG_MOVED | CP_FLAG_HELD | CP_PHASE_MASK))
             | CP_FLAG_DEFERRED | next_phase;
 
+    // Non-finite or out-of-range state: vanilla handles it, nothing else is read.
+    if (!(within(x, POS_LIMIT) & within(y, POS_LIMIT) & within(z, POS_LIMIT)
+            & within(vx, VEL_LIMIT) & within(vy, VEL_LIMIT) & within(vz, VEL_LIMIT)
+            & within(hw, SIZE_LIMIT) & within(h, SIZE_LIMIT))) {
+        *fh = 1.0;
+        *fv = 1.0;
+        C.u[CP_FLAGS][i] = deferred_flags;
+        return 1;
+    }
+
     const double x0 = x - hw, x1 = x + hw, y0 = y, y1 = y + h, z0 = z - hw, z1 = z + hw;
 
     // ItemEntity: moves only if !onGround || horizontalDistanceSqr() > 1.0E-5F || (tickCount + id) % 4 == 0
@@ -291,13 +329,14 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     // Each axis is checked on its own BEFORE the product: three spans of a few
     // million blocks multiply past 2^63 and wrap (2^22 * 2^21 * 2^21 = 2^64 -> 0),
     // which passed the MAX_CELLS test and let the gather write past L.cell.
-    // The span itself is computed in 64 bits.
+    // (ifloor/iceil are clamped to +-2^30, so the difference fits in int32.)
     bool too_big = false;
     for (int a = 0; a < 3; a++) {
         L.lo[a] = ifloor(e0[a]);
-        const int64_t n = (int64_t) iceil(e1[a]) - L.lo[a];
+        int32_t n = iceil(e1[a]) - L.lo[a];
         too_big |= n > MAX_CELLS;
-        L.n[a] = n < 0 ? 0 : n > MAX_CELLS ? MAX_CELLS : (int32_t) n;
+        n = n & ~(n >> 31);                // max(n, 0)
+        L.n[a] = n < MAX_CELLS ? n : MAX_CELLS;
     }
     // At most MAX_CELLS^3 here, so the product cannot overflow.
     const int64_t cells = (int64_t) L.n[0] * L.n[1] * L.n[2];
