@@ -26,7 +26,7 @@ package com.panzer.mods.celeris.physics;
  */
 public final class BodyLayout {
 
-    public static final int ABI_VERSION = 2;
+    public static final int ABI_VERSION = 3;
     public static final int LANE_PAD = 16;
     public static final long ALIGNMENT = 64;
 
@@ -115,7 +115,7 @@ public final class BodyLayout {
 
     /** Same encoding as the native {@code cp_layout_signature()}. */
     public static int signature() {
-        return (F64_COLUMNS << 16) | (U32_COLUMNS << 8) | LANE_PAD;
+        return (ABI_VERSION << 24) | (F64_COLUMNS << 16) | (U32_COLUMNS << 8) | LANE_PAD;
     }
 
     /** Hash buckets the broadphase needs for this capacity (power of two, &gt;= 2 * capacity). */

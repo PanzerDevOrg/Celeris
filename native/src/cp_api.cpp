@@ -123,7 +123,7 @@ CP_EXPORT int32_t cp_abi_version(void) {
 }
 
 CP_EXPORT int32_t cp_layout_signature(void) {
-    return (CP_F64_COLUMNS << 16) | (CP_U32_COLUMNS << 8) | CP_LANE_PAD;
+    return (CP_ABI_VERSION << 24) | (CP_F64_COLUMNS << 16) | (CP_U32_COLUMNS << 8) | CP_LANE_PAD;
 }
 
 CP_EXPORT int32_t cp_active_isa(void) {
@@ -142,7 +142,12 @@ CP_EXPORT int32_t cp_step(void* bodies, int32_t capacity, const cp_terrain* terr
                           int32_t begin, int32_t end, int32_t mode) {
     // Misuse would corrupt the JVM heap silently; refuse instead. The Java
     // side never trips these, they guard hand-written callers.
-    if (bodies == nullptr || terrain == nullptr || capacity <= 0 || (capacity % CP_LANE_PAD) != 0
+    // The SIMD passes use aligned 64-byte loads (a misaligned slab faults in
+    // gravity_lanes), and every terrain lookup dereferences the three tables.
+    if (bodies == nullptr || ((uintptr_t) bodies & 63u) != 0 || terrain == nullptr
+            || terrain->directory == nullptr || terrain->pages == nullptr || terrain->friction == nullptr
+            || terrain->size_x < 0 || terrain->size_y < 0 || terrain->size_z < 0
+            || capacity <= 0 || (capacity % CP_LANE_PAD) != 0
             || begin < 0 || end > capacity || (begin % CP_LANE_PAD) != 0) {
         return -1;
     }
