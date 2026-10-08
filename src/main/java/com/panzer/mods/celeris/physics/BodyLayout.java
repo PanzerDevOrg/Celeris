@@ -30,8 +30,38 @@ public final class BodyLayout {
     public static final int LANE_PAD = 16;
     public static final long ALIGNMENT = 64;
 
-    /** Bodies per parallel work unit: a multiple of {@link #LANE_PAD}, ~100 KB of hot columns (fits L2). */
+    /** Largest parallel work unit: a multiple of {@link #LANE_PAD}, ~100 KB of hot columns (fits L2). */
     public static final int CHUNK = 1024;
+    /** Smallest parallel work unit: below this a unit costs less than handing it to a worker. */
+    public static final int MIN_UNIT = 256;
+    /**
+     * Bodies from which {@code step} uses the worker threads ({@code -Dceleris.physics.parallelThreshold}).
+     * A step of 2048 bodies takes ~150-200 µs on one thread; waking the workers costs ~10-50 µs.
+     */
+    public static final int PARALLEL_THRESHOLD = Integer.getInteger("celeris.physics.parallelThreshold", 2048);
+    /** Room for one deferred count per work unit, each on its own cache line (16 ints). */
+    public static final int RESULT_STRIDE = 16;
+
+    /**
+     * Bodies per work unit for a step over {@code size} bodies with {@code threads}
+     * workers plus the stepping thread: about four units per thread, so the
+     * dynamic claiming can even out units whose collision cost differs, between
+     * {@link #MIN_UNIT} and {@link #CHUNK}, a multiple of {@link #LANE_PAD} (the
+     * native kernel's SIMD passes start and end on whole vectors).
+     */
+    public static int unit(int size, int threads) {
+        if (threads <= 0 || size < PARALLEL_THRESHOLD) {
+            return CHUNK;
+        }
+        int per = size / ((threads + 1) * 4);
+        per = (per + LANE_PAD - 1) & -LANE_PAD;
+        return Math.max(MIN_UNIT, Math.min(CHUNK, per));
+    }
+
+    /** Size of a per-unit deferred-count array for a batch of {@code capacity} bodies. */
+    public static int resultSlots(int capacity) {
+        return ((capacity + MIN_UNIT - 1) / MIN_UNIT) * RESULT_STRIDE;
+    }
 
     // f64 columns
     public static final int POS_X = 0;

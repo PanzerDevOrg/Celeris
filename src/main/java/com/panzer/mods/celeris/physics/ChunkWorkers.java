@@ -23,11 +23,14 @@ public final class ChunkWorkers implements AutoCloseable {
         void run(int chunk);
     }
 
-    private static final int NEXT = 0;
-    private static final int DONE = 8;
+    // Each counter on its own cache line, away from the array header too.
+    private static final int NEXT = 8;
+    private static final int DONE = 16;
+    /** How long a worker keeps polling for the next run before it parks (a step and a broadphase, or several levels, per tick). */
+    private static final long SPIN_NANOS = Long.getLong("celeris.physics.workerSpinNanos", 30_000L);
 
     private final Thread[] threads;
-    private final AtomicLongArray counters = new AtomicLongArray(16);
+    private final AtomicLongArray counters = new AtomicLongArray(24);
     private volatile ChunkTask task;
     private volatile int chunks;
     private volatile int generation;
@@ -70,8 +73,11 @@ public final class ChunkWorkers implements AutoCloseable {
         this.task = task;
         this.chunks = chunkCount;
         generation = gen; // volatile write publishes task/chunks/counters
-        for (Thread t : threads) {
-            LockSupport.unpark(t);
+        // The calling thread takes chunks too: wake no more workers than there
+        // are other chunks for (a parked worker costs a futex wake, a spinning
+        // one notices the new generation by itself).
+        for (int i = 0, n = Math.min(threads.length, chunkCount - 1); i < n; i++) {
+            LockSupport.unpark(threads[i]);
         }
         drain(task, chunkCount, gen);
         int spins = 0;
@@ -114,8 +120,15 @@ public final class ChunkWorkers implements AutoCloseable {
         while (!closed) {
             int gen = generation;
             if (gen == seen) {
-                LockSupport.park(this);
-                continue;
+                // Poll briefly first: back-to-back runs then start without a wake-up.
+                long until = System.nanoTime() + SPIN_NANOS;
+                while ((gen = generation) == seen && !closed && System.nanoTime() < until) {
+                    Thread.onSpinWait();
+                }
+                if (gen == seen) {
+                    LockSupport.park(this);
+                    continue;
+                }
             }
             seen = gen;
             ChunkTask t = task;
