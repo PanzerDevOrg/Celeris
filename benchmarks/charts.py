@@ -93,4 +93,48 @@ ax.grid(axis="y", color=GRID); ax.set_axisbelow(True)
 ax.set_title("Handing results to the game thread", loc="left", fontsize=15, fontweight="bold", color=INK, pad=26)
 ax.text(0, 1.02, "Workers send 8-byte results to one consumer; 20 M per round, median of 9. JDK 21, 4 vCPU.", transform=ax.transAxes, fontsize=10, color=MUTED)
 fig.tight_layout(); fig.savefig(OUT / "queues.png", dpi=160, facecolor="white"); plt.close(fig)
+# ---- broadphase on item piles: before (full count) vs now (stop at capacity), log scale
+bp = jmh("broadphase.json")
+def bpv(items, kernel, scan): return bp[("broadphase", (("items", str(items)), ("kernel", kernel), ("scan", scan)))]
+groups = [(4096, "java"), (4096, "native"), (16384, "java"), (16384, "native")]
+labels = [f"{n:,} items · {'Java' if k == 'java' else 'native'}" for n, k in groups]
+full = [bpv(n, k, "full") / 1000 for n, k in groups]
+stop = [bpv(n, k, "stop") / 1000 for n, k in groups]
+fig, ax = plt.subplots(figsize=(10, 4.4))
+y = np.arange(len(groups))[::-1]
+ax.barh(y + 0.2, full, 0.38, color=OTHERS[2], label="Before: every overlapping pair counted")
+ax.barh(y - 0.2, stop, 0.38, color=CEL, label="0.2.3: stops once the pair buffer is full")
+ax.set_xscale("log")
+for yy, f_, s_ in zip(y, full, stop):
+    ax.text(f_ * 1.12, yy + 0.2, f"{f_:,.1f} ms", va="center", fontsize=10, color=MUTED)
+    ax.text(s_ * 1.12, yy - 0.2, f"{s_:.2f} ms  ({f_ / s_:,.0f}× faster)", va="center", fontsize=10, color=INK, fontweight="bold")
+ax.set_yticks(y); ax.set_yticklabels(labels); ax.set_xlabel("milliseconds per call, log scale (lower is faster)")
+ax.set_xlim(min(stop) / 2, max(full) * 8); ax.legend(loc="lower right", frameon=False, fontsize=10)
+finish(fig, ax, "Finding touching items in a pile", "n items dropped into one block (~n²/2 overlapping pairs), pair buffer of n. JMH, JDK 21.", "broadphase.png")
+# ---- in-game: server tick time with N dropped items (panzer-build-logic perf-test, mspt-<mc>.json)
+games = sorted(B.glob("mspt-*.json"))
+if games:
+    fig, axes = plt.subplots(1, len(games), figsize=(5.4 * len(games), 4.6), squeeze=False)
+    for ax, path in zip(axes[0], games):
+        data = json.load(open(path))
+        res = {r["config"]: {run["items"]: run for run in r.get("runs", [])} for r in data["results"]}
+        vanilla = next(k for k in res if "no mods" in k)
+        velox = next(k for k in res if "native" in k)
+        counts = sorted(res[vanilla])
+        x = np.arange(len(counts)); w = 0.38
+        van = [res[vanilla][n]["resting_ms"] for n in counts]
+        vel = [res[velox][n]["resting_ms"] for n in counts]
+        ax.bar(x - w / 2, van, w, color=OTHERS[2], label="Vanilla (NeoForge, no mods)")
+        ax.bar(x + w / 2, vel, w, color=CEL, label="Velox + Celeris native kernel")
+        for xx, a, b in zip(x, van, vel):
+            ax.text(xx - w / 2, a * 1.02, f"{a:.1f}", ha="center", fontsize=9, color=MUTED)
+            ax.text(xx + w / 2, b * 1.02, f"{b:.1f}\n{a / b:.1f}×", ha="center", fontsize=9, color=INK, fontweight="bold")
+        ax.axhline(50, color="#ef4444", lw=1, ls="--"); ax.text(len(counts) - 0.5, 51, "50 ms = 20 TPS", ha="right", fontsize=8.5, color="#ef4444")
+        ax.set_xticks(x); ax.set_xticklabels([f"{n:,} items" for n in counts])
+        ax.set_title(f"Minecraft {data['minecraft']}", loc="left", fontsize=12, color=INK)
+        ax.set_ylabel("ms per server tick (lower is faster)"); ax.grid(axis="y", color=GRID); ax.set_axisbelow(True)
+    axes[0][0].legend(frameon=False, fontsize=9.5, loc="upper left")
+    fig.suptitle("Real server: tick time with items resting on the ground", x=0.01, ha="left", fontsize=15, fontweight="bold", color=INK)
+    fig.text(0.01, 0.885, "Dedicated NeoForge server, vanilla tick sprint, GitHub Actions runner (4 vCPU).", fontsize=10, color=MUTED)
+    fig.tight_layout(rect=(0, 0, 1, 0.88)); fig.savefig(OUT / "ingame.png", dpi=160, facecolor="white"); plt.close(fig)
 print("ok")

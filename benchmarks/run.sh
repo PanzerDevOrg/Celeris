@@ -21,6 +21,7 @@ jmh CompressionBench -jvmArgsAppend "-Dbench.binding=jni" -rf json -rff "$res/co
 jmh "CompressionBench.celeris" -jvmArgsAppend "--enable-preview -Dbench.binding=ffm" -rf json -rff "$res/compress-ffm.json"
 jmh PhysicsBench -jvmArgsAppend "--enable-preview -Dceleris.physics.threads=0" -rf json -rff "$res/physics-1t.json"
 jmh PhysicsBench -p items=32768 -jvmArgsAppend "--enable-preview -Dceleris.physics.threads=3" -rf json -rff "$res/physics-mt.json"
+jmh BroadphaseBench -jvmArgsAppend "--enable-preview" -rf json -rff "$res/broadphase.json"
 java -cp "$cp" bench.QueueBench > "$res/queues-after.csv"
 
 python3 "$here/charts.py" "$res" "$here/../docs/media/benchmarks"
