@@ -28,11 +28,17 @@ void damp_lanes(double* vx, double* vy, double* vz, const double* fh, const doub
 }
 
 #include "cp_kernel.inc"
+#include "cp_broadphase.inc"
 
 }  // namespace
 
 int32_t step(void* bodies, int32_t capacity, const cp_terrain* terrain, int32_t begin, int32_t end, int32_t mode) {
     return step_impl(bodies, capacity, terrain, begin, end, mode);
+}
+
+int32_t broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_n,
+                   double margin, int32_t* pairs, int32_t pair_capacity, int32_t flags) {
+    return broadphase_impl(bodies, capacity, count, buckets, buckets_n, margin, pairs, pair_capacity, flags);
 }
 
 }  // namespace neon

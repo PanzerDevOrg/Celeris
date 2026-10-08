@@ -32,7 +32,7 @@ else()
     set(CP_ARCH generic)
 endif()
 
-set(CP_SOURCES src/cp_api.cpp src/cp_broadphase.cpp src/cp_isa_generic.cpp)
+set(CP_SOURCES src/cp_api.cpp src/cp_isa_generic.cpp)
 set(CP_DEFINES)
 
 if(CP_ARCH STREQUAL "x86_64")

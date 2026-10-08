@@ -6,7 +6,7 @@ import static com.panzer.mods.celeris.physics.BodyLayout.LANE_PAD;
  * Reference implementation of the physics kernel, in plain Java over a
  * {@link HeapBodyBatch}. It is both the engine on JVMs without FFM and the
  * specification: {@code native/src/cp_kernel.inc} and {@code
- * cp_broadphase.cpp} are line-for-line ports of it, and the parity tests
+ * cp_broadphase.inc} are line-for-line ports of it, and the parity tests
  * require bit-identical results. Keep the three in lock-step.
  *
  * <p>Semantics: Minecraft 1.21 {@code Entity.move} + {@code ItemEntity.tick}
@@ -529,7 +529,7 @@ final class JavaPhysicsKernel {
         return (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
     }
 
-    /** Spatial hash + counting sort, O(n); same hash and visiting order as cp_broadphase.cpp. */
+    /** Spatial hash + counting sort, O(n); same hash and visiting order as cp_broadphase.inc. */
     static int broadphase(HeapBodyBatch b, int count, double margin, int[] pairs, int pairCapacity,
                           boolean stopAtCapacity) {
         if (count < 2 || count > b.capacity()) {
@@ -555,14 +555,13 @@ final class JavaPhysicsKernel {
 
         int bucketsN = BodyLayout.bucketCount(b.capacity());
         int mask = bucketsN - 1;
-        for (int i = 0; i < count; i++) {
-            cellHash[i] = hashCell(ifloor((px[i] - hw[i]) * inv), ifloor(py[i] * inv), ifloor((pz[i] - hw[i]) * inv)) & mask;
-        }
-
-        // Counting sort; afterwards buckets[b] is the END of bucket b, its start buckets[b - 1].
+        // Hash and count in one pass. Counting sort; afterwards buckets[b] is the
+        // END of bucket b, its start buckets[b - 1].
         java.util.Arrays.fill(buckets, 0, bucketsN + 1, 0);
         for (int i = 0; i < count; i++) {
-            buckets[cellHash[i]]++;
+            int h = hashCell(ifloor((px[i] - hw[i]) * inv), ifloor(py[i] * inv), ifloor((pz[i] - hw[i]) * inv)) & mask;
+            cellHash[i] = h;
+            buckets[h]++;
         }
         int run = 0;
         for (int k = 0; k < bucketsN; k++) {
