@@ -18,9 +18,7 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     private static final ValueLayout.OfDouble F64 = ValueLayout.JAVA_DOUBLE;
     private static final ValueLayout.OfInt U32 = ValueLayout.JAVA_INT;
     /** Chunk results are written 64 bytes apart so workers never share a line. */
-    private static final int RESULT_STRIDE = 16;
     /** Below this many bodies a step runs on the calling thread: waking workers costs more. */
-    static final int PARALLEL_THRESHOLD = Integer.getInteger("celeris.physics.parallelThreshold", 4 * CHUNK);
 
     private final Arena arena = Arena.ofShared();
     private final PhysicsKernel kernel;
@@ -39,6 +37,8 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     // ChunkWorkers' volatile generation write.
     private SegmentTerrain stepTerrain;
     private int stepMode;
+    /** Bodies per work unit of the current step ({@link BodyLayout#unit}). */
+    private int stepUnit = CHUNK;
 
     SegmentBodyBatch(PhysicsKernel kernel, int requestedCapacity, PhysicsMode mode, int pairCapacity) {
         this.kernel = kernel;
@@ -48,7 +48,7 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         this.buckets = arena.allocate((long) (bucketCount(capacity) + 1) * Integer.BYTES, ALIGNMENT);
         this.pairCapacity = Math.max(0, pairCapacity);
         this.pairs = arena.allocate(Math.max(8L, 8L * this.pairCapacity), ALIGNMENT);
-        this.chunkDeferred = new int[((capacity + CHUNK - 1) / CHUNK) * RESULT_STRIDE];
+        this.chunkDeferred = new int[BodyLayout.resultSlots(capacity)];
         // Padding lanes must stay inert for the SIMD passes.
         for (int i = 0; i < capacity; i++) {
             slab.set(F64, f64Offset(FACTOR_H, capacity) + ((long) i << 3), 1.0);
@@ -208,9 +208,11 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     public int step(TerrainView terrain, int rules) {
         stepTerrain = (SegmentTerrain) terrain;
         stepMode = mode.nativeMode() | rules;
-        int chunks = (size + CHUNK - 1) / CHUNK;
-        if (size >= PARALLEL_THRESHOLD) {
-            CelerisPhysics.workers().run(this, chunks);
+        ChunkWorkers workers = size >= PARALLEL_THRESHOLD ? CelerisPhysics.workers() : null;
+        stepUnit = BodyLayout.unit(size, workers == null ? 0 : workers.threadCount());
+        int chunks = (size + stepUnit - 1) / stepUnit;
+        if (workers != null) {
+            workers.run(this, chunks);
         } else {
             for (int c = 0; c < chunks; c++) {
                 run(c);
@@ -222,7 +224,7 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         int total = 0;
         for (int c = 0; c < chunks; c++) {
             int d = chunkDeferred[c * RESULT_STRIDE];
-            int from = c * CHUNK;
+            int from = c * stepUnit;
             if (from != total) {
                 for (int k = 0; k < d; k++) {
                     slab.set(U32, list + ((long) (total + k) << 2), slab.get(U32, list + ((long) (from + k) << 2)));
@@ -238,8 +240,8 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     /** One chunk; called on the stepping thread or a worker. */
     @Override
     public void run(int chunk) {
-        int begin = chunk * CHUNK;
-        int end = Math.min(begin + CHUNK, size);
+        int begin = chunk * stepUnit;
+        int end = Math.min(begin + stepUnit, size);
         chunkDeferred[chunk * RESULT_STRIDE] = kernel.step(slab, capacity, stepTerrain, begin, end, stepMode);
     }
 

@@ -121,6 +121,44 @@ final class JavaPhysicsKernel {
             return pages[page * TerrainView.SECTION_BYTES + HeapTerrain.local(x, y, z)] & 0xFF;
         }
 
+        /**
+         * Offset of the page every block of the box lies in, when the box fits in
+         * one loaded section (an item's box nearly always does), else -1: lets
+         * the scans index the page directly instead of resolving the section for
+         * every block. Same lookups as {@link #terrain}, so the same results.
+         */
+        int singlePage(int x0, int y0, int z0, int x1, int y1, int z1) {
+            if ((((x0 ^ x1) | (y0 ^ y1) | (z0 ^ z1)) & ~15) != 0) {
+                return -1;
+            }
+            int dx = (x0 >> 4) - ox, dy = (y0 >> 4) - oy, dz = (z0 >> 4) - oz;
+            if (Integer.compareUnsigned(dx, sx) >= 0 | Integer.compareUnsigned(dy, sy) >= 0
+                    | Integer.compareUnsigned(dz, sz) >= 0) {
+                return -1;
+            }
+            int page = directory[(dy * sz + dz) * sx + dx];
+            return page < 0 ? -1 : page * TerrainView.SECTION_BYTES;
+        }
+
+        /** Whether any block of the box is solid or not modelled (COMPLEX). */
+        boolean boxBlocked(int x0, int y0, int z0, int x1, int y1, int z1) {
+            if (x0 > x1 || y0 > y1 || z0 > z1) {
+                return false;
+            }
+            int base = singlePage(x0, y0, z0, x1, y1, z1);
+            for (int cz = z0; cz <= z1; cz++) {
+                for (int cy = y0; cy <= y1; cy++) {
+                    for (int cx = x0; cx <= x1; cx++) {
+                        int c = base >= 0 ? pages[base + HeapTerrain.local(cx, cy, cz)] & 0xFF : terrain(cx, cy, cz);
+                        if (c != CellClass.AIR) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         int rank(int x, int y, int z) {
             return ((z - lo[2]) * n[1] + (y - lo[1])) * n[0] + (x - lo[0]);
         }
@@ -264,15 +302,9 @@ final class JavaPhysicsKernel {
         if ((flags & BodyFlags.THROTTLE_RESTING) != 0 && onGround && !(vx * vx + vz * vz > HOLD_SPEED_SQR) && phase != 0) {
             // noPhysics is decided before that test: a box overlapping a block pushes the
             // item out (moveTowardsClosestSpace), which may make it move this tick.
-            for (int cz = ifloor(z0 + EPS); cz <= iceil(z1 - EPS) - 1; cz++) {
-                for (int cy = ifloor(y0 + EPS); cy <= iceil(y1 - EPS) - 1; cy++) {
-                    for (int cx = ifloor(x0 + EPS); cx <= iceil(x1 - EPS) - 1; cx++) {
-                        int c = l.terrain(cx, cy, cz);
-                        if (c == CellClass.COMPLEX || solid(c)) {
-                            return defer(b, i, deferredFlags);
-                        }
-                    }
-                }
+            if (l.boxBlocked(ifloor(x0 + EPS), ifloor(y0 + EPS), ifloor(z0 + EPS),
+                    iceil(x1 - EPS) - 1, iceil(y1 - EPS) - 1, iceil(z1 - EPS) - 1)) {
+                return defer(b, i, deferredFlags);
             }
             b.factorH[i] = 1.0;
             b.factorV[i] = 1.0;
@@ -301,10 +333,14 @@ final class JavaPhysicsKernel {
         boolean anyComplex = false;
         l.lastRank = NO_RANK;
         int k = 0;
+        int base = cells > 0
+                ? l.singlePage(l.lo[0], l.lo[1], l.lo[2], l.lo[0] + l.n[0] - 1, l.lo[1] + l.n[1] - 1, l.lo[2] + l.n[2] - 1)
+                : -1;
         for (int cz = 0; cz < l.n[2]; cz++) {
             for (int cy = 0; cy < l.n[1]; cy++) {
                 for (int cx = 0; cx < l.n[0]; cx++, k++) {
-                    int c = l.terrain(l.lo[0] + cx, l.lo[1] + cy, l.lo[2] + cz);
+                    int bx = l.lo[0] + cx, by = l.lo[1] + cy, bz = l.lo[2] + cz;
+                    int c = base >= 0 ? l.pages[base + HeapTerrain.local(bx, by, bz)] & 0xFF : l.terrain(bx, by, bz);
                     l.cell[k] = (byte) c;
                     anyComplex |= c == CellClass.COMPLEX;
                     if (solid(c)) {

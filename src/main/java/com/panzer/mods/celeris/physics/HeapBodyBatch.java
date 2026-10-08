@@ -1,6 +1,8 @@
 package com.panzer.mods.celeris.physics;
 
 import static com.panzer.mods.celeris.physics.BodyLayout.CHUNK;
+import static com.panzer.mods.celeris.physics.BodyLayout.PARALLEL_THRESHOLD;
+import static com.panzer.mods.celeris.physics.BodyLayout.RESULT_STRIDE;
 import static com.panzer.mods.celeris.physics.BodyLayout.roundCapacity;
 
 /**
@@ -15,8 +17,6 @@ import static com.panzer.mods.celeris.physics.BodyLayout.roundCapacity;
 final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
 
     /** Chunk results are written 64 bytes apart so workers never share a line. */
-    private static final int RESULT_STRIDE = 16;
-    static final int PARALLEL_THRESHOLD = Integer.getInteger("celeris.physics.parallelThreshold", 4 * CHUNK);
 
     private final PhysicsMode mode;
     private final int capacity;
@@ -31,6 +31,8 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
 
     private HeapTerrain stepTerrain;
     private int stepMode;
+    /** Bodies per work unit of the current step ({@link BodyLayout#unit}). */
+    private int stepUnit = CHUNK;
 
     HeapBodyBatch(int requestedCapacity, PhysicsMode mode, int pairCapacity) {
         this.mode = mode;
@@ -60,7 +62,7 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         buckets = new int[BodyLayout.bucketCount(c) + 1];
         this.pairCapacity = Math.max(0, pairCapacity);
         this.pairs = new int[2 * this.pairCapacity];
-        this.chunkDeferred = new int[((c + CHUNK - 1) / CHUNK) * RESULT_STRIDE];
+        this.chunkDeferred = new int[BodyLayout.resultSlots(c)];
     }
 
     @Override
@@ -211,9 +213,11 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     public int step(TerrainView terrain, int rules) {
         stepTerrain = (HeapTerrain) terrain;
         stepMode = mode.nativeMode() | rules;
-        int chunks = (size + CHUNK - 1) / CHUNK;
-        if (size >= PARALLEL_THRESHOLD) {
-            CelerisPhysics.workers().run(this, chunks);
+        ChunkWorkers workers = size >= PARALLEL_THRESHOLD ? CelerisPhysics.workers() : null;
+        stepUnit = BodyLayout.unit(size, workers == null ? 0 : workers.threadCount());
+        int chunks = (size + stepUnit - 1) / stepUnit;
+        if (workers != null) {
+            workers.run(this, chunks);
         } else {
             for (int c = 0; c < chunks; c++) {
                 run(c);
@@ -222,7 +226,7 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         int total = 0;
         for (int c = 0; c < chunks; c++) {
             int d = chunkDeferred[c * RESULT_STRIDE];
-            int from = c * CHUNK;
+            int from = c * stepUnit;
             if (from != total) {
                 System.arraycopy(deferredList, from, deferredList, total, d);
             }
@@ -235,8 +239,8 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
 
     @Override
     public void run(int chunk) {
-        int begin = chunk * CHUNK;
-        int end = Math.min(begin + CHUNK, size);
+        int begin = chunk * stepUnit;
+        int end = Math.min(begin + stepUnit, size);
         chunkDeferred[chunk * RESULT_STRIDE] = JavaPhysicsKernel.step(this, stepTerrain, begin, end, stepMode);
     }
 
