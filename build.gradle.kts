@@ -1,6 +1,7 @@
 @file:Suppress("AvoidDuplicateDependencies")
 
 import com.panzer.gradle.PanzerModExtension
+import java.io.File
 import net.neoforged.moddevgradle.dsl.NeoForgeExtension
 
 // panzer.mod: panzer.neoforge-mod on the NeoForge nodes ("1.21.1"),
@@ -108,9 +109,9 @@ tasks.named("processTestResources") {
 abstract class HostCpu : ValueSource<String, ValueSourceParameters.None> {
     override fun obtain(): String {
         val wanted = setOf("avx2", "avx512f", "fma", "bmi2", "asimd", "sve")
-        val cpuinfo = java.io.File("/proc/cpuinfo")
+        val cpuinfo = File("/proc/cpuinfo")
         val flags = if (cpuinfo.isFile) {
-            cpuinfo.useLines { lines ->
+            cpuinfo.useLines { lines: Sequence<String> ->
                 lines.firstOrNull { it.startsWith("flags") || it.startsWith("Features") }
                     ?.substringAfter(':')?.trim()?.split(' ')?.filter { it in wanted }?.sorted()?.joinToString(",")
             } ?: ""
