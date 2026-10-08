@@ -34,6 +34,9 @@ final class NativePhysicsKernel implements PhysicsKernel {
     //?} else
     private static final Linker.Option[] CRITICAL = { Linker.Option.isTrivial() };
 
+    /** CP_BROADPHASE_STOP_AT_CAPACITY. */
+    private static final int STOP_AT_CAPACITY = 1;
+
     private final MethodHandle step;
     private final MethodHandle broadphase;
     private final MethodHandle activeIsa;
@@ -56,7 +59,7 @@ final class NativePhysicsKernel implements PhysicsKernel {
         broadphase = LINKER.downcallHandle(lib.find("cp_broadphase").orElseThrow(),
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
                         ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_DOUBLE,
-                        ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+                        ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
                 CRITICAL);
         try {
             int version = (int) abi.invokeExact();
@@ -118,11 +121,11 @@ final class NativePhysicsKernel implements PhysicsKernel {
 
     @Override
     public int broadphase(MemorySegment slab, int capacity, int count, MemorySegment buckets, double margin,
-                          MemorySegment pairs, int pairCapacity) {
+                          MemorySegment pairs, int pairCapacity, boolean stopAtCapacity) {
         int found;
         try {
             found = (int) broadphase.invokeExact(slab, capacity, count, buckets, (int) (buckets.byteSize() / Integer.BYTES),
-                    margin, pairs, pairCapacity);
+                    margin, pairs, pairCapacity, stopAtCapacity ? STOP_AT_CAPACITY : 0);
         } catch (Throwable t) {
             throw new IllegalStateException("cp_broadphase failed", t);
         }

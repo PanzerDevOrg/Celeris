@@ -36,7 +36,7 @@ CP_EXPORT int32_t cp_bucket_count(int32_t capacity) {
 }
 
 CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_len,
-                                double margin, int32_t* pairs, int32_t pair_capacity) {
+                                double margin, int32_t* pairs, int32_t pair_capacity, int32_t flags) {
     if (bodies == nullptr || ((uintptr_t) bodies & 63u) != 0 || capacity <= 0 || (capacity % CP_LANE_PAD) != 0
             || count < 0 || count > capacity || buckets == nullptr || buckets_len < cp_bucket_count(capacity) + 1
             || pair_capacity < 0 || (pairs == nullptr && pair_capacity > 0)) {
@@ -90,8 +90,11 @@ CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, i
     }
     for (int32_t i = 0; i < count; i++) sorted[buckets[cell_hash[i]]++] = (uint32_t) i;
 
+    // With STOP_AT_CAPACITY the scan ends at the (pair_capacity + 1)-th pair:
+    // one past what fits, so the caller still learns the list was cut.
+    const int64_t stop_at = (flags & CP_BROADPHASE_STOP_AT_CAPACITY) ? (int64_t) pair_capacity + 1 : INT64_MAX;
     int64_t found = 0;
-    for (int32_t i = 0; i < count; i++) {
+    for (int32_t i = 0; i < count && found < stop_at; i++) {
         const double ax0 = px[i] - hw[i] - margin, ax1 = px[i] + hw[i] + margin;
         const double ay0 = py[i] - margin, ay1 = py[i] + hh[i] + margin;
         const double az0 = pz[i] - hw[i] - margin, az1 = pz[i] + hw[i] + margin;
@@ -120,7 +123,9 @@ CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, i
                                 pairs[2 * found] = i;
                                 pairs[2 * found + 1] = j;
                             }
-                            found++;
+                            if (++found == stop_at) {
+                                return found > 0x7FFFFFFF ? 0x7FFFFFFF : (int32_t) found;
+                            }
                         }
                     }
                 }
