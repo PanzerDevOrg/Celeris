@@ -320,9 +320,18 @@ final class JavaPhysicsKernel {
         l.lo[0] = ifloor(e0x);
         l.lo[1] = ifloor(e0y);
         l.lo[2] = ifloor(e0z);
-        l.n[0] = Math.max(0, iceil(e1x) - l.lo[0]);
-        l.n[1] = Math.max(0, iceil(e1y) - l.lo[1]);
-        l.n[2] = Math.max(0, iceil(e1z) - l.lo[2]);
+        // Each axis on its own BEFORE the product: three spans of a few million
+        // blocks multiply past 2^63 and wrap (2^22 * 2^21 * 2^21 = 2^64 -> 0),
+        // which passed the MAX_CELLS test and made the gather index past l.cell.
+        long spanX = (long) iceil(e1x) - l.lo[0], spanY = (long) iceil(e1y) - l.lo[1], spanZ = (long) iceil(e1z) - l.lo[2];
+        if (spanX > MAX_CELLS | spanY > MAX_CELLS | spanZ > MAX_CELLS) {
+            return defer(b, i, deferredFlags);
+        }
+        l.n[0] = (int) Math.max(0, spanX);
+        l.n[1] = (int) Math.max(0, spanY);
+        l.n[2] = (int) Math.max(0, spanZ);
+        // At most MAX_CELLS^3 here, so the product cannot overflow; the gather
+        // below runs exactly `cells` <= MAX_CELLS iterations.
         long cells = (long) l.n[0] * l.n[1] * l.n[2];
         if (cells > MAX_CELLS) {
             return defer(b, i, deferredFlags);
