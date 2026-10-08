@@ -5,5 +5,7 @@
   "celeris.configuration.section.celeris.local.toml": "Celeris Settings",
   "celeris.configuration.section.celeris.local.toml.title": "Celeris Settings",
   "celeris.configuration.compressionLevel": "Network Compression Level",
-  "celeris.configuration.compressionLevel.tooltip": "0 sends packets uncompressed (least CPU, most bandwidth), 1 is the fastest, 9 the smallest packets. Applies to the next packet."
+  "celeris.configuration.compressionLevel.tooltip": "0 sends packets uncompressed (least CPU, most bandwidth), 1 is the fastest, 9 the smallest packets. Applies to the next packet.",
+  "celeris.configuration.compressionLevel.value": "%s: %s",
+  "celeris.configuration.compressionLevel.off": "Off"
 }

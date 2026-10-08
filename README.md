@@ -75,7 +75,9 @@ method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
   matters, so a server and its players can each pick their own.
   - **NeoForge:** Mods → Celeris → Config, or `compressionLevel` in `config/celeris-common.toml`. Takes effect on the
     next packet.
-  - **Fabric:** `compressionLevel` in `config/celeris.properties` (created on first start). Restart after editing.
+  - **Fabric:** with [Mod Menu](https://modrinth.com/mod/modmenu), Mods → Celeris → Config (takes effect on the next
+    packet); or `compressionLevel` in `config/celeris.properties` (created on first start; restart after editing it
+    by hand).
 
 ## 🔧 Native code
 
