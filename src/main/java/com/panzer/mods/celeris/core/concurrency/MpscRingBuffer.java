@@ -267,24 +267,21 @@ public final class MpscRingBuffer implements AutoCloseable {
     }
 
     // Cross-backend copies (source/destination not on this ring's backend)
-    // are the only path needing a heap bounce buffer. Producers are
-    // multi-threaded, so the buffer is per-thread and sized once; never
-    // touched on the 8-byte fast path or same-backend path.
-    private ThreadLocal<byte[]> crossBackendScratch;
+    // are the only path needing a heap bounce buffer, never touched on the
+    // 8-byte fast path or the same-backend path. One per thread, shared by
+    // every ring (a ThreadLocal per ring would keep a buffer per ring per
+    // producer thread alive): it only lives between a copyToHeap and the
+    // copyFromHeap right after it, which call nothing that could re-enter, and
+    // it grows to the largest slot this thread has bounced.
+    private static final ThreadLocal<byte[]> CROSS_BACKEND_SCRATCH = new ThreadLocal<>();
 
     private byte[] scratch() {
-        ThreadLocal<byte[]> tl = crossBackendScratch;
-        if (tl == null) {
-            synchronized (this) {
-                tl = crossBackendScratch;
-                if (tl == null) {
-                    final int n = slotBytes;
-                    tl = ThreadLocal.withInitial(() -> new byte[n]);
-                    crossBackendScratch = tl;
-                }
-            }
+        byte[] buf = CROSS_BACKEND_SCRATCH.get();
+        if (buf == null || buf.length < slotBytes) {
+            buf = new byte[slotBytes];
+            CROSS_BACKEND_SCRATCH.set(buf);
         }
-        return tl.get();
+        return buf;
     }
 
     /** Peeks the next slot index if published, without releasing it yet. */

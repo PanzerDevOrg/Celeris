@@ -1,5 +1,7 @@
 package com.panzer.mods.celeris.physics;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.locks.LockSupport;
 
@@ -14,6 +16,12 @@ import java.util.concurrent.locks.LockSupport;
  * a worker still finishing the previous run can never claim a chunk of the
  * next one with a stale task. The claim and done counters live 64 bytes
  * apart in one {@link AtomicLongArray}, so they never share a cache line.
+ *
+ * <p>One run at a time: the counters, task and generation belong to the run in
+ * progress, so a second {@link #run} from another thread, or from inside a
+ * chunk task, is refused with an {@link IllegalStateException} instead of
+ * corrupting it. Callers that share an instance and can fall back to doing the
+ * work themselves use {@link #tryRun}.
  */
 public final class ChunkWorkers implements AutoCloseable {
 
@@ -36,6 +44,19 @@ public final class ChunkWorkers implements AutoCloseable {
     private volatile int generation;
     private volatile Throwable failure;
     private volatile boolean closed;
+    /** 1 while a run (including a single-threaded one) is in progress; claimed by CAS. */
+    @SuppressWarnings("unused")
+    private volatile int running;
+
+    private static final VarHandle RUNNING;
+
+    static {
+        try {
+            RUNNING = MethodHandles.lookup().findVarHandle(ChunkWorkers.class, "running", int.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     public ChunkWorkers(int threadCount) {
         threads = new Thread[Math.max(0, threadCount)];
@@ -51,11 +72,42 @@ public final class ChunkWorkers implements AutoCloseable {
         return threads.length;
     }
 
-    /** Runs {@code task} for every chunk in {@code [0, chunkCount)} and returns when all are done. */
+    /**
+     * Runs {@code task} for every chunk in {@code [0, chunkCount)} and returns
+     * when all are done.
+     *
+     * @throws IllegalStateException if another run is in progress: called
+     *         concurrently from another thread, or reentrantly from a chunk task
+     */
     public void run(ChunkTask task, int chunkCount) {
-        if (chunkCount <= 0) {
-            return;
+        if (!tryRun(task, chunkCount)) {
+            throw new IllegalStateException("ChunkWorkers.run called while another run is in progress"
+                    + " (concurrently or from inside a chunk task)");
         }
+    }
+
+    /**
+     * {@link #run}, unless another run is in progress: then nothing runs and this
+     * returns {@code false}, so the caller can do the chunks itself.
+     */
+    public boolean tryRun(ChunkTask task, int chunkCount) {
+        if (chunkCount <= 0) {
+            return true;
+        }
+        // One CAS and one release store per run: the guard costs nothing measurable
+        // next to waking workers and stepping thousands of bodies.
+        if (!RUNNING.compareAndSet(this, 0, 1)) {
+            return false;
+        }
+        try {
+            runExclusive(task, chunkCount);
+        } finally {
+            RUNNING.setRelease(this, 0);
+        }
+        return true;
+    }
+
+    private void runExclusive(ChunkTask task, int chunkCount) {
         if (threads.length == 0 || chunkCount == 1) {
             for (int c = 0; c < chunkCount; c++) {
                 task.run(c);

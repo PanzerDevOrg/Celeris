@@ -6,7 +6,10 @@ import com.panzer.mods.celeris.physics.PhysicsTestAccess;
 import com.panzer.mods.celeris.physics.TerrainView;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,6 +49,72 @@ class ChunkWorkersTest {
                 assertEquals(serial.vy(i), parallel.vy(i));
                 assertEquals(serial.flags(i), parallel.flags(i));
             }
+        }
+    }
+
+    @Test
+    void reentrantRunIsRefusedAndTheInstanceStaysUsable() {
+        for (int threads : new int[] {0, 3}) {
+            try (ChunkWorkers w = new ChunkWorkers(threads)) {
+                AtomicReference<Throwable> inner = new AtomicReference<>();
+                AtomicBoolean innerTry = new AtomicBoolean(true);
+                ChunkWorkers.ChunkTask nested = c -> {
+                    if (c == 0) {
+                        try {
+                            w.run(x -> { }, 2);
+                        } catch (Throwable e) {
+                            inner.set(e);
+                        }
+                        innerTry.set(w.tryRun(x -> { }, 2));
+                    }
+                };
+                // Single-threaded (inline) and pooled paths alike.
+                w.run(nested, threads == 0 ? 1 : 8);
+                assertInstanceOf(IllegalStateException.class, inner.get(), threads + " threads");
+                assertFalse(innerTry.get());
+                AtomicIntegerArray hits = new AtomicIntegerArray(5);
+                w.run(hits::incrementAndGet, 5);
+                for (int c = 0; c < 5; c++) {
+                    assertEquals(1, hits.get(c));
+                }
+            }
+        }
+    }
+
+    @Test
+    void concurrentRunIsRefusedWhileOneIsInProgress() throws Exception {
+        try (ChunkWorkers w = new ChunkWorkers(2)) {
+            CountDownLatch started = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
+            Thread owner = new Thread(() -> w.run(c -> {
+                if (c == 0) {
+                    started.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }, 4));
+            owner.start();
+            started.await();
+            assertThrows(IllegalStateException.class, () -> w.run(c -> { }, 4));
+            assertFalse(w.tryRun(c -> { }, 4));
+            release.countDown();
+            owner.join();
+            assertTrue(w.tryRun(c -> { }, 4));
+        }
+    }
+
+    @Test
+    void aFailingTaskReleasesTheGuard() {
+        try (ChunkWorkers w = new ChunkWorkers(0)) {
+            assertThrows(RuntimeException.class, () -> w.run(c -> {
+                throw new RuntimeException("boom");
+            }, 3));
+            AtomicIntegerArray hits = new AtomicIntegerArray(3);
+            w.run(hits::incrementAndGet, 3);
+            assertEquals(1, hits.get(2));
         }
     }
 }
