@@ -100,7 +100,7 @@ groups = [(4096, "java"), (4096, "native"), (16384, "java"), (16384, "native")]
 labels = [f"{n:,} items · {'Java' if k == 'java' else 'native'}" for n, k in groups]
 full = [bpv(n, k, "full") / 1000 for n, k in groups]
 stop = [bpv(n, k, "stop") / 1000 for n, k in groups]
-fig, ax = plt.subplots(figsize=(10, 4.4))
+fig, ax = plt.subplots(figsize=(10, 4.9))
 y = np.arange(len(groups))[::-1]
 ax.barh(y + 0.2, full, 0.38, color=OTHERS[2], label="Before: every overlapping pair counted")
 ax.barh(y - 0.2, stop, 0.38, color=CEL, label="0.2.3: stops once the pair buffer is full")
@@ -109,7 +109,8 @@ for yy, f_, s_ in zip(y, full, stop):
     ax.text(f_ * 1.12, yy + 0.2, f"{f_:,.1f} ms", va="center", fontsize=10, color=MUTED)
     ax.text(s_ * 1.12, yy - 0.2, f"{s_:.2f} ms  ({f_ / s_:,.0f}× faster)", va="center", fontsize=10, color=INK, fontweight="bold")
 ax.set_yticks(y); ax.set_yticklabels(labels); ax.set_xlabel("milliseconds per call, log scale (lower is faster)")
-ax.set_xlim(min(stop) / 2, max(full) * 8); ax.legend(loc="lower right", frameon=False, fontsize=10)
+ax.set_xlim(min(stop) / 2, max(full) * 8)
+ax.legend(loc="upper left", bbox_to_anchor=(0, -0.2), ncol=2, frameon=False, fontsize=10)
 finish(fig, ax, "Finding touching items in a pile", "n items dropped into one block (~n²/2 overlapping pairs), pair buffer of n. JMH, JDK 21.", "broadphase.png")
 # ---- in-game: server tick time with N dropped items (panzer-build-logic perf-test, mspt-<mc>.json)
 games = sorted(B.glob("mspt-*.json"))
