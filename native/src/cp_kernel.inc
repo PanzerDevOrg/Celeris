@@ -288,14 +288,20 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     // AABB.expandTowards
     const double e0[3] = {pick(mx < 0.0, x0 + mx, x0), pick(my < 0.0, y0 + my, y0), pick(mz < 0.0, z0 + mz, z0)};
     const double e1[3] = {pick(mx > 0.0, x1 + mx, x1), pick(my > 0.0, y1 + my, y1), pick(mz > 0.0, z1 + mz, z1)};
-    int64_t cells = 1;
+    // Each axis is checked on its own BEFORE the product: three spans of a few
+    // million blocks multiply past 2^63 and wrap (2^22 * 2^21 * 2^21 = 2^64 -> 0),
+    // which passed the MAX_CELLS test and let the gather write past L.cell.
+    // The span itself is computed in 64 bits.
+    bool too_big = false;
     for (int a = 0; a < 3; a++) {
         L.lo[a] = ifloor(e0[a]);
-        const int32_t n = iceil(e1[a]) - L.lo[a];
-        L.n[a] = n & ~(n >> 31);  // max(n, 0)
-        cells *= L.n[a];
+        const int64_t n = (int64_t) iceil(e1[a]) - L.lo[a];
+        too_big |= n > MAX_CELLS;
+        L.n[a] = n < 0 ? 0 : n > MAX_CELLS ? MAX_CELLS : (int32_t) n;
     }
-    if (cells > MAX_CELLS) {
+    // At most MAX_CELLS^3 here, so the product cannot overflow.
+    const int64_t cells = (int64_t) L.n[0] * L.n[1] * L.n[2];
+    if (too_big | (cells > MAX_CELLS)) {
         *fh = 1.0;
         *fv = 1.0;
         C.u[CP_FLAGS][i] = deferred_flags;
@@ -336,6 +342,7 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
             row = (((uint32_t) (L.lo[1] + cy) & 15u) << 8) | (((uint32_t) (L.lo[2] + cz) & 15u) << 4);
         }
     } else {
+        // n[2] * n[1] * n[0] == cells <= MAX_CELLS iterations, like the loop above.
         for (int32_t cz = 0; cz < L.n[2]; cz++) {
             for (int32_t cy = 0; cy < L.n[1]; cy++) {
                 for (int32_t cx = 0; cx < L.n[0]; cx++, k++) {
