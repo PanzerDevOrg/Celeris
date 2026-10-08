@@ -26,7 +26,7 @@ package com.panzer.mods.celeris.physics;
  */
 public final class BodyLayout {
 
-    public static final int ABI_VERSION = 3;
+    public static final int ABI_VERSION = 4;
     public static final int LANE_PAD = 16;
     public static final long ALIGNMENT = 64;
 
