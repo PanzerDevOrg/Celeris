@@ -101,4 +101,10 @@ if(CP_BUILD_TESTS AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(cp_selftest PRIVATE include)
     target_link_libraries(cp_selftest PRIVATE celeris_physics)
     add_test(NAME cp_selftest COMMAND cp_selftest)
+    # Hostile inputs (NaN/Inf/huge values, misaligned slab, malformed calls) on
+    # every ISA; CI also runs it under ASan/UBSan (.github/workflows/native-sanitizers.yml).
+    add_executable(cp_fuzz test/cp_fuzz.cpp)
+    target_include_directories(cp_fuzz PRIVATE include)
+    target_link_libraries(cp_fuzz PRIVATE celeris_physics)
+    add_test(NAME cp_fuzz COMMAND cp_fuzz)
 endif()
