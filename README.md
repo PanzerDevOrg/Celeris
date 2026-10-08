@@ -68,6 +68,15 @@ method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
 - 🔶 **Loader:** NeoForge or Fabric (with [Fabric API](https://modrinth.com/mod/fabric-api)), on the client and on the server.
 - ☕ **Java:** 21 for 1.21.x, 25 for 26.x.
 
+## ⚙️ Settings
+
+- **Network compression level** (0–9, default 1): how hard Celeris compresses the packets it sends. 0 sends them
+  uncompressed (least CPU, most bandwidth), 1 is the fastest, 9 gives the smallest packets. Only the sender's setting
+  matters, so a server and its players can each pick their own.
+  - **NeoForge:** Mods → Celeris → Config, or `compressionLevel` in `config/celeris-common.toml`. Takes effect on the
+    next packet.
+  - **Fabric:** `compressionLevel` in `config/celeris.properties` (created on first start). Restart after editing.
+
 ## 🔧 Native code
 
 Celeris ships two kinds of native libraries, both built from public source by GitHub Actions on each platform's own

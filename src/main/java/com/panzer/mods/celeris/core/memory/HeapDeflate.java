@@ -48,12 +48,20 @@ public final class HeapDeflate {
      * early instead of being compressed in full only to be thrown away.
      */
     public static byte[] compressIfSmaller(byte[] src, int zstdLevel) {
+        return deflateIfSmaller(src, deflateLevel(zstdLevel));
+    }
+
+    /** {@link #compressIfSmaller} with the level on Deflater's own 1-9 scale. */
+    public static byte[] deflateIfSmaller(byte[] src, int deflateLevel) {
+        if (deflateLevel < Deflater.BEST_SPEED || deflateLevel > Deflater.BEST_COMPRESSION) {
+            throw new IllegalArgumentException("deflate level " + deflateLevel + " outside 1-9");
+        }
         int limit = src.length - 1;
         if (limit <= 0) {
             return null;
         }
         State state = STATE.get();
-        Deflater deflater = state.deflater(deflateLevel(zstdLevel));
+        Deflater deflater = state.deflater(deflateLevel);
         try {
             deflater.setInput(src);
             deflater.finish();
