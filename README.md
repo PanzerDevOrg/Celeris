@@ -40,17 +40,26 @@
 
 ## 🏁 How fast
 
-Measured against what a mod would otherwise use (JMH, Java 21, a 4-core machine; full tables and method in
-[the benchmarks page](./docs/benchmarks.md)):
+On a real server (dedicated NeoForge, 20,000 dropped items resting on the ground), Velox with Celeris runs the tick
+in **11.9 ms instead of 139.9 ms on Minecraft 1.21.1 (11.8× faster)** and **29.3 ms instead of 219.1 ms on 26.1
+(7.5×)**: from 3–5 TPS back to a full 20.
 
-- 🗜️ **12× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
-  **3× faster decompression**. As fast as zstd-jni, the usual Java zstd library, in a jar a quarter of its size.
-- 🏃 **10,000 dropped items moved in 0.66 ms** per tick with the native kernel, 1.6× faster than the same rules in
-  Java; 32,768 items on 3 threads take 0.87 ms, under 2% of a tick.
-- 🧵 **6× faster hand-off** from one worker thread to the game thread than JCTools, the go-to lock-free queue library.
+Each building block, measured against what a mod would otherwise use (JMH, Java 21, a 4-core machine; full tables,
+method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
 
+- 🗜️ **12.8× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
+  **3.1× faster decompression**. As fast as zstd-jni, the usual Java zstd library, in a jar a quarter of its size.
+- 🏃 **32,768 dropped items moved in 0.88 ms** per tick on 3 threads with the native kernel, 5.3× faster than the
+  same rules in Java on one thread and under 2 % of a tick.
+- 🧲 **Item piles no longer stall**: finding the touching items in a pile of 16,384 takes 0.24 ms instead of up to a
+  second.
+- 🧵 **4.9× faster hand-off** from one worker thread to the game thread than JCTools, the go-to lock-free queue
+  library, and still ahead with two or three workers.
+
+![Server tick time](./docs/media/benchmarks/ingame.png)
 ![Compression benchmark](./docs/media/benchmarks/compression.png)
 ![Physics benchmark](./docs/media/benchmarks/physics.png)
+![Broadphase benchmark](./docs/media/benchmarks/broadphase.png)
 ![Queue benchmark](./docs/media/benchmarks/queues.png)
 
 ## 📦 Requirements
