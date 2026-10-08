@@ -12,5 +12,5 @@ interface PhysicsKernel {
     int step(MemorySegment slab, int capacity, SegmentTerrain terrain, int begin, int end, int mode);
 
     int broadphase(MemorySegment slab, int capacity, int count, MemorySegment buckets, double margin,
-                   MemorySegment pairs, int pairCapacity);
+                   MemorySegment pairs, int pairCapacity, boolean stopAtCapacity);
 }

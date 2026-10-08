@@ -38,7 +38,7 @@ extern "C" {
 #endif
 
 /* Bumped on any change to the layout, flags or entry point signatures. */
-#define CP_ABI_VERSION 3
+#define CP_ABI_VERSION 4
 
 #define CP_LANE_PAD 16
 
@@ -151,15 +151,23 @@ CP_EXPORT int32_t cp_step(void* bodies, int32_t capacity, const cp_terrain* terr
  * overlap after inflating by `margin`, as consecutive (i, j) int32 pairs.
  * `buckets` holds `buckets_len` int32, at least cp_bucket_count(capacity) + 1.
  * Returns the total pair count, which may exceed `pair_capacity` (only the
- * first pair_capacity pairs are written). Deterministic: same order as the
- * Java reference. Returns -1, touching nothing, when `bodies` is null or not
+ * first pair_capacity pairs are written). With CP_BROADPHASE_STOP_AT_CAPACITY
+ * in `flags` the scan stops at the (pair_capacity + 1)-th pair instead: the
+ * result is then min(total, pair_capacity + 1), so a result above
+ * pair_capacity means "truncated, more pairs exist", and the work is bounded
+ * by the pairs kept instead of the pairs that exist (a pile of n items in one
+ * block has ~n^2/2). Deterministic either way: the same pairs, in the same
+ * order, as the Java reference (the first pair_capacity of the full list).
+ * Returns -1, touching nothing, when `bodies` is null or not
  * 64-byte aligned, capacity is not a positive multiple of CP_LANE_PAD, count is
  * negative or above capacity, `buckets` is null or shorter than required,
  * pair_capacity is negative, or `pairs` is null while pair_capacity > 0.
  */
+#define CP_BROADPHASE_STOP_AT_CAPACITY 1
+
 CP_EXPORT int32_t cp_bucket_count(int32_t capacity);
 CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_len,
-                                double margin, int32_t* pairs, int32_t pair_capacity);
+                                double margin, int32_t* pairs, int32_t pair_capacity, int32_t flags);
 
 #ifdef __cplusplus
 }

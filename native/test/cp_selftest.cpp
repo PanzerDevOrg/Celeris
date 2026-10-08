@@ -159,7 +159,7 @@ void broadphase() {
     const double m = 0.5;
     std::vector<int32_t> buckets(cp_bucket_count(s.cap) + 1);
     std::vector<int32_t> pairs(2 * 200000);
-    int32_t got = cp_broadphase(s.base, s.cap, n, buckets.data(), (int32_t) buckets.size(), m, pairs.data(), 200000);
+    int32_t got = cp_broadphase(s.base, s.cap, n, buckets.data(), (int32_t) buckets.size(), m, pairs.data(), 200000, 0);
     int64_t brute = 0;
     const double* x = s.f(CP_POS_X); const double* y = s.f(CP_POS_Y); const double* z = s.f(CP_POS_Z);
     const double* hw = s.f(CP_HALF_WIDTH); const double* h = s.f(CP_HEIGHT);
@@ -171,6 +171,16 @@ void broadphase() {
     }
     CHECK(got == brute, "broadphase found %d pairs, brute force %lld", got, (long long) brute);
     std::printf("broadphase: %d pairs (brute force agrees)\n", got);
+
+    // Stopping at capacity: the first `cap` pairs of the full list, then one more counted.
+    for (int32_t cap : {0, 1, 100, got - 1, got, got + 5}) {
+        std::vector<int32_t> cut(2 * (size_t) (cap > 0 ? cap : 1));
+        int32_t r = cp_broadphase(s.base, s.cap, n, buckets.data(), (int32_t) buckets.size(), m,
+                                  cut.data(), cap, CP_BROADPHASE_STOP_AT_CAPACITY);
+        CHECK(r == (got < cap + 1 ? got : cap + 1), "stop at %d returned %d (total %d)", cap, r, got);
+        CHECK(cap == 0 || std::memcmp(cut.data(), pairs.data(), sizeof(int32_t) * 2 * (size_t) (cap < got ? cap : got)) == 0,
+              "stop at %d: pairs differ from the full list's prefix", cap);
+    }
 }
 
 }  // namespace

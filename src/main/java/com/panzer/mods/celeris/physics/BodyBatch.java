@@ -83,12 +83,29 @@ public interface BodyBatch extends AutoCloseable {
     int deferredCount();
 
     /**
-     * Finds every pair of bodies whose boxes overlap after inflating by
-     * {@code margin} (e.g. item merge candidates, push pairs). Returns the
-     * pair count, which may exceed {@link #pairCapacity()}; only that many
-     * are stored.
+     * Finds the pairs of bodies whose boxes overlap after inflating by
+     * {@code margin} (e.g. item merge candidates, push pairs), stopping once
+     * {@link #pairCapacity()} pairs are stored: {@code broadphase(margin, true)}.
+     *
+     * <p>Truncation: pairs come in a fixed order (by the first body's slot,
+     * then by spatial-hash bucket), identical for the Java and native kernels.
+     * The result is {@code min(total, pairCapacity() + 1)}; a result above
+     * {@code pairCapacity()} means the list was cut and more pairs exist, and
+     * the stored pairs are then exactly the first {@code pairCapacity()} of the
+     * full list. Stopping keeps the cost proportional to the pairs kept: a pile
+     * of n items in one block has about n&sup2;/2 overlapping pairs, which a
+     * full count would visit every time.
      */
-    int broadphase(double margin);
+    default int broadphase(double margin) {
+        return broadphase(margin, true);
+    }
+
+    /**
+     * {@link #broadphase(double)}, or with {@code stopAtCapacity == false} a
+     * full count: the scan visits every overlapping pair and returns the total,
+     * which may exceed {@link #pairCapacity()} (only that many are stored).
+     */
+    int broadphase(double margin, boolean stopAtCapacity);
 
     int pairCapacity();
 

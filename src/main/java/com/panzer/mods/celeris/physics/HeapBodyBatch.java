@@ -255,8 +255,8 @@ final class HeapBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     }
 
     @Override
-    public int broadphase(double margin) {
-        return JavaPhysicsKernel.broadphase(this, size, margin, pairs, pairCapacity);
+    public int broadphase(double margin, boolean stopAtCapacity) {
+        return JavaPhysicsKernel.broadphase(this, size, margin, pairs, pairCapacity, stopAtCapacity);
     }
 
     @Override

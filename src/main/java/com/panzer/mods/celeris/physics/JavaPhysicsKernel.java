@@ -530,7 +530,8 @@ final class JavaPhysicsKernel {
     }
 
     /** Spatial hash + counting sort, O(n); same hash and visiting order as cp_broadphase.cpp. */
-    static int broadphase(HeapBodyBatch b, int count, double margin, int[] pairs, int pairCapacity) {
+    static int broadphase(HeapBodyBatch b, int count, double margin, int[] pairs, int pairCapacity,
+                          boolean stopAtCapacity) {
         if (count < 2 || count > b.capacity()) {
             return 0;
         }
@@ -573,9 +574,12 @@ final class JavaPhysicsKernel {
             sorted[buckets[cellHash[i]]++] = i;
         }
 
+        // Stopping: at the (pairCapacity + 1)-th pair, one past what fits, so
+        // the caller still learns the list was cut (as cp_broadphase).
+        long stopAt = stopAtCapacity ? (long) pairCapacity + 1 : Long.MAX_VALUE;
         long found = 0;
         int[] seen = LOCALS.get().seen;
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < count && found < stopAt; i++) {
             double ax0 = px[i] - hw[i] - margin, ax1 = px[i] + hw[i] + margin;
             double ay0 = py[i] - margin, ay1 = py[i] + hh[i] + margin;
             double az0 = pz[i] - hw[i] - margin, az1 = pz[i] + hw[i] + margin;
@@ -609,7 +613,9 @@ final class JavaPhysicsKernel {
                                     pairs[(int) (2 * found)] = i;
                                     pairs[(int) (2 * found + 1)] = j;
                                 }
-                                found++;
+                                if (++found == stopAt) {
+                                    return (int) Math.min(found, Integer.MAX_VALUE);
+                                }
                             }
                         }
                     }

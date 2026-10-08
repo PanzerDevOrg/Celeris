@@ -256,8 +256,8 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
     }
 
     @Override
-    public int broadphase(double margin) {
-        pairCount = kernel.broadphase(slab, capacity, size, buckets, margin, pairs, pairCapacity);
+    public int broadphase(double margin, boolean stopAtCapacity) {
+        pairCount = kernel.broadphase(slab, capacity, size, buckets, margin, pairs, pairCapacity, stopAtCapacity);
         return pairCount;
     }
 
