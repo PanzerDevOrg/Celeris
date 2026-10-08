@@ -201,6 +201,15 @@ git clone https://github.com/PanzerDevOrg/Celeris.git
 cd Celeris
 ```
 
+The folder must be called `panzer-build-logic` and sit next to `Celeris` (hence the explicit name in the first clone).
+Without it the build stops at once with `panzer-build-logic not found at <path>` and the clone command to run.
+To reproduce exactly what CI built for a commit, check panzer-build-logic out at the commit pinned in
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) (`mod-ci.yml@<sha>`):
+
+```bash
+git -C ../panzer-build-logic checkout "$(grep -oE 'mod-ci.yml@[0-9a-f]{40}' .github/workflows/ci.yml | cut -d@ -f2)"
+```
+
 Requirements: JDK 25 to run Gradle (Fabric Loom needs it); JDK 21 for the 1.21.x targets is downloaded automatically
 through Gradle toolchains. `-Ppanzer.loaders=neoforge` (or `fabric`) builds one loader only.
 
