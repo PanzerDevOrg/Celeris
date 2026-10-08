@@ -38,7 +38,7 @@ extern "C" {
 #endif
 
 /* Bumped on any change to the layout, flags or entry point signatures. */
-#define CP_ABI_VERSION 2
+#define CP_ABI_VERSION 3
 
 #define CP_LANE_PAD 16
 
@@ -122,7 +122,9 @@ enum {
 
 CP_EXPORT int32_t cp_abi_version(void);
 
-/* Column counts, so the Java side can verify its layout matches this build. */
+/* ABI version and column counts, so the Java side can verify its layout and
+ * entry points match this build: (CP_ABI_VERSION << 24) | (CP_F64_COLUMNS << 16)
+ * | (CP_U32_COLUMNS << 8) | CP_LANE_PAD. */
 CP_EXPORT int32_t cp_layout_signature(void);
 
 /* ISA selected at load from CPUID / HWCAP. */
@@ -137,6 +139,9 @@ CP_EXPORT int32_t cp_force_isa(int32_t isa);
  * move against `terrain` (per body) -> drag/friction (SIMD), fused per call so
  * the chunk stays in L1/L2. Returns the number of deferred bodies; their
  * indices are written to the CP_DEFERRED_LIST column starting at `begin`.
+ * Returns -1, touching nothing, when `bodies` is null or not 64-byte aligned,
+ * `terrain` or any of its directory/pages/friction pointers is null, a window
+ * size is negative, or capacity/begin/end break the layout contract.
  */
 CP_EXPORT int32_t cp_step(void* bodies, int32_t capacity, const cp_terrain* terrain,
                           int32_t begin, int32_t end, int32_t mode);
@@ -144,12 +149,16 @@ CP_EXPORT int32_t cp_step(void* bodies, int32_t capacity, const cp_terrain* terr
 /*
  * Broadphase over bodies [0, count): reports every pair (i < j) whose AABBs
  * overlap after inflating by `margin`, as consecutive (i, j) int32 pairs.
- * `buckets` holds cp_bucket_count(capacity) + 1 int32. Returns the total pair
- * count, which may exceed `pair_capacity` (only the first pair_capacity pairs
- * are written). Deterministic: same order as the Java reference.
+ * `buckets` holds `buckets_len` int32, at least cp_bucket_count(capacity) + 1.
+ * Returns the total pair count, which may exceed `pair_capacity` (only the
+ * first pair_capacity pairs are written). Deterministic: same order as the
+ * Java reference. Returns -1, touching nothing, when `bodies` is null or not
+ * 64-byte aligned, capacity is not a positive multiple of CP_LANE_PAD, count is
+ * negative or above capacity, `buckets` is null or shorter than required,
+ * pair_capacity is negative, or `pairs` is null while pair_capacity > 0.
  */
 CP_EXPORT int32_t cp_bucket_count(int32_t capacity);
-CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets,
+CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_len,
                                 double margin, int32_t* pairs, int32_t pair_capacity);
 
 #ifdef __cplusplus
