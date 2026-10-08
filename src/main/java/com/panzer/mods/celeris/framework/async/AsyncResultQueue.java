@@ -111,15 +111,10 @@ public final class AsyncResultQueue<T> implements AutoCloseable {
         }
         int index = (int) ring.slotIndexFor(ticket);
 
-        // Happens-before the publish below, which is exactly what makes
-        // this write visible to the consumer's getStateAcquire in drainTo.
-        slots.set(index, result);
-
-        // The ring's payload for this slot is unused by AsyncResultQueue --
-        // the real payload is the object reference in `slots`, not this
-        // value -- but publishReserved needs *a* long to write. 0L is
-        // arbitrary and never read back.
-        ring.publishReserved(ticket, 0L);
+        // A plain write is enough: the release store that publishes the slot
+        // below orders it, and the consumer reads it after its acquire load.
+        slots.setPlain(index, result);
+        ring.publishReservedNoPayload(ticket);
         return true;
     }
 
@@ -147,7 +142,10 @@ public final class AsyncResultQueue<T> implements AutoCloseable {
             // guaranteed visible here. If this ever observes null, that
             // means offer() was changed to publish before writing --
             // see offer()'s javadoc for why that ordering must not happen.
-            T result = slots.getAndSet(idx, null);
+            T result = slots.getPlain(idx);
+            // Cleared before the slot is released (a release store), so the
+            // producer that reuses it -- after an acquire -- writes after this.
+            slots.setPlain(idx, null);
             ring.releaseConsumedNoPayload();
             consumer.accept(result);
             drained++;

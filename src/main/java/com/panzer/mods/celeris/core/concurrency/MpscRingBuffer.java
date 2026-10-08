@@ -208,7 +208,10 @@ public final class MpscRingBuffer implements AutoCloseable {
      *         or {@code -1} if the ring was full
      */
     public long reserveSlot() {
-        long limit = producerLimit.getPlain();
+        // Acquire: the limit was computed from the consumer's released cursor, and
+        // this producer must also see the consumer's "slot free" (-1) state write
+        // before overwriting that slot (plain is enough on x86, not on ARM).
+        long limit = producerLimit.getAcquire();
         long ticket;
         do {
             ticket = writeReservation.getAcquire();
@@ -248,6 +251,11 @@ public final class MpscRingBuffer implements AutoCloseable {
      * consumer's matching acquire-load, exactly like {@link
      * #tryPublishIndexed(MemoryBackend, long, long)} does for its own internal payload write.
      */
+    /** Publishes a reserved slot whose payload lives elsewhere (keyed by {@link #slotIndexFor}). */
+    public void publishReservedNoPayload(long reservationTicket) {
+        setStateRelease(reservationTicket & indexMask, reservationTicket);
+    }
+
     public void publishReserved(long reservationTicket, MemoryBackend srcBackend, long srcHandle, long srcOffset) {
         long slotIndex = reservationTicket & indexMask;
         writePayload(srcBackend, srcHandle, srcOffset, slotIndex);
