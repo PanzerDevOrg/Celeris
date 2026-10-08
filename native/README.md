@@ -15,7 +15,7 @@ native/
 ├── src/cp_isa_avx2.cpp         AVX2 + FMA     (-mavx2 -mfma, /arch:AVX2)
 ├── src/cp_isa_avx512.cpp       AVX-512 F/DQ/VL (opt-in)
 ├── src/cp_isa_neon.cpp         AArch64 Advanced SIMD
-├── src/cp_broadphase.cpp       spatial-hash broadphase (baseline ISA)
+├── src/cp_broadphase.inc       spatial-hash broadphase, compiled per ISA like cp_kernel.inc
 └── test/cp_selftest.cpp        scenarios + ISA parity + broadphase vs brute force
 ```
 
