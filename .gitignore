@@ -13,3 +13,7 @@ stonecutter.properties.toml
 repomix*
 __pycache__/
 # <<< panzer-build-logic
+
+# Native builds: made by CMake (-Ppanzer.native.build=true) or staged by CI,
+# never committed (see README, "Native libraries").
+/natives/
