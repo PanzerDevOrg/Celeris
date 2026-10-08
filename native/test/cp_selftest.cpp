@@ -159,7 +159,7 @@ void broadphase() {
     const double m = 0.5;
     std::vector<int32_t> buckets(cp_bucket_count(s.cap) + 1);
     std::vector<int32_t> pairs(2 * 200000);
-    int32_t got = cp_broadphase(s.base, s.cap, n, buckets.data(), m, pairs.data(), 200000);
+    int32_t got = cp_broadphase(s.base, s.cap, n, buckets.data(), (int32_t) buckets.size(), m, pairs.data(), 200000);
     int64_t brute = 0;
     const double* x = s.f(CP_POS_X); const double* y = s.f(CP_POS_Y); const double* z = s.f(CP_POS_Z);
     const double* hw = s.f(CP_HALF_WIDTH); const double* h = s.f(CP_HEIGHT);

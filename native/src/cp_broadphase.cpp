@@ -35,9 +35,14 @@ CP_EXPORT int32_t cp_bucket_count(int32_t capacity) {
     return (int32_t) t;
 }
 
-CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets,
+CP_EXPORT int32_t cp_broadphase(void* bodies, int32_t capacity, int32_t count, int32_t* buckets, int32_t buckets_len,
                                 double margin, int32_t* pairs, int32_t pair_capacity) {
-    if (bodies == nullptr || buckets == nullptr || count < 2 || count > capacity) {
+    if (bodies == nullptr || ((uintptr_t) bodies & 63u) != 0 || capacity <= 0 || (capacity % CP_LANE_PAD) != 0
+            || count < 0 || count > capacity || buckets == nullptr || buckets_len < cp_bucket_count(capacity) + 1
+            || pair_capacity < 0 || (pairs == nullptr && pair_capacity > 0)) {
+        return -1;
+    }
+    if (count < 2) {
         return 0;
     }
     char* base = static_cast<char*>(bodies);

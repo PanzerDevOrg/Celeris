@@ -55,8 +55,8 @@ final class NativePhysicsKernel implements PhysicsKernel {
                 CRITICAL);
         broadphase = LINKER.downcallHandle(lib.find("cp_broadphase").orElseThrow(),
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                        ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE, ValueLayout.ADDRESS,
-                        ValueLayout.JAVA_INT),
+                        ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_DOUBLE,
+                        ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
                 CRITICAL);
         try {
             int version = (int) abi.invokeExact();
@@ -119,11 +119,17 @@ final class NativePhysicsKernel implements PhysicsKernel {
     @Override
     public int broadphase(MemorySegment slab, int capacity, int count, MemorySegment buckets, double margin,
                           MemorySegment pairs, int pairCapacity) {
+        int found;
         try {
-            return (int) broadphase.invokeExact(slab, capacity, count, buckets, margin, pairs, pairCapacity);
+            found = (int) broadphase.invokeExact(slab, capacity, count, buckets, (int) (buckets.byteSize() / Integer.BYTES),
+                    margin, pairs, pairCapacity);
         } catch (Throwable t) {
             throw new IllegalStateException("cp_broadphase failed", t);
         }
+        if (found < 0) {
+            throw new IllegalArgumentException("cp_broadphase rejected count " + count + " of capacity " + capacity);
+        }
+        return found;
     }
 
     private static Path extractLibrary() {
