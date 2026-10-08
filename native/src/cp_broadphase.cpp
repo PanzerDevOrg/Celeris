@@ -11,7 +11,14 @@ namespace {
 
 constexpr double MIN_CELL = 0.0625;
 
-inline int32_t ifloor(double v) { return (int32_t) std::floor(v); }
+// Same clamp as the kernel (and JavaPhysicsKernel.ifloor): no undefined cast
+// for NaN, +-Inf or huge coordinates, and cell +-1 cannot overflow.
+constexpr double INT_LO = -1073741824.0;
+constexpr double INT_HI = 1073741823.0;
+inline int32_t ifloor(double v) {
+    const double lo = v > INT_LO ? v : INT_LO;  // NaN -> INT_LO
+    return (int32_t) std::floor(lo < INT_HI ? lo : INT_HI);
+}
 
 inline uint32_t hash_cell(int32_t x, int32_t y, int32_t z) {
     return ((uint32_t) x * 73856093u) ^ ((uint32_t) y * 19349663u) ^ ((uint32_t) z * 83492791u);
