@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   mod:
-    uses: PanzerDevOrg/PanzerBuildLogic/.github/workflows/mod-ci.yml@96e490520ce7ff81ffb7939d0108f178bffa03c2 # panzer-build-logic master, 2026-10-08 (no release tags yet)
+    uses: PanzerDevOrg/PanzerBuildLogic/.github/workflows/mod-ci.yml@261e4394e2268b5b3eadeb988198d33e7a0653c7 # panzer-build-logic master, 2026-10-08 (no release tags yet)
     permissions:
       contents: write
     with:
