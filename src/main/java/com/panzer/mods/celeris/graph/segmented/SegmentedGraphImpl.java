@@ -5,6 +5,7 @@ import com.panzer.mods.celeris.core.topology.NetworkTopology;
 import com.panzer.mods.celeris.core.topology.NodeId;
 import com.panzer.mods.celeris.util.math.BranchlessTables;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -242,6 +243,100 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
         if (splitTarget != null && !GraphNodeState.isJunction(connections.bits())) {
             rebuildAround(splitTarget.nodeA());
             rebuildAround(splitTarget.nodeB());
+        }
+    }
+
+    @Override
+    public void addNodes(long[] rawIds, int[] connectionBits, int count) {
+        if (count < 0 || count > rawIds.length || count > connectionBits.length) {
+            throw new IllegalArgumentException("count " + count + " exceeds the arrays");
+        }
+        beginMutation();
+        try {
+            addNodesInternal(rawIds, connectionBits, count);
+        } finally {
+            endMutation();
+        }
+    }
+
+    private void addNodesInternal(long[] rawIds, int[] connectionBits, int count) {
+        // Junctions whose segments must be rebuilt, collected while the topology is brought up to date.
+        LongOpenHashSet affected = new LongOpenHashSet();
+        int[] previousBits = new int[count];
+        for (int i = 0; i < count; i++) {
+            NodeId id = new NodeId(rawIds[i]);
+            GraphSegmentImpl<T> inside = segmentByInteriorPos.get(id.raw());
+            if (inside != null) {
+                unregisterSegment(inside);
+                affected.add(inside.nodeA().raw());
+                affected.add(inside.nodeB().raw());
+            }
+            // A node that was an endpoint may stop being one (or change which runs it ends).
+            removeSegmentsTouching(id.raw());
+            previousBits[i] = topology.denseIndexOf(id) >= 0 ? topology.connectionsOf(id).bits() : 0;
+            topology.addNode(id, ConnectionMask.of(connectionBits[i]));
+        }
+
+        // A run is walked once however many of its nodes were added: positions already walked are not entered again.
+        LongOpenHashSet walked = new LongOpenHashSet();
+        for (int i = 0; i < count; i++) {
+            long raw = rawIds[i];
+            if (GraphNodeState.isJunction(connectionBits[i])) {
+                affected.add(raw);
+            } else {
+                walked.add(raw);
+                collectJunctions(raw, connectionBits[i], walked, affected);
+            }
+            collectJunctions(raw, previousBits[i], walked, affected);
+        }
+
+        long[] junctions = affected.toLongArray();
+        java.util.Arrays.sort(junctions); // same result whatever the hash order
+        for (long raw : junctions) {
+            if (topology.denseIndexOf(new NodeId(raw)) >= 0) {
+                removeSegmentsTouching(raw);
+            }
+        }
+        for (long raw : junctions) {
+            NodeId id = new NodeId(raw);
+            if (topology.denseIndexOf(id) < 0) {
+                continue;
+            }
+            int bits = topology.connectionsOf(id).bits();
+            if (!GraphNodeState.isJunction(bits)) {
+                continue;
+            }
+            for (int rem = bits; rem != 0; rem &= rem - 1) {
+                traceSegment(id, Integer.numberOfTrailingZeros(rem));
+            }
+        }
+    }
+
+    /** Adds to {@code out} the junction at the end of each straight run leaving {@code fromRaw} through {@code bits}. */
+    private void collectJunctions(long fromRaw, int bits, LongOpenHashSet walked, LongOpenHashSet out) {
+        for (int rem = bits; rem != 0; rem &= rem - 1) {
+            long current = fromRaw;
+            int travelDir = Integer.numberOfTrailingZeros(rem);
+            while (true) {
+                current = NodeId.stepRaw(current, travelDir);
+                NodeId currentId = new NodeId(current);
+                if (topology.denseIndexOf(currentId) < 0) {
+                    break;
+                }
+                int currentBits = topology.connectionsOf(currentId).bits();
+                if (GraphNodeState.isJunction(currentBits)) {
+                    out.add(current);
+                    break;
+                }
+                if (!walked.add(current)) {
+                    break; // an earlier walk already covered the rest of this run, in both directions
+                }
+                int outgoing = GraphNodeState.outgoingOtherThan(currentBits, BranchlessTables.opposite(travelDir));
+                if (outgoing == -1) {
+                    break;
+                }
+                travelDir = outgoing;
+            }
         }
     }
 

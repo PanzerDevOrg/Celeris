@@ -35,6 +35,21 @@ public interface SegmentedGraph<T> {
     /** Registers a position as a node. Re-fuses only the affected neighborhood. */
     void addNode(NodeId id, ConnectionMask connections);
 
+    /**
+     * Registers or updates many nodes at once ({@code rawIds[i]} is a packed
+     * {@link NodeId#raw()}, {@code connectionBits[i]} its {@link ConnectionMask#bits()}),
+     * the first {@code count} entries of each array. The result equals calling
+     * {@link #addNode} for each entry in order, but the fusion runs once for the
+     * whole batch: use it to load a chunk or a saved network, where adding node
+     * by node re-traces every growing run on each step. The default
+     * implementation simply loops.
+     */
+    default void addNodes(long[] rawIds, int[] connectionBits, int count) {
+        for (int i = 0; i < count; i++) {
+            addNode(new NodeId(rawIds[i]), ConnectionMask.of(connectionBits[i]));
+        }
+    }
+
     /** Removes a node. Re-fuses only the segments that touched it. */
     void removeNode(NodeId id);
 
