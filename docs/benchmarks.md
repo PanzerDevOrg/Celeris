@@ -25,6 +25,8 @@ ratios are what matter.
 | Finding touching items in a pile of 16,384 | 0.24 ms | 860–1,100 ms (every pair counted, as before 0.2.3) | **~4,000× faster** |
 | One worker handing results to the game thread | 39.5 M/s | JCTools `MpscArrayQueue` 8.0 M/s, `ArrayBlockingQueue` 4.3 M/s | **4.9× faster** than JCTools |
 | Two or three workers at once | 13.0 / 12.8 M/s | JCTools 8.7 / 9.7, `ArrayBlockingQueue` 4.9 / 3.8 | **1.3–1.5× faster** than JCTools |
+| 100,000 items travelling on 200-block pipes, one tick | 101 µs | 261 µs (one object per item, moved item by item) | **2.6× faster**; on 20-block pipes a **tie** (326 vs 317 µs) |
+| Building a 10,000-block pipe network (a chunk or world load) | 2.7–3.9 ms (`addNodes`) | 45 ms (grid) to 8,966 ms (one long straight run), adding blocks one by one | **12× to 3,300× faster** |
 
 Where Celeris is not the fastest, this page says so: LZ4 compresses 2.3× faster than zstd, at the price of output about
 40 % larger (3.9× instead of 5.5×). The native physics kernel is 7–20 % slower than in the previous build of this
@@ -162,3 +164,52 @@ their cost and is what a mod using them for primitive results pays too. 0.2.3 ma
 producer: producers no longer read the consumer's position on every publish (they keep a cached limit), and each
 slot's state word now sits next to its payload, so a hand-off touches one cache line instead of two. (The 0.2.2 row
 was measured on the same machine on 2026-10-07; the others on 2026-10-08.)
+
+## Items in pipes
+
+`TransitSolver` moves items along the segments of a `SegmentedGraph`: per direction of each segment, flat arrays of
+progress, speed and handle, advanced a tick at a time, with spacing between items and a hand-over at the junctions
+(routers decide where an item goes; the order is canonical, so the result does not depend on how the segments happen
+to be stored). One tick of items circulating on square loops of pipe, microseconds per tick, lower is better:
+
+| Items | Pipe length | Celeris solver | Same, scalar advance | One object per item |
+|---|---|---|---|---|
+| 2,000 | 20 blocks | 3.7 ± 0.7 | 3.8 ± 1.0 | 5.3 ± 1.4 |
+| 2,000 | 200 blocks | 1.6 ± 0.1 | 1.5 ± 0.1 | 3.8 ± 0.6 |
+| 20,000 | 20 blocks | 43.9 ± 8.7 | 40.8 ± 8.1 | 54.9 ± 16.5 |
+| 20,000 | 200 blocks | 17.4 ± 0.6 | 18.3 ± 1.6 | 38.8 ± 3.8 |
+| 100,000 | 20 blocks | 325.9 ± 39.6 | 383.0 ± 71.1 | 317.0 ± 34.4 |
+| 100,000 | 200 blocks | 101.0 ± 13.2 | 94.4 ± 13.0 | 260.6 ± 31.7 |
+
+What this says, and what it does not:
+
+- With long pipes the flat layout is 2.2–2.6× faster than objects at 20,000 items and up. The work is a straight
+  walk over arrays instead of a pointer chase per item.
+- With short pipes (a junction every 20 blocks) **the object version keeps up**: at 100,000 items it is a tie. Most of
+  the time then goes to handing items over at junctions, which both versions do item by item. Do not expect a gain
+  there from the solver; the gain is that its state is plain data that can be saved, mirrored to clients and
+  migrated when the network changes.
+- The vector advance is **not** measurably faster than the scalar loop (within noise at every size): advancing the
+  positions is not where a tick's time goes (spacing and hand-overs are). It is used above 64 items per queue and gives
+  bit-identical results to the scalar path (`TransitSolverTest`), so it costs nothing, but do not count on it for speed.
+- An early version gathered every queue into big arrays and sorted arrivals globally; it was slower than the object
+  baseline. The shipped version steps queue by queue and orders arrivals through a sorted copy of the segments that is
+  rebuilt only when the network changes.
+
+Measured 2026-10-21 on the same kind of VM as above (4 vCPU, AVX2, OpenJDK 21), same JMH settings, benchmark
+`TransitBench`.
+
+## Building big networks
+
+`addNodes(ids, masks, count)` adds many blocks in one call and fuses once, instead of re-tracing the neighbourhood for
+every block. 10,000 pipe blocks, milliseconds, lower is better (`BulkBuildBench`):
+
+| Layout | One by one | `addNodes` | Speed-up |
+|---|---|---|---|
+| One straight run (every block extends it) | 8,965.7 ± 297.8 | 2.7 ± 0.5 | ~3,300× |
+| 100 × 100 grid, junction every 20 blocks | 45.2 ± 7.3 | 3.9 ± 0.5 | ~11.5× |
+
+The straight run is the worst case for one-by-one fusion (each block re-traces the whole run, so the cost grows with
+the square of its length), which is why the gap is so large; real worlds look more like the grid. The result of
+`addNodes` is the same set of segments as adding one at a time (`SegmentedGraphBulkTest` checks it against a
+brute-force trace of every network it builds).
