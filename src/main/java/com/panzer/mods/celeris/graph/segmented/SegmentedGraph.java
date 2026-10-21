@@ -89,6 +89,17 @@ public interface SegmentedGraph<T> {
         neighbors(segment).forEach(visitor::visit);
     }
 
+    /**
+     * Counter that changes whenever the set of segments changes (a segment is
+     * created or removed). Lets a consumer cache something derived from the
+     * segment list, such as a sorted copy, and rebuild it only when this value
+     * differs from the one it saw. Graphs that cannot tell return a value that
+     * always differs, which makes such caches rebuild every time (correct, slower).
+     */
+    default long structureVersion() {
+        return System.nanoTime();
+    }
+
     /** Number of segments; same as {@code segments().size()}. */
     default int segmentCount() {
         return segments().size();
