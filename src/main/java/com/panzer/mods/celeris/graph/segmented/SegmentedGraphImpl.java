@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -41,18 +42,78 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     private final ArrayList<GraphSegmentImpl<T>> allSegments = new ArrayList<>();
     private final Collection<GraphSegment<T>> segmentsView = Collections.unmodifiableList(allSegments);
     private final Supplier<T> emptyPayload;
+    private final PayloadMigrator<T> migrator;
+
+    // Change tracking, active only when a migrator is set: segments dropped
+    // and created by the mutation in progress, so the migrator sees the net
+    // difference. A rebuilt segment of unchanged shape is relinked, not replaced.
+    private final ArrayList<GraphSegmentImpl<T>> removedInCall = new ArrayList<>();
+    private final ArrayList<GraphSegmentImpl<T>> createdInCall = new ArrayList<>();
+    private final List<GraphSegment<T>> removedView = Collections.unmodifiableList(removedInCall);
+    private final List<GraphSegment<T>> createdView = Collections.unmodifiableList(createdInCall);
+    private boolean migrating;
+    private long nextSegmentId;
 
     // Trace scratch: a straight run can be arbitrarily long, so this grows
     // geometrically and is reused across traces (zero steady-state allocation).
     private long[] pathScratch = new long[32];
 
     public SegmentedGraphImpl(NetworkTopology topology, Supplier<T> emptyPayload) {
+        this(topology, emptyPayload, null);
+    }
+
+    /**
+     * @param migrator optional; carries payload state across splits and merges.
+     *                 With it, segments rebuilt to an unchanged shape keep
+     *                 their id and payload. See {@link PayloadMigrator}.
+     */
+    public SegmentedGraphImpl(NetworkTopology topology, Supplier<T> emptyPayload, PayloadMigrator<T> migrator) {
         this.topology = topology;
         this.emptyPayload = emptyPayload;
+        this.migrator = migrator;
+    }
+
+    private boolean tracking() {
+        return migrator != null;
+    }
+
+    private void beginMutation() {
+        if (migrating) {
+            throw new IllegalStateException("The graph cannot be mutated from a PayloadMigrator");
+        }
+    }
+
+    /** Hands the net change of the finished mutation to the migrator, then forgets it. */
+    private void endMutation() {
+        if (!tracking()) {
+            return;
+        }
+        try {
+            if (!removedInCall.isEmpty() || !createdInCall.isEmpty()) {
+                migrating = true;
+                migrator.migrate(removedView, createdView);
+            }
+        } finally {
+            migrating = false;
+            for (int i = 0, n = createdInCall.size(); i < n; i++) {
+                createdInCall.get(i).createdInCall = false;
+            }
+            createdInCall.clear();
+            removedInCall.clear();
+        }
     }
 
     @Override
     public void addNode(NodeId id, ConnectionMask connections) {
+        beginMutation();
+        try {
+            addNodeInternal(id, connections);
+        } finally {
+            endMutation();
+        }
+    }
+
+    private void addNodeInternal(NodeId id, ConnectionMask connections) {
         GraphSegmentImpl<T> splitTarget = segmentByInteriorPos.get(id.raw());
         if (splitTarget != null) {
             unregisterSegment(splitTarget);
@@ -69,6 +130,15 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
 
     @Override
     public void removeNode(NodeId id) {
+        beginMutation();
+        try {
+            removeNodeInternal(id);
+        } finally {
+            endMutation();
+        }
+    }
+
+    private void removeNodeInternal(NodeId id) {
         if (topology.denseIndexOf(id) < 0) {
             return;
         }
@@ -86,10 +156,29 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
 
     @Override
     public void updateConnections(NodeId id, ConnectionMask connections) {
+        beginMutation();
+        try {
+            updateConnectionsInternal(id, connections);
+        } finally {
+            endMutation();
+        }
+    }
+
+    private void updateConnectionsInternal(NodeId id, ConnectionMask connections) {
+        // Like addNode: a position strictly inside a segment is not an endpoint of
+        // any segment, so the run containing it has to be dropped explicitly.
+        GraphSegmentImpl<T> splitTarget = segmentByInteriorPos.get(id.raw());
+        if (splitTarget != null) {
+            unregisterSegment(splitTarget);
+        }
         boolean existed = topology.denseIndexOf(id) >= 0;
         int previousBits = existed ? topology.connectionsOf(id).bits() : 0;
         topology.updateConnections(id, connections);
         rebuildAround(id.raw());
+        if (splitTarget != null && !GraphNodeState.isJunction(connections.bits())) {
+            rebuildAround(splitTarget.nodeA());
+            rebuildAround(splitTarget.nodeB());
+        }
 
         for (int bits = previousBits; bits != 0; bits &= bits - 1) {
             int dir = Integer.numberOfTrailingZeros(bits);
@@ -210,6 +299,14 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     }
 
     private void unregisterSegment(GraphSegmentImpl<T> segment) {
+        if (tracking()) {
+            if (segment.createdInCall) {
+                createdInCall.remove(segment);
+                segment.createdInCall = false;
+            } else {
+                removedInCall.add(segment);
+            }
+        }
         removeFromAll(segment);
         removeEndpointEntry(segment.nodeA().raw(), segment);
         removeEndpointEntry(segment.nodeB().raw(), segment);
@@ -332,13 +429,37 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     }
 
     private void registerSegment(long[] path, int count, NodeId nodeA, int dirFromA, NodeId nodeB, int dirFromB) {
-        GraphSegmentImpl<T> segment = new GraphSegmentImpl<>(path, count, nodeA, nodeB, emptyPayload.get());
+        if (tracking()) {
+            for (int i = 0, n = removedInCall.size(); i < n; i++) {
+                GraphSegmentImpl<T> old = removedInCall.get(i);
+                int match = old.compareRun(path, count);
+                if (match != GraphSegmentImpl.RUN_DIFFERENT) {
+                    removedInCall.remove(i);
+                    if (match == GraphSegmentImpl.RUN_SAME) {
+                        linkSegment(old, dirFromA, dirFromB);
+                    } else {
+                        // Traced from the other end: keep the segment's original orientation.
+                        linkSegment(old, dirFromB, dirFromA);
+                    }
+                    return;
+                }
+            }
+        }
+        GraphSegmentImpl<T> segment = new GraphSegmentImpl<>(nextSegmentId++, path, count, nodeA, nodeB, emptyPayload.get());
+        if (tracking()) {
+            segment.createdInCall = true;
+            createdInCall.add(segment);
+        }
+        linkSegment(segment, dirFromA, dirFromB);
+    }
+
+    private void linkSegment(GraphSegmentImpl<T> segment, int dirAtA, int dirAtB) {
         segment.listIndex = allSegments.size();
         allSegments.add(segment);
-        endpointSlots(nodeA.raw())[dirFromA] = segment;
-        endpointSlots(nodeB.raw())[dirFromB] = segment;
-        for (int i = 1; i < count - 1; i++) {
-            segmentByInteriorPos.put(path[i], segment);
+        endpointSlots(segment.nodeA().raw())[dirAtA] = segment;
+        endpointSlots(segment.nodeB().raw())[dirAtB] = segment;
+        for (int i = 1, n = segment.positionCount() - 1; i < n; i++) {
+            segmentByInteriorPos.put(segment.rawPositionAt(i), segment);
         }
     }
 }
