@@ -199,6 +199,22 @@ class TransitDeltaTest {
     }
 
     @Test
+    void clearedClientTableIsEmptyAndUsableAgain() {
+        ClientItemTable table = new ClientItemTable();
+        table.enter(1, 10, true, 0f, 0.5f, 100);
+        table.enter(2, 10, true, 1f, 0.5f, 100);
+        table.leave(1, 105);
+        table.clear();
+        assertEquals(0, table.size());
+        assertEquals(0, table.slotLimit());
+        assertEquals(-1, table.slotOf(2));
+        table.enter(2, 11, false, 2f, 0.25f, 200);
+        assertEquals(1, table.size());
+        assertEquals(11L, table.segmentAt(table.slotOf(2)));
+        assertFalse(table.isLive(5));
+    }
+
+    @Test
     void motionMatchesTheServerAdditionAndInterpolatesAlongTheBlocks() {
         // the server adds speed once per tick
         float server = 0.3f;

@@ -41,6 +41,14 @@ public final class ClientItemTable implements TransitDelta.Listener {
         return TransitDelta.read(data, length, this);
     }
 
+    /** Forgets every item (a new world, a dimension change, a full resync). Keeps the allocated arrays. */
+    public void clear() {
+        slotByItem.clear();
+        Arrays.fill(item, 0, slotCount, -1);
+        slotCount = 0;
+        freeCount = 0;
+    }
+
     /** Number of items currently known. */
     public int size() {
         return slotByItem.size();

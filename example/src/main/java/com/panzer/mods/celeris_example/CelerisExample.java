@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  * <ul>
  *   <li>{@code compressor} -- async work via {@code AsyncResultQueue}</li>
  *   <li>{@code wire} -- {@code DiscreteGraph} + {@code EventDrivenPipelineSolver}</li>
- *   <li>{@code pipe} -- {@code SegmentedGraph} + {@code SIMDPipelineSolver}</li>
+ *   <li>{@code pipe} -- {@code SegmentedGraph} + {@code TransitSolver}: items travelling in pipes, drawn without entities</li>
  *   <li>{@code memory_bank} -- {@code MemoryBus} off-heap state with real NBT persistence</li>
  *   <li>{@code payload_demo} -- {@code PacketPipeline} via {@code PayloadCompression}</li>
  *   <li>{@code ring_buffer_demo} -- {@code MpscRingBuffer} used directly</li>
