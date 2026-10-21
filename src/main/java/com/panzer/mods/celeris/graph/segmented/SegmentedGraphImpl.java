@@ -43,6 +43,9 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     private final Collection<GraphSegment<T>> segmentsView = Collections.unmodifiableList(allSegments);
     private final Supplier<T> emptyPayload;
     private final PayloadMigrator<T> migrator;
+    private SegmentGraphListener<T> listener;
+    private GraphSegmentImpl<T>[] dirtyQueue = newSegmentArray(16);
+    private int dirtyCount;
 
     // Change tracking, active only when a migrator is set: segments dropped
     // and created by the mutation in progress, so the migrator sees the net
@@ -73,8 +76,105 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
         this.migrator = migrator;
     }
 
+    @SuppressWarnings("unchecked")
+    private static <T> GraphSegmentImpl<T>[] newSegmentArray(int n) {
+        return (GraphSegmentImpl<T>[]) new GraphSegmentImpl[n];
+    }
+
     private boolean tracking() {
-        return migrator != null;
+        return migrator != null || listener != null;
+    }
+
+    @Override
+    public void setListener(SegmentGraphListener<T> listener) {
+        beginMutation();
+        this.listener = listener;
+    }
+
+    @Override
+    public void markPayloadDirty(GraphSegment<T> segment) {
+        GraphSegmentImpl<T> impl = (GraphSegmentImpl<T>) segment;
+        if (impl.dirtyQueued || impl.listIndex < 0) {
+            return;
+        }
+        impl.dirtyQueued = true;
+        if (dirtyCount == dirtyQueue.length) {
+            dirtyQueue = java.util.Arrays.copyOf(dirtyQueue, dirtyCount << 1);
+        }
+        dirtyQueue[dirtyCount++] = impl;
+    }
+
+    @Override
+    public int flushDirty() {
+        int reported = 0;
+        // The listener may mark again while we drain; those wait for the next flush.
+        int n = dirtyCount;
+        GraphSegmentImpl<T>[] batch = dirtyQueue;
+        for (int i = 0; i < n; i++) {
+            GraphSegmentImpl<T> s = batch[i];
+            s.dirtyQueued = false;
+            if (s.listIndex >= 0 && listener != null) {
+                reported++;
+                listener.payloadDirty(s);
+            }
+        }
+        if (dirtyCount == n) {
+            java.util.Arrays.fill(batch, 0, n, null);
+            dirtyCount = 0;
+        } else {
+            System.arraycopy(batch, n, batch, 0, dirtyCount - n);
+            java.util.Arrays.fill(batch, dirtyCount - n, dirtyCount, null);
+            dirtyCount -= n;
+        }
+        return reported;
+    }
+
+    @Override
+    public int segmentCount() {
+        return allSegments.size();
+    }
+
+    @Override
+    public GraphSegment<T> segmentByIndex(int index) {
+        return allSegments.get(index);
+    }
+
+    @Override
+    public GraphSegment<T> branchAt(NodeId id, int direction) {
+        GraphSegmentImpl<T>[] byDir = segmentsByEndpointDir.get(id.raw());
+        return byDir == null ? null : byDir[direction];
+    }
+
+    @Override
+    public void forEachBranchAt(NodeId id, SegmentVisitor<T> visitor) {
+        GraphSegmentImpl<T>[] byDir = segmentsByEndpointDir.get(id.raw());
+        if (byDir == null) {
+            return;
+        }
+        for (int d = 0; d < DIRS; d++) {
+            if (byDir[d] != null) {
+                visitor.visit(byDir[d], d);
+            }
+        }
+    }
+
+    @Override
+    public void forEachNeighbor(GraphSegment<T> segment, SegmentVisitor<T> visitor) {
+        visitNeighbors(segment.nodeA().raw(), segment, visitor);
+        visitNeighbors(segment.nodeB().raw(), segment, visitor);
+    }
+
+    private void visitNeighbors(long endpointRaw, GraphSegment<T> self, SegmentVisitor<T> visitor) {
+        GraphSegmentImpl<T>[] byDir = segmentsByEndpointDir.get(endpointRaw);
+        if (byDir == null) {
+            return;
+        }
+        for (int d = 0; d < DIRS; d++) {
+            GraphSegmentImpl<T> other = byDir[d];
+            if (other != null && other != self) {
+                visitor.visit(other, d);
+            }
+        }
     }
 
     private void beginMutation() {
@@ -91,7 +191,17 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
         try {
             if (!removedInCall.isEmpty() || !createdInCall.isEmpty()) {
                 migrating = true;
-                migrator.migrate(removedView, createdView);
+                if (migrator != null) {
+                    migrator.migrate(removedView, createdView);
+                }
+                if (listener != null) {
+                    for (int i = 0, n = removedInCall.size(); i < n; i++) {
+                        listener.segmentRemoved(removedInCall.get(i));
+                    }
+                    for (int i = 0, n = createdInCall.size(); i < n; i++) {
+                        listener.segmentCreated(createdInCall.get(i));
+                    }
+                }
             }
         } finally {
             migrating = false;
