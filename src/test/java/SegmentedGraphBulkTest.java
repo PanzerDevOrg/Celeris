@@ -52,7 +52,7 @@ class SegmentedGraphBulkTest {
     }
 
     /** Independent statement of what the fused graph must contain, straight from the masks. */
-    private static TreeSet<String> oracle(Map<Long, Integer> masks) {
+    static TreeSet<String> oracle(Map<Long, Integer> masks) {
         TreeSet<String> result = new TreeSet<>();
         for (var entry : masks.entrySet()) {
             int bits = entry.getValue();
@@ -99,7 +99,7 @@ class SegmentedGraphBulkTest {
         return a.compareTo(b) <= 0 ? a : b;
     }
 
-    private static TreeSet<String> signatures(SegmentedGraphImpl<?> graph) {
+    static TreeSet<String> signatures(SegmentedGraphImpl<?> graph) {
         TreeSet<String> result = new TreeSet<>();
         for (GraphSegment<?> s : graph.segments()) {
             List<Long> path = new ArrayList<>();
