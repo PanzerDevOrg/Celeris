@@ -359,9 +359,8 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
         removeSegmentsTouching(id.raw());
         for (int bits = removedBits; bits != 0; bits &= bits - 1) {
             int dir = Integer.numberOfTrailingZeros(bits);
-            long nearestJunction = findNearestJunction(id.raw(), dir);
-            if (nearestJunction != NONE) {
-                rebuildAround(nearestJunction);
+            if (findNearestJunction(id.raw(), dir)) {
+                rebuildAround(foundJunction);
             }
         }
     }
@@ -394,34 +393,33 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
 
         for (int bits = previousBits; bits != 0; bits &= bits - 1) {
             int dir = Integer.numberOfTrailingZeros(bits);
-            long nearestJunction = findNearestJunction(id.raw(), dir);
-            if (nearestJunction != NONE) {
-                rebuildAround(nearestJunction);
+            if (findNearestJunction(id.raw(), dir)) {
+                rebuildAround(foundJunction);
             }
         }
     }
 
-    // Sentinel for "no node" on packed-long paths. NodeId.pack never yields
-    // all-ones for in-range coordinates (y is 12-bit sign-extended: -2048..2047,
-    // x/z 26-bit), so this value cannot collide with a real id.
-    private static final long NONE = -1L;
+    // Result slot of findNearestJunction. Every long is a valid packed position
+    // (including all-ones, i.e. (-1,-1,-1)), so no value can serve as a sentinel.
+    private long foundJunction;
 
-    private long findNearestJunction(long fromRaw, int dir) {
+    private boolean findNearestJunction(long fromRaw, int dir) {
         long current = fromRaw;
         int travelDir = dir;
         while (true) {
             current = NodeId.stepRaw(current, travelDir);
             int idx = topology.denseIndexOf(new NodeId(current));
             if (idx < 0) {
-                return NONE;
+                return false;
             }
             int bits = topology.connectionsOf(new NodeId(current)).bits();
             if (GraphNodeState.isJunction(bits)) {
-                return current;
+                foundJunction = current;
+                return true;
             }
             int outgoing = GraphNodeState.outgoingOtherThan(bits, BranchlessTables.opposite(travelDir));
             if (outgoing == -1) {
-                return NONE;
+                return false;
             }
             travelDir = outgoing;
         }

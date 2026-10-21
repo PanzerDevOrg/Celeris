@@ -15,7 +15,7 @@ final class GraphSegmentImpl<T> implements GraphSegment<T> {
     private final NodeId nodeB;
     private final PositionsView positionsView = new PositionsView();
     private final long id;
-    private volatile T payload;
+    private T payload;
 
     /** Index in {@code SegmentedGraphImpl.allSegments} for O(1) swap-remove; owned by that class. */
     int listIndex = -1;
