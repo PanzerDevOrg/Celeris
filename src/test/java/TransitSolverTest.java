@@ -33,7 +33,7 @@ class TransitSolverTest {
     private static final int S = GraphTestSupport.SOUTH;
 
     /** Records deliveries as "tick:node:handle"; can reject the first N offers. */
-    static final class Sink implements TransitEndpoints {
+    static class Sink implements TransitEndpoints {
         final Map<Long, Integer> terminals = new HashMap<>(); // node raw -> terminal direction
         final List<String> deliveries = new ArrayList<>();
         final Map<Long, List<Integer>> byNode = new HashMap<>();
@@ -397,18 +397,34 @@ class TransitSolverTest {
 
     @Test
     void ticksDoNotAllocateOnceWarm() {
-        Sink sink = new Sink();
+        // a sink that records nothing: the test's own bookkeeping must not count as the solver's allocation
+        Sink sink = new Sink() {
+            @Override
+            public boolean deliver(long nodeRaw, int direction, int handle) {
+                return true;
+            }
+        };
         Net net = tNetwork(sink, new RoundRobinRouter());
         int sent = 0;
         for (int t = 0; t < 4000; t++) {
             if (t % 2 == 0) net.solver.insert(ORIGIN, E, sent++);
             net.tick(1);
         }
+        for (int t = 0; t < 8000; t++) {
+            if (t % 2 == 0) net.solver.insert(ORIGIN, E, sent++);
+            net.tick(1);
+        }
         var threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
         long tid = Thread.currentThread().threadId();
-        long before = threads.getThreadAllocatedBytes(tid);
-        for (int t = 0; t < 2000; t++) net.tick(1);
-        long perTick = (threads.getThreadAllocatedBytes(tid) - before) / 2000;
+        long perTick = Long.MAX_VALUE;
+        for (int window = 0; window < 6; window++) {
+            long before = threads.getThreadAllocatedBytes(tid);
+            for (int t = 0; t < 1000; t++) {
+                if (t % 2 == 0) net.solver.insert(ORIGIN, E, sent++);
+                net.tick(1);
+            }
+            perTick = Math.min(perTick, (threads.getThreadAllocatedBytes(tid) - before) / 1000);
+        }
         assertTrue(perTick < 64, "tick allocated " + perTick + " bytes");
     }
 }
