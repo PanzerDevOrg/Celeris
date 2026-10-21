@@ -27,6 +27,8 @@
 - 📐 **Vector math.** Bulk number crunching uses the CPU's SIMD units when Java allows it, with identical results
   when it does not.
 - 🗜️ **Compression.** Native zstd for mods' own data (no JVM flags needed), and deflate for network packets.
+- 📦 **Items in pipes.** Pipe networks that carry items from block to block, drawn without an entity per item, and
+  that keep the items when pipes are placed, broken or saved.
 - 🏃 **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly (Velox
   uses it for dropped items).
 
@@ -113,7 +115,7 @@ Speed tips, how it works, the full version list and the guide for mod authors ar
 | **Threads** | `MpscRingBuffer` and `AsyncResultQueue`: workers produce, the tick consumes |
 | **Math** | `jdk.incubator.vector` when the module is loaded; the scalar path gives bit-identical results |
 | **Compression** | Native zstd (FFM on Java 25 or with `--enable-preview`, JNI otherwise; contexts pooled across calls) and deflate, plus a compressed payload type for custom packets |
-| **Graphs** | Segmented networks (pipes, wires) and discrete ones (signals), with pipeline solvers |
+| **Graphs** | Segmented networks (pipes, wires) and discrete ones (signals), with pipeline solvers, including item transport |
 | **Physics** | Batch bodies on a native kernel (AVX2, AVX-512, NEON) or in Java, following vanilla's movement rules |
 
 Packets between client and server always use deflate, so a Java 21 client and a Java 25 server never disagree on the
@@ -178,8 +180,9 @@ Source, examples and the package map: **[github.com/PanzerDevOrg/Celeris](https:
 | `framework.capability/query` | Capability caching and throttled queries |
 | `api.simd` | `VectorOperations`: SIMD via `jdk.incubator.vector`, scalar fallback with identical results |
 | `core.topology`, `graph.*` | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs |
-| `pipeline.*` | Event-driven and continuous (SIMD) pipeline solvers |
-| `network` | `PayloadCompression` / `CompressedPayload`: compressed custom payloads |
+| `pipeline.*` | Event-driven and continuous (SIMD) pipeline solvers; `pipeline.transit`: item transport (`TransitSolver`, routers, migration, persistence) |
+| `api.transit` | What a client needs to draw transported items: `TransitMotion`, `TransitDelta`, `ClientItemTable` |
+| `network` | `PayloadCompression` / `CompressedPayload`: compressed custom payloads; `TransitDeltaPackets` for item messages |
 | `physics` | Batch physics engine: SoA bodies, native C++ kernel or pure-Java kernel, broadphase, entity bridge ([`native/`](./native)) |
 
 Everything is chosen at startup and logged once. `-Dceleris.compatMode=true` forces the pure-Java paths.
@@ -208,7 +211,25 @@ results.offer(computeResult());
 results.drainTo(this::apply, 32);
 ```
 
-More complete, runnable examples (pipes, wires, ring buffer, compressor, memory bank) live in
+Quick example: items in pipes (server tick, then what to send players).
+
+```java
+var migrator = new TransitMigrator((handle, speed, nodeRaw) -> dropInWorld(handle, nodeRaw));
+var graph = new SegmentedGraphImpl<>(topology, TransitPayload::new, migrator); // pipes keep their items when edited
+var solver = new TransitSolver(TransitConfig.defaults(), new RoundRobinRouter(), endpoints, migrator);
+solver.bind(graph);
+var recorder = new TransitDeltaRecorder(0L, bytes -> send(TransitDeltaPackets.encode(bytes)));
+solver.setEvents(recorder);
+migrator.setEvents(recorder, solver::tickCount);
+
+graph.addNodes(ids, masks, count);      // a whole chunk of pipes in one pass
+solver.insert(node, direction, handle); // an item enters the pipe leaving `node`
+solver.tick();                          // once per server tick
+recorder.drain(solver.tickCount());     // sends only what changed
+// client: TransitDeltaPackets.decode(payload, clientItemTable); position = TransitMotion.progress(...)
+```
+
+All of it runs on one thread (normally the server thread) and has a pure-Java path. More complete, runnable examples (pipes, wires, ring buffer, compressor, memory bank) live in
 [`example/`](./example).
 
 ## Building
