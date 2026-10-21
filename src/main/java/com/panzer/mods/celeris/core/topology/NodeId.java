@@ -47,7 +47,34 @@ public record NodeId(long raw) {
         return new NodeId(packRaw(x, y, z));
     }
 
-    /** Packed-long form of {@link #pack} for allocation-free internals. */
+    /** Smallest/largest x and z that survive packing (26-bit signed; vanilla's world border is about 30M). */
+    public static final int MIN_XZ = -(1 << (X_BITS - 1));
+    public static final int MAX_XZ = (1 << (X_BITS - 1)) - 1;
+
+    /** Smallest/largest y that survives packing (12-bit signed; datapack dimensions stay within -2032..2031). */
+    public static final int MIN_Y = -(1 << (Y_BITS - 1));
+    public static final int MAX_Y = (1 << (Y_BITS - 1)) - 1;
+
+    /** True when the coordinates fit the packed layout, i.e. {@link #pack} round-trips them. */
+    public static boolean inRange(int x, int y, int z) {
+        return x >= MIN_XZ && x <= MAX_XZ
+                && z >= MIN_XZ && z <= MAX_XZ
+                && y >= MIN_Y && y <= MAX_Y;
+    }
+
+    /** Like {@link #pack}, but throws instead of silently aliasing another position. */
+    public static NodeId packChecked(int x, int y, int z) {
+        if (!inRange(x, y, z)) {
+            throw new IllegalArgumentException("Position out of NodeId range: " + x + ", " + y + ", " + z);
+        }
+        return new NodeId(packRaw(x, y, z));
+    }
+
+    /**
+     * Packed-long form of {@link #pack} for allocation-free internals. Out-of-range
+     * coordinates wrap silently and alias another position; use {@link #inRange}
+     * or {@link #packChecked} for untrusted input.
+     */
     public static long packRaw(int x, int y, int z) {
         return ((long) x & X_MASK) << X_SHIFT
                 | ((long) z & Z_MASK) << Z_SHIFT
