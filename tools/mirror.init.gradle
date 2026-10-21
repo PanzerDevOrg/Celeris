@@ -1,0 +1,22 @@
+// Sends Maven Central requests to Google's public mirror. repo.maven.apache.org
+// answers 429 intermittently from shared cloud egress IPs; the mirror does not.
+// Use: ./gradlew --init-script tools/mirror.init.gradle ...
+def central = ~/https?:\/\/(repo\.maven\.apache\.org|repo1\.maven\.org)\/maven2\/?/
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+def rewrite = { repos ->
+    repos.configureEach { r ->
+        if (r instanceof MavenArtifactRepository && r.url.toString() ==~ central) {
+            r.url = mirror
+        }
+    }
+}
+beforeSettings { s ->
+    rewrite(s.pluginManagement.repositories)
+    s.dependencyResolutionManagement.repositories.configureEach { r ->
+        if (r instanceof MavenArtifactRepository && r.url.toString() ==~ central) r.url = mirror
+    }
+}
+allprojects {
+    rewrite(buildscript.repositories)
+    rewrite(repositories)
+}
