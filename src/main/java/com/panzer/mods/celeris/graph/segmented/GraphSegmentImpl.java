@@ -23,6 +23,9 @@ final class GraphSegmentImpl<T> implements GraphSegment<T> {
     /** True while the segment was created by the mutation in progress (see {@code SegmentedGraphImpl}). */
     boolean createdInCall;
 
+    /** True while queued in {@code SegmentedGraphImpl}'s dirty queue. */
+    boolean dirtyQueued;
+
     GraphSegmentImpl(long id, long[] rawPositions, int count, NodeId nodeA, NodeId nodeB, T payload) {
         this.id = id;
         this.rawPositions = java.util.Arrays.copyOf(rawPositions, count);

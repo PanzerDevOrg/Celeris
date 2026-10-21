@@ -21,6 +21,14 @@ import java.util.Map;
  * consistent, already-fused state before returning. Consumers never call a
  * separate "recompute" step, and never observe a half-fused intermediate
  * graph.
+ *
+ * <h2>Threading</h2>
+ * A graph, its segments and their payloads belong to one thread, normally the
+ * server thread: every method here, including the reads, must be called from
+ * it. Nothing is synchronised. To work on another thread, copy the data into
+ * flat arrays on the owner thread, process them elsewhere and hand the result
+ * back (for example through {@code AsyncResultQueue}), applying it on the
+ * owner thread.
  */
 public interface SegmentedGraph<T> {
 
@@ -48,4 +56,82 @@ public interface SegmentedGraph<T> {
 
     /** All branches touching id, keyed by the direction each leads off in. */
     Map<GraphSegment<T>, Integer> branchesAt(NodeId id);
+
+    /** Receives one segment and the direction index it leaves a node in. */
+    @FunctionalInterface
+    interface SegmentVisitor<T> {
+        void visit(GraphSegment<T> segment, int direction);
+    }
+
+    /**
+     * Allocation-free {@link #branchesAt}: calls {@code visitor} once per
+     * segment touching {@code id}, with the direction it leaves in, in
+     * ascending direction order. Do not mutate the graph from the visitor.
+     */
+    default void forEachBranchAt(NodeId id, SegmentVisitor<T> visitor) {
+        branchesAt(id).forEach(visitor::visit);
+    }
+
+    /** The segment leaving {@code id} in {@code direction}, or null. Allocation-free. */
+    default GraphSegment<T> branchAt(NodeId id, int direction) {
+        for (var e : branchesAt(id).entrySet()) {
+            if (e.getValue() == direction) return e.getKey();
+        }
+        return null;
+    }
+
+    /**
+     * Allocation-free {@link #neighbors}: calls {@code visitor} once per
+     * segment sharing an endpoint with {@code segment}, with the direction it
+     * leaves that endpoint in. Do not mutate the graph from the visitor.
+     */
+    default void forEachNeighbor(GraphSegment<T> segment, SegmentVisitor<T> visitor) {
+        neighbors(segment).forEach(visitor::visit);
+    }
+
+    /** Number of segments; same as {@code segments().size()}. */
+    default int segmentCount() {
+        return segments().size();
+    }
+
+    /**
+     * The segment at {@code index} of the {@link #segments()} order, for
+     * indexed loops that must not allocate an iterator. The order is stable
+     * while the graph is not mutated. The default implementation walks the
+     * collection (O(index)); {@link SegmentedGraphImpl} overrides it in O(1).
+     */
+    default GraphSegment<T> segmentByIndex(int index) {
+        int i = 0;
+        for (GraphSegment<T> segment : segments()) {
+            if (i++ == index) return segment;
+        }
+        throw new IndexOutOfBoundsException(index);
+    }
+
+    /**
+     * Registers the single listener told about structural changes, or
+     * {@code null} to remove it. A graph with a listener keeps segments that
+     * are rebuilt to an unchanged shape (see {@link PayloadMigrator}), so it
+     * only reports real changes.
+     */
+    default void setListener(SegmentGraphListener<T> listener) {
+        throw new UnsupportedOperationException("This graph does not support listeners");
+    }
+
+    /**
+     * Queues {@code segment} to be reported to {@link SegmentGraphListener#payloadDirty}
+     * at the next {@link #flushDirty()}. Marking a segment twice before a flush
+     * reports it once. Allocation-free once the queue has grown.
+     */
+    default void markPayloadDirty(GraphSegment<T> segment) {
+        throw new UnsupportedOperationException("This graph does not support dirty tracking");
+    }
+
+    /**
+     * Reports every segment marked since the last flush that still exists, then
+     * clears the queue. Call it once per tick. Returns how many were reported.
+     */
+    default int flushDirty() {
+        return 0;
+    }
 }

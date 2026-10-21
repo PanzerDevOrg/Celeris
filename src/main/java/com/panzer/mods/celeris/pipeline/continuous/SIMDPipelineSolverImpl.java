@@ -4,9 +4,6 @@ import com.panzer.mods.celeris.api.simd.VectorOperations;
 import com.panzer.mods.celeris.graph.segmented.GraphSegment;
 import com.panzer.mods.celeris.graph.segmented.SegmentedGraph;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Default {@link SIMDPipelineSolver}: on each {@link #tick()}, gathers
  * every currently-bound segment's scalar state into a {@link
@@ -31,12 +28,12 @@ public final class SIMDPipelineSolverImpl<T> implements SIMDPipelineSolver<T> {
     private static final float DEFAULT_CAPACITY = 1.0f;
 
     private final SegmentTickBatch batch = new SegmentTickBatch();
-    private final float[] capacityScratch = new float[64];
+    private float[] capacityScratch = new float[64];
 
     private SegmentedGraph<T> graph;
     private SegmentTickBatch.Extractor<T> extractor;
-    @SuppressWarnings("FieldCanBeLocal")
-    private List<GraphSegment<T>> activeSegments = List.of();
+    @SuppressWarnings("unchecked")
+    private GraphSegment<T>[] active = (GraphSegment<T>[]) new GraphSegment[64];
 
     @Override
     public void bind(SegmentedGraph<T> graph, SegmentTickBatch.Extractor<T> extractor) {
@@ -50,14 +47,18 @@ public final class SIMDPipelineSolverImpl<T> implements SIMDPipelineSolver<T> {
             return;
         }
 
-        List<GraphSegment<T>> segments = new ArrayList<>(graph.segments());
-        activeSegments = segments;
-        if (segments.isEmpty()) {
+        int segmentCount = graph.segmentCount();
+        if (segmentCount == 0) {
             return;
+        }
+        if (active.length < segmentCount) {
+            active = java.util.Arrays.copyOf(active, Integer.highestOneBit(segmentCount - 1) << 1);
         }
 
         batch.reset();
-        for (GraphSegment<T> segment : segments) {
+        for (int i = 0; i < segmentCount; i++) {
+            GraphSegment<T> segment = graph.segmentByIndex(i);
+            active[i] = segment;
             extractor.gather(segment, batch);
         }
 
@@ -72,13 +73,14 @@ public final class SIMDPipelineSolverImpl<T> implements SIMDPipelineSolver<T> {
         VectorOperations.greaterThanMask(bufferLevels, capacities, overflowMask, count);
 
         for (int i = 0; i < count; i++) {
-            extractor.scatter(segments.get(i), i, batch);
+            extractor.scatter(active[i], i, batch);
+            active[i] = null;
         }
     }
 
     @Override
     public boolean isIdle() {
-        return graph == null || graph.segments().isEmpty();
+        return graph == null || graph.segmentCount() == 0;
     }
 
     @Override
@@ -91,8 +93,8 @@ public final class SIMDPipelineSolverImpl<T> implements SIMDPipelineSolver<T> {
             java.util.Arrays.fill(capacityScratch, 0, count, DEFAULT_CAPACITY);
             return capacityScratch;
         }
-        float[] grown = new float[Integer.highestOneBit(count - 1) << 1];
-        java.util.Arrays.fill(grown, DEFAULT_CAPACITY);
-        return grown;
+        capacityScratch = new float[Integer.highestOneBit(count - 1) << 1];
+        java.util.Arrays.fill(capacityScratch, 0, count, DEFAULT_CAPACITY);
+        return capacityScratch;
     }
 }
