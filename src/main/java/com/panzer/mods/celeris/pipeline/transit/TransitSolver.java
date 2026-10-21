@@ -137,6 +137,21 @@ public final class TransitSolver implements PipelineSolver {
         return insert(node, direction, handle, config.defaultSpeed());
     }
 
+    /**
+     * Changes the speed of the item at {@code index} (0 = head) in one direction of a segment. The item keeps
+     * its place; {@link TransitEvents#itemSpeedChanged} tells mirrors about it.
+     */
+    public void setItemSpeed(GraphSegment<TransitPayload> segment, boolean forward, int index, float speed) {
+        if (!(speed >= 0f) || !Float.isFinite(speed)) {
+            throw new IllegalArgumentException("speed must be finite and not negative");
+        }
+        TransitQueue queue = forward ? segment.payload().forward() : segment.payload().backward();
+        queue.setSpeedAt(index, speed);
+        if (events != null) {
+            events.itemSpeedChanged(segment.id(), forward, queue.handleAt(index), speed, queue.progressAt(index), tickCount);
+        }
+    }
+
     @Override
     public void tick() {
         if (graph == null) {
