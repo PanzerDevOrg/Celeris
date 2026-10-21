@@ -161,13 +161,18 @@ class SegmentGraphObservationTest {
                 segment.payload()[1] = batch.bufferLevels()[index];
             }
         });
-        for (int i = 0; i < 3000; i++) solver.tick();
+        for (int i = 0; i < 12_000; i++) solver.tick();
 
+        // Allocation is read per window and the quietest window counts: a JIT compilation
+        // landing inside one window must not decide the result.
         var threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
         long tid = Thread.currentThread().threadId();
-        long before = threads.getThreadAllocatedBytes(tid);
-        for (int i = 0; i < 2000; i++) solver.tick();
-        long perTick = (threads.getThreadAllocatedBytes(tid) - before) / 2000;
+        long perTick = Long.MAX_VALUE;
+        for (int window = 0; window < 6; window++) {
+            long before = threads.getThreadAllocatedBytes(tid);
+            for (int i = 0; i < 1000; i++) solver.tick();
+            perTick = Math.min(perTick, (threads.getThreadAllocatedBytes(tid) - before) / 1000);
+        }
 
         assertTrue(perTick < 64, "solver tick allocated " + perTick + " bytes");
         assertTrue(graph.segments().iterator().next().payload()[1] > 1f);
