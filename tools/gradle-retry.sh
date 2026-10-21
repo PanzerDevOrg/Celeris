@@ -12,7 +12,8 @@ delay=15
 for i in $(seq 1 "${ATTEMPTS:-6}"); do
   out=$(./gradlew "${args[@]}" 2>&1); code=$?
   if [ $code -eq 0 ]; then printf '%s\n' "$out"; exit 0; fi
-  if ! grep -q -E 'status code 429|Too Many Requests|Could not resolve|Could not GET' <<<"$out"; then
+  if grep -q -E 'There were failing tests|error: |Compilation failed' <<<"$out" \
+     || ! grep -q -E 'status code 429|Too Many Requests|Could not resolve|Could not GET' <<<"$out"; then
     printf '%s\n' "$out"; exit $code   # a real build/test failure: do not retry
   fi
   echo "attempt $i throttled; retrying in ${delay}s" >&2
