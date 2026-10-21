@@ -56,6 +56,7 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     private final List<GraphSegment<T>> createdView = Collections.unmodifiableList(createdInCall);
     private boolean migrating;
     private long nextSegmentId;
+    private long structureVersion;
 
     // Trace scratch: a straight run can be arbitrarily long, so this grows
     // geometrically and is reused across traces (zero steady-state allocation).
@@ -130,6 +131,11 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     }
 
     @Override
+    public long structureVersion() {
+        return structureVersion;
+    }
+
+    @Override
     public int segmentCount() {
         return allSegments.size();
     }
@@ -190,6 +196,7 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
         }
         try {
             if (!removedInCall.isEmpty() || !createdInCall.isEmpty()) {
+                structureVersion++;
                 migrating = true;
                 if (migrator != null) {
                     migrator.migrate(removedView, createdView);
@@ -409,6 +416,9 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     }
 
     private void unregisterSegment(GraphSegmentImpl<T> segment) {
+        if (!tracking()) {
+            structureVersion++;
+        }
         if (tracking()) {
             if (segment.createdInCall) {
                 createdInCall.remove(segment);
@@ -564,6 +574,9 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
     }
 
     private void linkSegment(GraphSegmentImpl<T> segment, int dirAtA, int dirAtB) {
+        if (!tracking()) {
+            structureVersion++;
+        }
         segment.listIndex = allSegments.size();
         allSegments.add(segment);
         endpointSlots(segment.nodeA().raw())[dirAtA] = segment;
