@@ -3,7 +3,8 @@
 	"menu.title.celeris_example.compressor": "Compressor",
 	"block.celeris_example.compressor": "Compressor",
 	"block.celeris_example.wire": "Signal Wire",
-	"block.celeris_example.pipe": "Flow Pipe",
+	"block.celeris_example.pipe": "Item Pipe",
+	"message.celeris_example.pipe_no_entry": "Use a pipe end or junction: items enter a segment at its end",
 	"block.celeris_example.memory_bank": "Memory Bank",
 	"block.celeris_example.payload_demo": "Payload Compression Demo",
 	"block.celeris_example.ring_buffer_demo": "Ring Buffer Demo"
