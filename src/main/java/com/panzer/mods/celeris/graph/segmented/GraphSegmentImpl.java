@@ -14,12 +14,17 @@ final class GraphSegmentImpl<T> implements GraphSegment<T> {
     private final NodeId nodeA;
     private final NodeId nodeB;
     private final PositionsView positionsView = new PositionsView();
+    private final long id;
     private volatile T payload;
 
     /** Index in {@code SegmentedGraphImpl.allSegments} for O(1) swap-remove; owned by that class. */
     int listIndex = -1;
 
-    GraphSegmentImpl(long[] rawPositions, int count, NodeId nodeA, NodeId nodeB, T payload) {
+    /** True while the segment was created by the mutation in progress (see {@code SegmentedGraphImpl}). */
+    boolean createdInCall;
+
+    GraphSegmentImpl(long id, long[] rawPositions, int count, NodeId nodeA, NodeId nodeB, T payload) {
+        this.id = id;
         this.rawPositions = java.util.Arrays.copyOf(rawPositions, count);
         this.nodeA = nodeA;
         this.nodeB = nodeB;
@@ -32,12 +37,36 @@ final class GraphSegmentImpl<T> implements GraphSegment<T> {
     }
 
     /** Packed position at {@code i}; allocation-free alternative to {@code positions().get(i).raw()}. */
-    long rawPositionAt(int i) {
+    @Override
+    public long rawPositionAt(int i) {
         return rawPositions[i];
     }
 
-    int positionCount() {
+    @Override
+    public int positionCount() {
         return rawPositions.length;
+    }
+
+    @Override
+    public long id() {
+        return id;
+    }
+
+    static final int RUN_DIFFERENT = 0;
+    static final int RUN_SAME = 1;
+    static final int RUN_REVERSED = 2;
+
+    /** Whether {@code path[0..count)} is this run in the same orientation, the opposite one, or a different run. */
+    int compareRun(long[] path, int count) {
+        long[] mine = rawPositions;
+        if (mine.length != count) return RUN_DIFFERENT;
+        boolean forward = true;
+        boolean backward = true;
+        for (int i = 0; i < count && (forward || backward); i++) {
+            forward &= mine[i] == path[i];
+            backward &= mine[i] == path[count - 1 - i];
+        }
+        return forward ? RUN_SAME : backward ? RUN_REVERSED : RUN_DIFFERENT;
     }
 
     @Override
@@ -60,7 +89,8 @@ final class GraphSegmentImpl<T> implements GraphSegment<T> {
         return payload;
     }
 
-    void setPayload(T payload) {
+    @Override
+    public void setPayload(T payload) {
         this.payload = payload;
     }
 

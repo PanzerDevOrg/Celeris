@@ -26,4 +26,37 @@ public interface GraphSegment<T> {
 
     /** Consumer-attached payload state (queue of items, fluid amount, energy buffer...). */
     T payload();
+
+    /**
+     * Stable identifier of this segment: unique within its graph, assigned in
+     * increasing order at creation and never reused, so it is safe as a
+     * network key. A segment the graph keeps across a mutation (see
+     * {@link PayloadMigrator}) keeps its id; a rebuilt one gets a new id.
+     * Implementations that do not track ids return {@link #NO_ID}.
+     */
+    default long id() {
+        return NO_ID;
+    }
+
+    /** Value of {@link #id()} for a segment without a stable id. */
+    long NO_ID = -1L;
+
+    /**
+     * Replaces the payload. Intended for {@link PayloadMigrator} callbacks and
+     * other server-thread code; see the threading contract in
+     * {@link SegmentedGraph}.
+     */
+    default void setPayload(T payload) {
+        throw new UnsupportedOperationException("This GraphSegment does not support replacing its payload");
+    }
+
+    /** Number of positions in {@link #positions()}, without materialising the list view. */
+    default int positionCount() {
+        return positions().size();
+    }
+
+    /** Packed {@link NodeId#raw()} of position {@code index}; allocation-free. */
+    default long rawPositionAt(int index) {
+        return positions().get(index).raw();
+    }
 }
