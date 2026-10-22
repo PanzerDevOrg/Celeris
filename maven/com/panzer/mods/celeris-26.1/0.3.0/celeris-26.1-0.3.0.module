@@ -28,10 +28,10 @@
           "name": "celeris-26.1-0.3.0.jar",
           "url": "celeris-26.1-0.3.0.jar",
           "size": 2085288,
-          "sha512": "c632ada3188e4d228d8166b5d967bad70d1f79aa82b37e9db5a7d7475a7b83342c08b911d2de4ffb76b6c608a32f24e76764c70cbc4b8708756a9dff6501c93a",
-          "sha256": "f9f0627485fbca7b12e52c923e52bb04e89c587318d555b8936b99f92eaf05ee",
-          "sha1": "f5dbd320c0dd31a03ecc906859fef9100976369e",
-          "md5": "c8779ff4c7aab09444dc3016290b2830"
+          "sha512": "5811dfbddfae7be53188bdaff845164cb2adfdd5ab65d9207adc3bd0ff208b9bb284332463f1283f63fc85f26fe98b98e0feb7b57682982a2aa1cbe331b6e5f8",
+          "sha256": "0fc7c8dc192f593ebf36f142235509ea271e2d7fdaece51444709515afa5657d",
+          "sha1": "ac41f727c7cdb1418215cbf852031ebf6f9d75b6",
+          "md5": "bc6a87b4bb3900ad0327d27138d08967"
         }
       ]
     },
@@ -49,10 +49,10 @@
           "name": "celeris-26.1-0.3.0.jar",
           "url": "celeris-26.1-0.3.0.jar",
           "size": 2085288,
-          "sha512": "c632ada3188e4d228d8166b5d967bad70d1f79aa82b37e9db5a7d7475a7b83342c08b911d2de4ffb76b6c608a32f24e76764c70cbc4b8708756a9dff6501c93a",
-          "sha256": "f9f0627485fbca7b12e52c923e52bb04e89c587318d555b8936b99f92eaf05ee",
-          "sha1": "f5dbd320c0dd31a03ecc906859fef9100976369e",
-          "md5": "c8779ff4c7aab09444dc3016290b2830"
+          "sha512": "5811dfbddfae7be53188bdaff845164cb2adfdd5ab65d9207adc3bd0ff208b9bb284332463f1283f63fc85f26fe98b98e0feb7b57682982a2aa1cbe331b6e5f8",
+          "sha256": "0fc7c8dc192f593ebf36f142235509ea271e2d7fdaece51444709515afa5657d",
+          "sha1": "ac41f727c7cdb1418215cbf852031ebf6f9d75b6",
+          "md5": "bc6a87b4bb3900ad0327d27138d08967"
         }
       ]
     },
@@ -69,10 +69,10 @@
           "name": "celeris-26.1-0.3.0-sources.jar",
           "url": "celeris-26.1-0.3.0-sources.jar",
           "size": 2019853,
-          "sha512": "982f2528c97c2b50dd9eeac9cc9a2bf388c5cea828543f7851e61e35af2bb7a7c42de52307221fe70991235330c586ed657ef3486ef6624199898ce26e4254cb",
-          "sha256": "8a5da46069c8ce5dd87cf6aacec80cb37973b7c37a1460ab8424a027c01efab6",
-          "sha1": "8606b5f3d9dba3b33cce086fa87d3bd6dec67db8",
-          "md5": "dd513a6aa8a6577e0decfafc511454e0"
+          "sha512": "b9d48cf517e6df39b72941505205794c0aca8ca9f9b5b91765e2b399b5b41a79b7696e2f059d668928b5ff0a0010b0b7927295d22e72cd762f3cb7fd08525d81",
+          "sha256": "b706e5945b1cfc94535cd7c7c5a7d75e2e416da5a935bba34e8cb90aa3ecf099",
+          "sha1": "db2a1d04d9b235b87ff2f66e1efc3e37f3ed9b6d",
+          "md5": "b8b8eac5493527109eb4b97e8e95ed26"
         }
       ]
     }
