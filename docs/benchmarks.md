@@ -22,7 +22,7 @@ ratios are what matter.
 | Same, vs zstd-jni 1.5.7 | 542 / 1,296 MiB/s | 454–489 / 1,218–1,302 MiB/s | **tie**: same zstd 1.5.7 underneath, in a 2 MB jar instead of a 7.4 MB one |
 | Moving 10,000 dropped items one tick | 0.97 ms (native kernel) | 1.35 ms (same rules in Java, item by item) | **1.4× faster** |
 | 32,768 items on 3 threads | 0.88 ms | 4.72 ms (Java, one thread) | **5.3× faster**, under 2 % of a 50 ms tick |
-| Finding touching items in a pile of 16,384 | 0.24 ms | 860–1,100 ms (every pair counted, as before 0.2.3) | **~4,000× faster** |
+| Finding touching items in a pile of 16,384 | 0.24 ms | 860–1,100 ms (every pair counted, as before 0.3.0) | **~4,000× faster** |
 | One worker handing results to the game thread | 39.5 M/s | JCTools `MpscArrayQueue` 8.0 M/s, `ArrayBlockingQueue` 4.3 M/s | **4.9× faster** than JCTools |
 | Two or three workers at once | 13.0 / 12.8 M/s | JCTools 8.7 / 9.7, `ArrayBlockingQueue` 4.9 / 3.8 | **1.3–1.5× faster** than JCTools |
 | 100,000 items travelling on 200-block pipes, one tick | 101 µs | 261 µs (one object per item, moved item by item) | **2.6× faster**; on 20-block pipes a **tie** (326 vs 317 µs) |
@@ -54,7 +54,7 @@ later with everything on the ground. Milliseconds per tick, lower is better; 50 
 With Celeris's Java kernel instead of the native one the server is within a few percent (20,000 items resting:
 13.39 ms on 1.21.1, 28.57 ms on 26.1): the item physics itself is now a small part of the tick, and what remains is
 Minecraft's own per-entity work (chunk ticking checks, entity tracking, fluid checks), which Velox leaves to the
-game. On 26.1, 0.2.3's Velox also skips the per-item "entity inside block" walk for items over plain blocks, which
+game. On 26.1, 0.3.0's Velox also skips the per-item "entity inside block" walk for items over plain blocks, which
 took 4× to 7.5× at 20,000 resting items.
 
 ## Compression
@@ -128,11 +128,11 @@ jar); otherwise the Java kernel runs with identical results.
 ![Broadphase on item piles](media/benchmarks/broadphase.png)
 
 `BodyBatch.broadphase` lists the pairs of items whose boxes touch (merge candidates, pushing). A pile of n items in
-one block is the worst case: nearly every pair touches, ~n²/2 of them. Before 0.2.3 every call counted them all;
+one block is the worst case: nearly every pair touches, ~n²/2 of them. Before 0.3.0 every call counted them all;
 now the scan stops once the pair buffer (here n pairs) is full, and reports that the list was cut. The pairs kept are
 exactly the first ones of the full list, in the same order on the Java and native kernels. Time per call:
 
-| Items | Kernel | Every pair counted (before) | Stops at the buffer (0.2.3) | Speed-up |
+| Items | Kernel | Every pair counted (before) | Stops at the buffer (0.3.0) | Speed-up |
 |---|---|---|---|---|
 | 4,096 | Java | 62.7 ± 23.7 ms | 0.061 ± 0.025 ms | ~1,000× |
 | 4,096 | native | 58.1 ± 8.8 ms | 0.056 ± 0.010 ms | ~1,000× |
@@ -153,14 +153,14 @@ is full, the consumer when it is empty. Median of 9 rounds, in million values pe
 
 | Queue | 1 producer | 2 producers | 3 producers |
 |---|---|---|---|
-| **Celeris `MpscRingBuffer` (0.2.3)** | **39.5** | **13.0** | **12.8** |
+| **Celeris `MpscRingBuffer` (0.3.0)** | **39.5** | **13.0** | **12.8** |
 | Celeris `MpscRingBuffer` (0.2.2) | 10.9 | 5.5 | 4.2 |
 | JCTools `MpscArrayQueue` 4.0.5 | 8.0 | 8.7 | 9.7 |
 | `ArrayBlockingQueue` (JDK) | 4.3 | 4.9 | 3.8 |
 | `ConcurrentLinkedQueue` (JDK) | 6.8 | 6.5 | 5.0 |
 
 Celeris stores the values themselves in off-heap slots; the object queues box each one into a `Long`, which is part of
-their cost and is what a mod using them for primitive results pays too. 0.2.3 made the ring about 4× faster with one
+their cost and is what a mod using them for primitive results pays too. 0.3.0 made the ring about 4× faster with one
 producer: producers no longer read the consumer's position on every publish (they keep a cached limit), and each
 slot's state word now sits next to its payload, so a hand-off touches one cache line instead of two. (The 0.2.2 row
 was measured on the same machine on 2026-10-07; the others on 2026-10-08.)
