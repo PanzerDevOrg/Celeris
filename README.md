@@ -16,7 +16,6 @@
 | Mod | What it does for you |
 |---|---|
 | 🧱 **[Tessera](https://github.com/PanzerDevOrg/Tessera)** | Shrinks Minecraft's textures on the graphics card by **up to 75%**, with no visible difference. |
-| 🪶 **Velox** | Works out where dropped items go **all together** instead of one by one, taking that work off busy servers. |
 
 ## ⚡ What it gives those mods
 
@@ -29,8 +28,7 @@
 - 🗜️ **Compression.** Native zstd for mods' own data (no JVM flags needed), and deflate for network packets.
 - 📦 **Items in pipes.** Pipe networks that carry items from block to block, drawn without an entity per item, and
   that keep the items when pipes are placed, broken or saved.
-- 🏃 **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly (Velox
-  uses it for dropped items).
+- 🏃 **Batch physics.** Thousands of entities moved in one pass, following vanilla's movement rules exactly.
 
 ## 🛡️ Safe everywhere
 
@@ -41,10 +39,6 @@
 - ✅ Network payloads are size-capped and malformed packets are dropped.
 
 ## 🏁 How fast
-
-On a real server (dedicated NeoForge, 20,000 dropped items resting on the ground), Velox with Celeris runs the tick
-in **11.9 ms instead of 139.9 ms on Minecraft 1.21.1 (11.8× faster)** and **29.3 ms instead of 219.1 ms on 26.1
-(7.5×)**: from 3–5 TPS back to a full 20.
 
 Each building block, measured against what a mod would otherwise use (JMH, Java 21, a 4-core machine; full tables,
 method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
@@ -58,7 +52,6 @@ method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
 - 🧵 **4.9× faster hand-off** from one worker thread to the game thread than JCTools, the go-to lock-free queue
   library, and still ahead with two or three workers.
 
-![Server tick time](./docs/media/benchmarks/ingame.png)
 ![Compression benchmark](./docs/media/benchmarks/compression.png)
 ![Physics benchmark](./docs/media/benchmarks/physics.png)
 ![Broadphase benchmark](./docs/media/benchmarks/broadphase.png)
