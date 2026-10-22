@@ -1,7 +1,7 @@
 ![Celeris](./docs/media/banner.png)
 
 <p align="center">
-<img src="https://img.shields.io/badge/Minecraft-1.21%20%E2%80%93%201.21.11%20%C2%B7%2026.1%20%E2%80%93%2026.3-3c8527?style=for-the-badge" alt="Minecraft 1.21 – 1.21.11 and 26.1 – 26.3">
+<img src="https://img.shields.io/badge/Minecraft-1.21%20%E2%80%93%2026.3-3c8527?style=for-the-badge" alt="Minecraft 1.21 – 26.3">
 <img src="https://img.shields.io/badge/NeoForge-Client%20%26%20Server-e8710a?style=for-the-badge" alt="NeoForge, client and server">
 <img src="https://img.shields.io/badge/Fabric-Client%20%26%20Server-dbd0b4?style=for-the-badge" alt="Fabric, client and server">
 <img src="https://img.shields.io/badge/Type-Library-7c3aed?style=for-the-badge" alt="Library">
@@ -66,7 +66,7 @@ method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
 
 ## 📦 Requirements
 
-- 🟩 **Minecraft:** 1.21 – 1.21.11 and 26.1 – 26.3. Download the file made for your version.
+- 🟩 **Minecraft:** 1.21 – 26.3. Download the file made for your version.
 - 🔶 **Loader:** NeoForge or Fabric (with [Fabric API](https://modrinth.com/mod/fabric-api)), on the client and on the server.
 - ☕ **Java:** 21 for 1.21.x, 25 for 26.x.
 
