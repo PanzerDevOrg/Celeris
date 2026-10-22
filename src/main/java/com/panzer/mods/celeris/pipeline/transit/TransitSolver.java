@@ -5,6 +5,7 @@ import com.panzer.mods.celeris.core.topology.NodeId;
 import com.panzer.mods.celeris.framework.ticking.IdleTickFilter;
 import com.panzer.mods.celeris.graph.segmented.GraphSegment;
 import com.panzer.mods.celeris.graph.segmented.SegmentedGraph;
+import com.panzer.mods.celeris.physics.ChunkWorkers;
 import com.panzer.mods.celeris.pipeline.PipelineSolver;
 
 import java.util.Arrays;
@@ -29,6 +30,14 @@ import java.util.Arrays;
  * history built the graph (a reload, a different build order). The simulation
  * is deterministic: the same graph, queues and router state give the same
  * result tick after tick.
+ *
+ * <p>Queues are independent until their heads are routed, so with {@link #setWorkers} the pass over the
+ * items of a big network is shared with worker threads; the routing stays on the calling thread, in the
+ * same order, and the result is the same bit for bit.
+ *
+ * <p>A queue whose items are all pressed against the one ahead and the head against the exit (a network
+ * whose consumers are full) is not walked again until something changes in it: its tick costs a few
+ * operations, not one per item.
  *
  * <p>Nothing here allocates per tick once the scratch arrays have grown. A
  * single thread (the graph's) must call every method.
@@ -68,6 +77,15 @@ public final class TransitSolver implements PipelineSolver {
 
     /** Below this many items a plain loop beats a vector call. */
     private static final int VECTOR_MIN_ITEMS = 64;
+    /** Items in flight from which sharing the pass with workers pays for waking them. */
+    public static final int DEFAULT_PARALLEL_MIN_ITEMS = 200_000;
+
+    private boolean skipSettled = true;
+    private ChunkWorkers workers;
+    private int parallelMinItems = DEFAULT_PARALLEL_MIN_ITEMS;
+    private final ChunkWorkers.ChunkTask stepTask = this::stepChunk;
+    private boolean[] reached = new boolean[0];
+    private int stepUnit = 1;
 
     private int branchMask;
     private final SegmentedGraph.SegmentVisitor<TransitPayload> maskCollector =
@@ -101,6 +119,25 @@ public final class TransitSolver implements PipelineSolver {
 
     public void setEvents(TransitEvents events) {
         this.events = events;
+    }
+
+    /**
+     * Whether queues that cannot move are skipped (the default). Turning it off makes every tick walk every
+     * item, which gives the same result and exists to check that.
+     */
+    public void setSkipSettled(boolean skip) {
+        this.skipSettled = skip;
+    }
+
+    /**
+     * Shares the per-tick pass over the items with {@code workers} while at least {@code minItems} are in
+     * flight. Optional: without it, or with {@code null}, one thread does everything. The result is identical
+     * either way. Workers are not owned: the solver never closes them, and if they are busy with another run
+     * the tick simply runs on the calling thread.
+     */
+    public void setWorkers(ChunkWorkers workers, int minItems) {
+        this.workers = workers;
+        this.parallelMinItems = Math.max(1, minItems);
     }
 
     public long tickCount() {
@@ -167,17 +204,57 @@ public final class TransitSolver implements PipelineSolver {
 
         arrivalCount = 0;
         refreshOrder();
-        for (int i = 0, segments = orderedCount; i < segments; i++) {
-            GraphSegment<TransitPayload> segment = ordered[i];
-            TransitPayload payload = segment.payload();
-            if (payload.forward().size > 0) {
-                step(payload.forward(), segment, true);
-            }
-            if (payload.backward().size > 0) {
-                step(payload.backward(), segment, false);
+        if (workers == null || liveItems < parallelMinItems || orderedCount < 2 || !stepInParallel()) {
+            for (int i = 0, segments = orderedCount; i < segments; i++) {
+                GraphSegment<TransitPayload> segment = ordered[i];
+                TransitPayload payload = segment.payload();
+                if (payload.forward().size > 0) {
+                    step(payload.forward(), segment, true);
+                }
+                if (payload.backward().size > 0) {
+                    step(payload.backward(), segment, false);
+                }
             }
         }
         routeArrivals();
+    }
+
+    /** The pass over every queue on the workers; arrivals are then noted in segment order, as the plain loop would. False if the workers were busy. */
+    private boolean stepInParallel() {
+        int segments = orderedCount;
+        if (reached.length < segments * 2) {
+            reached = new boolean[segments * 2];
+        }
+        stepUnit = Math.max(1, segments / ((workers.threadCount() + 1) * 4));
+        if (!workers.tryRun(stepTask, (segments + stepUnit - 1) / stepUnit)) {
+            return false;
+        }
+        for (int i = 0; i < segments; i++) {
+            if (reached[2 * i]) {
+                reached[2 * i] = false;
+                addArrival(ordered[i].payload().forward(), ordered[i], true);
+            }
+            if (reached[2 * i + 1]) {
+                reached[2 * i + 1] = false;
+                addArrival(ordered[i].payload().backward(), ordered[i], false);
+            }
+        }
+        return true;
+    }
+
+    private void stepChunk(int chunk) {
+        int end = Math.min(orderedCount, (chunk + 1) * stepUnit);
+        for (int i = chunk * stepUnit; i < end; i++) {
+            GraphSegment<TransitPayload> segment = ordered[i];
+            TransitPayload payload = segment.payload();
+            float length = segment.length();
+            if (payload.forward().size > 0) {
+                reached[2 * i] = advanceQueue(payload.forward(), length);
+            }
+            if (payload.backward().size > 0) {
+                reached[2 * i + 1] = advanceQueue(payload.backward(), length);
+            }
+        }
     }
 
     @Override
@@ -220,8 +297,25 @@ public final class TransitSolver implements PipelineSolver {
 
     /** Advances one queue by a tick and settles it; queues whose head reached the exit are noted for routing. */
     private void step(TransitQueue queue, GraphSegment<TransitPayload> segment, boolean forward) {
+        if (advanceQueue(queue, segment.length())) {
+            addArrival(queue, segment, forward);
+        }
+    }
+
+    /**
+     * Moves the items of one queue a tick and applies the spacing rule. Touches nothing outside the queue.
+     *
+     * @return whether the head reached the exit and must be routed
+     */
+    private boolean advanceQueue(TransitQueue queue, float length) {
         int size = queue.size;
         float[] progress = queue.progress;
+        if (queue.settled && skipSettled) {
+            // Nothing can move, so the pass below would only recompute the overshoot the head would have.
+            float head = progress[0] + queue.speed[0];
+            queue.carry = head > length ? head - length : 0f;
+            return true;
+        }
         if (size >= VECTOR_MIN_ITEMS) {
             advance.add(progress, queue.speed, size);
         } else {
@@ -232,13 +326,32 @@ public final class TransitSolver implements PipelineSolver {
         }
 
         float spacing = config.minSpacing();
-        float length = segment.length();
-        queue.carry = progress[0] > length ? progress[0] - length : 0f;
         float limit = length;
+        if (progress[0] < length) {
+            // The head is still on its way, so the queue cannot be settled: the plain pass.
+            queue.carry = 0f;
+            queue.settled = false;
+            for (int i = 0; i < size; i++) {
+                float p = progress[i];
+                if (p > limit) {
+                    p = limit;
+                }
+                progress[i] = p;
+                limit = p - spacing;
+                if (limit < 0f) {
+                    limit = 0f;
+                }
+            }
+            return false;
+        }
+        queue.carry = progress[0] > length ? progress[0] - length : 0f;
+        boolean pressed = true;
         for (int i = 0; i < size; i++) {
             float p = progress[i];
             if (p > limit) {
                 p = limit;
+            } else if (p < limit) {
+                pressed = false;
             }
             progress[i] = p;
             limit = p - spacing;
@@ -246,9 +359,8 @@ public final class TransitSolver implements PipelineSolver {
                 limit = 0f;
             }
         }
-        if (progress[0] >= length) {
-            addArrival(queue, segment, forward);
-        }
+        queue.settled = pressed && !queue.oddSpeed;
+        return true;
     }
 
     private void addArrival(TransitQueue queue, GraphSegment<TransitPayload> segment, boolean forward) {
