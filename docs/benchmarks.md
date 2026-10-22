@@ -199,6 +199,26 @@ What this says, and what it does not:
 Measured 2026-10-21 on the same kind of VM as above (4 vCPU, AVX2, OpenJDK 21), same JMH settings, benchmark
 `TransitBench`.
 
+## Millions of items
+
+One tick with 200,000 to 8 million items on straight 100-block lines (`TransitScaleBench`; microseconds, lower is
+better). *Flowing*: every item moves and each line is fed one item every third tick (the feeding is in the tick).
+*Backed up*: the consumers refuse everything and the lines are full, so nothing can move. Measured 2026-10-22 on a
+4 vCPU Intel Xeon (shared cloud VM), OpenJDK 25, JMH 1 fork, 3 × 2 s warm-up, 5 × 2 s measurement.
+
+| Items in flight | Backed up, before | Backed up, now | Flowing, before | Flowing, now | Flowing, 3 workers |
+|---|---|---|---|---|---|
+| 200,000 | 310 | **29–32** (10×) | 335–371 | 396–443 | not worth it (below 200,000) |
+| 2,000,000 | 4,260 | **1,040–1,100** (4×) | 4,960 | 5,260–6,170 | **2,930** (1.9×) |
+| 8,000,000 | 29,100 | **4,800–6,000** (5–6×) | 34,700 | 38,000–42,400 | **17,500** (2.4×) |
+
+- A queue whose items are all pressed against the one ahead and whose head waits at the exit cannot change until
+  something is added or removed, so its tick is skipped. What remains is trying to route each waiting head.
+- Flowing items are as fast as before to within noise (a few percent slower at the smallest size: the pass now also
+  notes whether the queue is settled once its head reaches the exit). `TransitSolver.setWorkers` shares the pass
+  over the items with worker threads; routing stays on the caller, in the same order, and `TransitScaleTest` checks
+  that positions, deliveries and events are identical to a single thread walking every item, tick after tick.
+
 ## Building big networks
 
 `addNodes(ids, masks, count)` adds many blocks in one call and fuses once, instead of re-tracing the neighbourhood for

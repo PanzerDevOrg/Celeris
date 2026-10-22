@@ -27,6 +27,14 @@ public final class TransitQueue {
     float carry;
     /** True while the head waits at the exit because nothing downstream accepted it. */
     boolean blocked;
+    /**
+     * True when the last tick found every item pressed against the one ahead and the head against the
+     * exit: another tick would change nothing but {@link #carry}, so the solver skips the pass over the items.
+     * Cleared by every change to the queue.
+     */
+    boolean settled;
+    /** True once an item with a speed that is negative or not a number was added: such a queue is never settled. */
+    boolean oddSpeed;
 
     public int size() {
         return size;
@@ -59,11 +67,15 @@ public final class TransitQueue {
     public void setSpeedAt(int index, float newSpeed) {
         checkIndex(index);
         speed[index] = newSpeed;
+        settled = false;
+        oddSpeed |= !(newSpeed >= 0f);
     }
 
     /** Appends at the tail without any spacing check; {@code newProgress} must not exceed the current tail's. */
     void addTail(int itemHandle, float itemSpeed, float newProgress) {
         ensureCapacity(size + 1);
+        settled = false;
+        oddSpeed |= !(itemSpeed >= 0f);
         progress[size] = newProgress;
         speed[size] = itemSpeed;
         handle[size] = itemHandle;
@@ -73,6 +85,8 @@ public final class TransitQueue {
     /** Inserts keeping the descending order; after existing items of equal progress. */
     void insertSorted(int itemHandle, float itemSpeed, float newProgress) {
         ensureCapacity(size + 1);
+        settled = false;
+        oddSpeed |= !(itemSpeed >= 0f);
         int at = size;
         while (at > 0 && progress[at - 1] < newProgress) {
             at--;
@@ -96,12 +110,16 @@ public final class TransitQueue {
             System.arraycopy(handle, 1, handle, 0, size);
         }
         blocked = false;
+        settled = false;
+        oddSpeed &= size > 0;
         carry = 0f;
     }
 
     void clear() {
         size = 0;
         blocked = false;
+        settled = false;
+        oddSpeed = false;
         carry = 0f;
     }
 
