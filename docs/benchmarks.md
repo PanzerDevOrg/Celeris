@@ -1,9 +1,8 @@
 # Celeris benchmarks
 
 How Celeris's building blocks compare with what a mod would otherwise use: the JDK's own classes and the best-known
-Java libraries for the same job, and what that adds up to on a real server. Every number below comes from the code in
-[`benchmarks/`](../benchmarks) and the raw results in [`benchmarks/results/`](../benchmarks/results);
-`benchmarks/run.sh` reproduces the JMH ones and redraws the charts. The in-game numbers come from
+Java libraries for the same job, and what that adds up to on a real server. Every number below comes from JMH benchmarks
+run on the machine described in each section. The in-game numbers come from
 panzer-build-logic's `perf-test` workflow.
 
 **Measured:** 2026-10-08, Celeris 0.2.3 (commit 4586d93) with Velox 0.1.0. **Machine:** 4 vCPU Intel Xeon @ 2.1 GHz
