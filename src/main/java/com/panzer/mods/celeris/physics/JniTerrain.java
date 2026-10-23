@@ -10,6 +10,7 @@ import static com.panzer.mods.celeris.physics.RawMemory.UNSAFE;
  * friction table and a {@code cp_terrain} header pointing at all three, which
  * is what the native kernel receives. Same behaviour as {@code SegmentTerrain}.
  */
+@SuppressWarnings("removal")
 final class JniTerrain implements TerrainView {
 
     // struct cp_terrain on the 64-bit targets Celeris ships natives for: three pointers, then six int32.
