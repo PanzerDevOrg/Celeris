@@ -1,5 +1,5 @@
-# celeris_physics: batch body simulation kernel, loaded by
-# NativePhysicsKernel through the FFM Linker.
+# celeris_physics: batch body simulation kernel, loaded by JniPhysicsKernel
+# (JNI, cp_jni.cpp) or NativePhysicsKernel (FFM Linker).
 #
 # One shared library per platform, containing every ISA variant for that
 # architecture; cp_api.cpp picks one at load time from CPUID (x86) or uses
@@ -32,7 +32,7 @@ else()
     set(CP_ARCH generic)
 endif()
 
-set(CP_SOURCES src/cp_api.cpp src/cp_isa_generic.cpp)
+set(CP_SOURCES src/cp_api.cpp src/cp_jni.cpp src/cp_isa_generic.cpp)
 set(CP_DEFINES)
 
 if(CP_ARCH STREQUAL "x86_64")
