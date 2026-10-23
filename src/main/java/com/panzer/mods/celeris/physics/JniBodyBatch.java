@@ -12,6 +12,7 @@ import static com.panzer.mods.celeris.physics.RawMemory.UNSAFE;
  * access throws instead of touching freed memory. Nothing below allocates
  * after construction.
  */
+@SuppressWarnings("removal")
 final class JniBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
 
     private final PhysicsMode mode;
