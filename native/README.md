@@ -2,7 +2,8 @@
 
 Native kernel of Celeris's batch physics engine (`com.panzer.mods.celeris.physics`).
 It simulates thousands of entity bodies per call over an off-heap Structure-of-Arrays
-slab that the Java side owns, and is loaded through the FFM `Linker`.
+slab that the Java side owns. Java reaches it over JNI (`src/cp_jni.cpp`, no launch flag
+needed, not affected by `--enable-native-access`) or, as the second choice, through the FFM `Linker`.
 
 ## Layout
 
@@ -57,7 +58,7 @@ or through Gradle (panzer-build-logic, `[natives.celeris_physics]` in
 ```
 
 CI builds and self-tests it on Linux x86_64/AArch64, Windows x86_64 and macOS
-x86_64/AArch64, and bundles all of them in the jar. JVMs without FFM (Minecraft
-1.21.x without `--enable-preview`) and platforms without a binary run the
-pure-Java kernel (`JavaPhysicsKernel`, on Java arrays) instead, with the same
+x86_64/AArch64, and bundles all of them in the jar. The engine cascade is JNI, then FFM,
+then the pure-Java kernel: platforms without a binary (or where `Unsafe` memory access is
+blocked and FFM is missing) run the pure-Java kernel (`JavaPhysicsKernel`, on Java arrays) instead, with the same
 results.

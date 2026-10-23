@@ -1,5 +1,6 @@
 import com.panzer.mods.celeris.physics.BodyBatch;
 import com.panzer.mods.celeris.physics.PhysicsFactory;
+import com.panzer.mods.celeris.physics.PhysicsJniTestAccess;
 import com.panzer.mods.celeris.physics.PhysicsMode;
 import com.panzer.mods.celeris.physics.PhysicsTestAccess;
 import com.panzer.mods.celeris.physics.TerrainView;
@@ -9,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * The native kernel must produce exactly what the pure-Java reference engine
- * produces, on every ISA this CPU supports: positions, velocities, flags and
+ * The native kernel, through JNI and through FFM, must produce exactly what the
+ * pure-Java reference engine produces, on every ISA this CPU supports: positions, velocities, flags and
  * deferred lists compared bit for bit after every tick. Randomised scenes
  * cover landings, walls, ledges, throttled items, friction classes and
  * deferral; 60 ticks let state (onGround, phase, onGroundNoBlocks) feed back
@@ -29,6 +30,77 @@ class PhysicsParityTest {
             assumeTrue(false, "celeris_physics not built for this platform (" + t.getMessage()
                     + "); run ./gradlew buildNativeCelerisPhysics");
             return null;
+        }
+    }
+
+    private static PhysicsFactory jniOrSkip() {
+        try {
+            return PhysicsJniTestAccess.jniFactory();
+        } catch (Throwable t) {
+            assumeTrue(false, "celeris_physics not built for this platform (" + t + "); run ./gradlew buildNativeCelerisPhysics");
+            return null;
+        }
+    }
+
+    /** FFM is optional (Java 21 without --enable-preview has none): the JNI tests do not depend on it. */
+    private static PhysicsFactory ffmOrNull() {
+        try {
+            return PhysicsTestAccess.nativeFactory();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    @Test
+    void jniMatchesReferenceOnEveryIsa() {
+        PhysicsFactory jni = jniOrSkip();
+        PhysicsFactory ref = PhysicsTestAccess.javaFactory();
+        String initial = PhysicsJniTestAccess.forceJniIsa("");
+        for (String isa : PhysicsJniTestAccess.jniIsas()) {
+            assertEquals(isa, PhysicsJniTestAccess.forceJniIsa(isa));
+            for (PhysicsMode mode : PhysicsMode.values()) {
+                for (int rules : RULES) {
+                    assertSameRun(ref, jni, mode, rules, "jni-" + isa);
+                }
+            }
+        }
+        PhysicsJniTestAccess.forceJniIsa(initial);
+    }
+
+    @Test
+    void jniMatchesFfmOnEveryIsa() {
+        PhysicsFactory jni = jniOrSkip();
+        PhysicsFactory ffm = ffmOrNull();
+        assumeTrue(ffm != null, "FFM not available in this JVM (Java 21 needs --enable-preview)");
+        String initial = PhysicsJniTestAccess.forceJniIsa("");
+        for (String isa : PhysicsJniTestAccess.jniIsas()) {
+            assertEquals(isa, PhysicsJniTestAccess.forceJniIsa(isa));
+            for (PhysicsMode mode : PhysicsMode.values()) {
+                for (int rules : RULES) {
+                    assertSameRun(ffm, jni, mode, rules, "jni-" + isa + " vs ffm");
+                }
+            }
+        }
+        PhysicsJniTestAccess.forceJniIsa(initial);
+    }
+
+    @Test
+    void jniBroadphaseMatchesReferenceOrder() {
+        PhysicsFactory jni = jniOrSkip();
+        PhysicsFactory ref = PhysicsTestAccess.javaFactory();
+        try (BodyBatch a = ref.newBatch(BODIES, PhysicsMode.VANILLA, 50_000);
+             BodyBatch b = jni.newBatch(BODIES, PhysicsMode.VANILLA, 50_000)) {
+            PhysicsTestSupport.randomBodies(a, BODIES, 3);
+            PhysicsTestSupport.randomBodies(b, BODIES, 3);
+            for (boolean stop : new boolean[] {true, false}) {
+                int na = a.broadphase(0.5, stop);
+                assertEquals(na, b.broadphase(0.5, stop));
+                assertTrue(na > 0);
+                for (int k = 0; k < Math.min(na, 50_000); k++) {
+                    assertEquals(a.pairA(k), b.pairA(k), "pair " + k);
+                    assertEquals(a.pairB(k), b.pairB(k), "pair " + k);
+                }
+            }
         }
     }
 

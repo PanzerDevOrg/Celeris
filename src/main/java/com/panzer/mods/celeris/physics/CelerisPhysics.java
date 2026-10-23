@@ -11,25 +11,30 @@ import org.slf4j.LoggerFactory;
  * turned off -- no JVM flags are required:
  *
  * <ol>
- *   <li>{@code native}: the C++ kernel (AVX2 / AVX-512 / NEON / generic,
- *       chosen from CPUID) on off-heap memory, through the FFM {@code Linker}.
- *       Needs FFM: Java 22+ (Minecraft 26.x), or Java 21 with
+ *   <li>{@code jni}: the C++ kernel (AVX2 / AVX-512 / NEON / generic, chosen
+ *       from CPUID) on off-heap memory, through JNI. Needs no JVM flag, works
+ *       on Java 21 without {@code --enable-preview} and is not blocked by
+ *       {@code --enable-native-access}.</li>
+ *   <li>{@code ffm}: the same kernel through the FFM {@code Linker}. Tried when
+ *       JNI cannot load. Needs FFM: Java 22+ (Minecraft 26.x), or Java 21 with
  *       {@code --enable-preview} (Minecraft 1.21.x).</li>
  *   <li>{@code java}: the pure-Java reference kernel on Java arrays
  *       ({@link HeapPhysicsFactory}). Same results, same parallel chunking;
- *       used whenever the native kernel cannot be (no FFM, no library for
- *       this platform, compat mode).</li>
+ *       used whenever the native kernel cannot be (no library for this
+ *       platform, compat mode).</li>
  * </ol>
  *
  * <p>{@code -Dceleris.physics.engine=java} forces the Java kernel, {@code
- * =off} disables the engine ({@link #isAvailable()} false: callers keep
- * vanilla code); {@code -Dceleris.physics.isa=generic|avx2|avx512|neon} pins
- * the native ISA.
+ * =jni} or {@code =ffm} restrict the native choice to that binding (falling
+ * back to Java if it cannot load), {@code =off} disables the engine ({@link
+ * #isAvailable()} false: callers keep vanilla code); {@code
+ * -Dceleris.physics.isa=generic|avx2|avx512|neon} pins the native ISA.
  */
 public final class CelerisPhysics {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Celeris/Physics");
-    private static final String NATIVE_FACTORY_CLASS = "com.panzer.mods.celeris.physics.SegmentPhysicsFactory";
+    private static final String JNI_FACTORY_CLASS = "com.panzer.mods.celeris.physics.JniPhysicsFactory";
+    private static final String FFM_FACTORY_CLASS = "com.panzer.mods.celeris.physics.SegmentPhysicsFactory";
 
     private static volatile PhysicsFactory factory;
     private static volatile String unavailableReason;
@@ -109,22 +114,48 @@ public final class CelerisPhysics {
             skipped = "-Dceleris.physics.engine=java";
         } else if (CelerisRuntime.isCompatModeForced()) {
             skipped = "compat mode";
-        } else if (!CelerisRuntime.isFfmActive()) {
-            skipped = "FFM not available; on Java 21 add --enable-preview";
         } else {
-            try {
-                factory = (PhysicsFactory) Class.forName(NATIVE_FACTORY_CLASS).getDeclaredConstructor().newInstance();
-                LOGGER.info("Celeris physics engine: {}", factory.engineName());
+            StringBuilder failures = new StringBuilder();
+            if (!"ffm".equalsIgnoreCase(engine) && load(JNI_FACTORY_CLASS, "jni", failures)) {
                 return;
-            } catch (Throwable t) {
-                // The constructor runs reflectively: report what it threw, not the wrapper.
-                Throwable cause = t instanceof InvocationTargetException && t.getCause() != null ? t.getCause() : t;
-                skipped = "native kernel unavailable: " + cause.getClass().getSimpleName() + ": " + cause.getMessage()
-                        + (cause instanceof IllegalCallerException && Runtime.version().feature() == 21
-                                ? " (on Java 21 --enable-native-access blocks native calls from mods: remove it)" : "");
             }
+            if (!"jni".equalsIgnoreCase(engine)) {
+                if (!CelerisRuntime.isFfmActive()) {
+                    append(failures, "ffm: FFM not available; on Java 21 add --enable-preview");
+                } else if (load(FFM_FACTORY_CLASS, "ffm", failures)) {
+                    return;
+                }
+            }
+            skipped = failures.toString();
         }
         factory = new HeapPhysicsFactory();
         LOGGER.info("Celeris physics engine: {} ({})", factory.engineName(), skipped);
+    }
+
+    /** Instantiates one native factory; on success it becomes the engine, on failure the reason is added to {@code failures}. */
+    private static boolean load(String className, String label, StringBuilder failures) {
+        try {
+            factory = (PhysicsFactory) Class.forName(className).getDeclaredConstructor().newInstance();
+            LOGGER.info("Celeris physics engine: {}{}", factory.engineName(),
+                    failures.length() > 0 ? " (skipped: " + failures + ")" : "");
+            return true;
+        } catch (Throwable t) {
+            // The constructor runs reflectively: report what it threw, not the wrapper.
+            Throwable cause = t instanceof InvocationTargetException && t.getCause() != null ? t.getCause() : t;
+            if (cause instanceof ExceptionInInitializerError && cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            append(failures, label + ": " + cause.getClass().getSimpleName() + ": " + cause.getMessage()
+                    + (cause instanceof IllegalCallerException && Runtime.version().feature() == 21
+                            ? " (on Java 21 --enable-native-access blocks FFM calls from mods: remove it, or use JNI)" : ""));
+            return false;
+        }
+    }
+
+    private static void append(StringBuilder failures, String reason) {
+        if (failures.length() > 0) {
+            failures.append("; ");
+        }
+        failures.append(reason);
     }
 }
