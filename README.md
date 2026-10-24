@@ -80,17 +80,10 @@ runner, from the same tagged commit as every file published here:
   ([`zstd-1.5.7.tar.gz`](https://github.com/facebook/zstd/releases/tag/v1.5.7), SHA-256 `eb33e51f…6fa3`, checked
   by the build), plus a few small functions of Celeris's own that let Java 21 call it without extra flags:
   [`native/zstd`](https://github.com/PanzerDevOrg/Celeris/tree/master/native/zstd).
-- **The physics kernel**, Celeris's own C++ code (called over JNI, with FFM and plain Java as fallbacks): [`native/`](https://github.com/PanzerDevOrg/Celeris/tree/master/native).
+- **The physics kernel**, Celeris's own C++ code: [`native/`](https://github.com/PanzerDevOrg/Celeris/tree/master/native).
 
 The release workflow builds them, packs the jars and uploads them here; GitHub releases also carry a Java-only file
 with no native code at all.
-
-## 🆕 Versions
-
-- **0.3.1:** native physics also loads over JNI, so it works on NeoForge without any launch flag (order: JNI, FFM, plain Java, same results). New `Nearest3` helper.
-- **0.3.0:** item transport through pipes (solver, saving, drawn without entities), Fabric support, native zstd without flags, compression level setting, faster worker hand-off, sturdier physics kernel.
-
-Full notes for every version: [changelogs](https://github.com/PanzerDevOrg/Celeris/tree/master/docs/changelogs).
 
 ## 📚 Learn more
 
@@ -275,7 +268,7 @@ RELRO (`-z relro -z now`), which change no arithmetic.
 ## Releasing
 
 This README is the description on Modrinth and CurseForge too (everything outside `publish:off` blocks); see
-[`docs/README.md`](./docs/README.md). To release: add `docs/changelogs/<version>.md` (it lists the earlier unpublished versions too) and a line for the version under "Versions" in this README, set `version` under `[mod]` in
+[`docs/README.md`](./docs/README.md). To release: add `docs/changelogs/<version>.md`, set `version` under `[mod]` in
 `mod.stonecutter.properties.toml`, commit, then push a matching tag:
 
 ```bash
