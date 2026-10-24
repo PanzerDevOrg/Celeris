@@ -1,15 +1,12 @@
 ![Celeris](./docs/media/banner.png)
 
 <p align="center">
-<img src="https://img.shields.io/badge/Minecraft-1.21%20%E2%80%93%2026.3-3c8527?style=for-the-badge" alt="Minecraft 1.21 – 26.3">
-<img src="https://img.shields.io/badge/NeoForge-Client%20%26%20Server-e8710a?style=for-the-badge" alt="NeoForge, client and server">
-<img src="https://img.shields.io/badge/Fabric-Client%20%26%20Server-dbd0b4?style=for-the-badge" alt="Fabric, client and server">
+<img src="https://img.shields.io/badge/Minecraft-1.21_--_26.3-3c8527?style=for-the-badge" alt="Minecraft 1.21 - 26.3">
+<img src="https://img.shields.io/badge/Neoforge_%26_Fabric-Client_%26_Server-e8710a?style=for-the-badge" alt="NeoForge and Fabric, client and server">
 <img src="https://img.shields.io/badge/Type-Library-7c3aed?style=for-the-badge" alt="Library">
 </p>
 
-> **Celeris is a performance library for NeoForge and Fabric mods.** It gives other mods fast building blocks so they can do
-> heavy work without slowing the game down. On its own it adds nothing you can see in game: you install it because
-> a mod you want needs it.
+> **Celeris is a performance library for NeoForge and Fabric mods.** It gives other mods fast building blocks so they can do heavy work without slowing the game down. On its own it adds nothing you can see in game: you install it because a mod you want needs it.
 
 ## 🎮 Mods that use it
 
@@ -59,13 +56,13 @@ method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
 
 ## 📦 Requirements
 
-- 🟩 **Minecraft:** 1.21 – 26.3. Download the file made for your version.
+- 🟩 **Minecraft:** 1.21 - 26.3. Download the file made for your version.
 - 🔶 **Loader:** NeoForge or Fabric (with [Fabric API](https://modrinth.com/mod/fabric-api)), on the client and on the server.
 - ☕ **Java:** 21 for 1.21.x, 25 for 26.x.
 
 ## ⚙️ Settings
 
-- **Network compression level** (0–9, default 1): how hard Celeris compresses the packets it sends. 0 sends them
+- **Network compression level** (0-9, default 1): how hard Celeris compresses the packets it sends. 0 sends them
   uncompressed (least CPU, most bandwidth), 1 is the fastest, 9 gives the smallest packets. Only the sender's setting
   matters, so a server and its players can each pick their own.
   - **NeoForge:** Mods → Celeris → Config, or `compressionLevel` in `config/celeris-common.toml`. Takes effect on the
@@ -101,8 +98,8 @@ Speed tips, how it works, the full version list and the guide for mod authors ar
 
 <p align="center">
 <a href="https://github.com/PanzerDevOrg/Celeris"><img src="https://img.shields.io/badge/GitHub-Guide%20%26%20source-24292f?style=for-the-badge&logo=github&logoColor=white" alt="Guide and source on GitHub"></a>
-<a href="https://github.com/PanzerDevOrg/Celeris/issues"><img src="https://img.shields.io/badge/Found%20a%20bug%3F-Tell%20us-d73a4a?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug"></a>
-<a href="https://github.com/PanzerDevOrg/Celeris/tree/master/docs/changelogs"><img src="https://img.shields.io/badge/What's%20new-Changelog-2f81f7?style=for-the-badge&logo=github&logoColor=white" alt="Changelog"></a>
+<a href="https://github.com/PanzerDevOrg/Celeris/issues"><img src="https://img.shields.io/badge/Found_a_bug%3F-Tell_us-d73a4a?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug"></a>
+<a href="https://github.com/PanzerDevOrg/Celeris/tree/master/docs/changelogs"><img src="https://img.shields.io/badge/What's_new-Changelog-2f81f7?style=for-the-badge&logo=github&logoColor=white" alt="Changelog"></a>
 </p>
 
 <!-- publish:off -->
@@ -125,10 +122,10 @@ format. Oversized or malformed payloads are dropped, not trusted.
 
 | Minecraft | File | Java |
 |---|---|---|
-| 1.21 – 1.21.6 | `celeris-<version>+1.21.1.jar` | 21 |
-| 1.21.7 – 1.21.10 | `celeris-<version>+1.21.10.jar` | 21 |
+| 1.21 - 1.21.6 | `celeris-<version>+1.21.1.jar` | 21 |
+| 1.21.7 - 1.21.10 | `celeris-<version>+1.21.10.jar` | 21 |
 | 1.21.11 | `celeris-<version>+1.21.11.jar` | 21 |
-| 26.1 – 26.3 | `celeris-<version>+26.1.jar` | 25 |
+| 26.1 - 26.3 | `celeris-<version>+26.1.jar` | 25 |
 
 These are the NeoForge files; the Fabric file for each row ends in `-fabric.jar` (`celeris-<version>+1.21.1-fabric.jar`)
 and needs Fabric Loader 0.16+ and Fabric API. Client and server. Each jar has been booted on every Minecraft version in its row. The
