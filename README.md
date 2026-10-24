@@ -154,8 +154,8 @@ repositories {
     }
 }
 dependencies {
-    implementation("com.panzer.mods:celeris-1.21.1:0.3.0") // NeoForge: celeris-<minecraft version>
-    // Fabric (Loom): modImplementation("com.panzer.mods:celeris-1.21.1-fabric:0.3.0")
+    implementation("com.panzer.mods:celeris-1.21.1:0.3.1") // NeoForge: celeris-<minecraft version>
+    // Fabric (Loom): modImplementation("com.panzer.mods:celeris-1.21.1-fabric:0.3.1")
 }
 ```
 
@@ -182,7 +182,7 @@ Everything is chosen at startup and logged once. `-Dceleris.compatMode=true` for
 
 ## Using Celeris in your mod
 
-Declare it as a required dependency in your `neoforge.mods.toml` (Fabric: `"depends": { "celeris": ">=0.3.0" }` in
+Declare it as a required dependency in your `neoforge.mods.toml` (Fabric: `"depends": { "celeris": ">=0.3.1" }` in
 `fabric.mod.json`):
 
 ```toml
