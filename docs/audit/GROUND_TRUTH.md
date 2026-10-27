@@ -198,5 +198,15 @@ JAVA_HOME=<jdk-25> ./gradlew :1.21.1:build
 
 ## 10. Build verification status
 
-At the time of this commit the Gradle build was still running in the sandbox. Its result is recorded in a follow-up
-commit on the same branch; nothing in this file claims a build result that was not observed.
+`./gradlew :1.21.1:build` with JDK 25, bichal-build-logic from this sandbox, Maven Central replaced by Google's
+mirror (HTTP 429 from `repo.maven.apache.org`):
+
+| Run | Result |
+|---|---|
+| Compile (main, ffm, vector, test sources) | passed |
+| Tests, native libraries not built | **167 run, 3 failed, 17 skipped** |
+
+The three failures are all in `CodecSmokeTest` and share one cause: the zstd library is not on the test classpath
+(`Bundled native library not found: natives/linux-x86_64/libzstd.so.1`). The committed tree ships no binaries, so
+the build needs `-Pbichal.native.build=true` (native/zstd and native/ built locally). That second run was still in
+progress when this section was written; its result is recorded in the follow-up commit.
