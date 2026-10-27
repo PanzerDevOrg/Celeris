@@ -15,7 +15,7 @@
 #  define CP_JNICALL
 #endif
 
-#define CP_JNI(name) Java_com_bichal_mods_celeris_physics_JniPhysicsKernel_##name
+#define CP_JNI(name) Java_net_bichal_mods_celeris_physics_JniPhysicsKernel_##name
 
 #define AS_PTR(type, v) ((type) (intptr_t) (v))
 

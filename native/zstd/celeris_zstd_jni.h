@@ -21,7 +21,7 @@
 #  define CELERIS_JNICALL
 #endif
 
-#define CELERIS_JNI(name) Java_com_bichal_mods_celeris_core_memory_ZstdJniBinding_##name
+#define CELERIS_JNI(name) Java_net_bichal_mods_celeris_core_memory_ZstdJniBinding_##name
 
 #ifdef __cplusplus
 extern "C" {
