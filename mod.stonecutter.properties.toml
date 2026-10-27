@@ -82,7 +82,7 @@ banner = "banner.png"
 #   1.21.11 -> 1.21.11           (ResourceLocation renamed to Identifier)
 #   26.1    -> 26.1 .. 26.3      (Java 25 build: final FFM API, native zstd)
 # game_versions is what CI publishes to Modrinth/CurseForge and how the release
-# name is built (e.g. 0.1.0-1.21(.0-.6)); minecraft_version_range must cover
+# name is built (e.g. 0.1.0-1.21.(0-6)); minecraft_version_range must cover
 # exactly the same versions.
 # Versions: bichal-build-logic's "bichal" profile (1.21.1, 1.21.10, 1.21.11,
 # 26.1; Minecraft/NeoForge builds in its common TOML). branches: extra projects
