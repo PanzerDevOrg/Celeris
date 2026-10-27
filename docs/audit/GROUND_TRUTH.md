@@ -204,9 +204,10 @@ mirror (HTTP 429 from `repo.maven.apache.org`):
 | Run | Result |
 |---|---|
 | Compile (main, ffm, vector, test sources) | passed |
-| Tests, native libraries not built | **167 run, 3 failed, 17 skipped** |
+| Tests, native libraries not built | 167 run, 3 failed, 17 skipped; all three in `CodecSmokeTest`: `natives/linux-x86_64/libzstd.so.1` not on the classpath |
+| Tests with `-Pbichal.native.build=true` (this commit's JNI names) | **BUILD SUCCESSFUL**: 167 run, 0 failed, 0 skipped. `libceleris_physics.so` and `libzstd.so.1` bundled under `natives/linux-x86_64/` |
 
-The three failures are all in `CodecSmokeTest` and share one cause: the zstd library is not on the test classpath
-(`Bundled native library not found: natives/linux-x86_64/libzstd.so.1`). The committed tree ships no binaries, so
-the build needs `-Pbichal.native.build=true` (native/zstd and native/ built locally). That second run was still in
-progress when this section was written; its result is recorded in the follow-up commit.
+The JNI rename of §7 is exercised by the passing run: `PhysicsJniTest.engineNameSaysJni` requires the engine name to
+start with `native-jni-`, so the JNI kernel is the one under test, not a silent fallback.
+
+Not run here: the other platforms, `buildAndCollect`, `selftest` (headless client), and the Fabric nodes.
