@@ -1,0 +1,65 @@
+# Release gate for v* tags. The native kernel must pass its own self-test, its JNI
+# symbols must match the Java native methods, and the JNI tests must run against it.
+# Publishing runs in ci.yml (bichal-build-logic mod-ci.yml), which `bichal sync`
+# generates: make "Release gate / native" a required check for tags (repository
+# ruleset) so a failing gate blocks the release.
+name: Release gate
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: native gate (linux-x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          path: mod
+          persist-credentials: false
+
+      # The build logic is a sibling checkout (see settings.gradle.kts). Pinned to the
+      # commit ci.yml runs from.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          repository: bichal/BichalBuildLogic
+          ref: 75879ff1866d030c22c75a4207a81698a4fc4d90
+          path: bichal-build-logic
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: No native binaries tracked
+        working-directory: mod
+        run: sh scripts/check-no-binaries.sh
+
+      - name: Native kernel self-test (ctest)
+        working-directory: mod
+        run: |
+          cmake -S native -B build-native/linux -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-native/linux --parallel
+          ctest --test-dir build-native/linux --output-on-failure
+
+      - name: JNI symbols match the Java sources
+        working-directory: mod
+        env:
+          REQUIRE_LIBRARIES: "1"
+        run: |
+          ./gradlew :1.21.1:collectNatives -Pbichal.native.build=true --no-daemon
+          sh scripts/verify-jni-symbols.sh versions/1.21.1/build/generated/natives src/main/java src/ffm/java src/vector/java
+
+      - name: JNI tests against the built kernel
+        working-directory: mod
+        run: ./gradlew :1.21.1:test --tests PhysicsJniTest --tests ZstdJniCodecTest -Pbichal.native.build=true --no-daemon

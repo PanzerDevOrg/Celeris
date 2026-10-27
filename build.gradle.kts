@@ -205,3 +205,26 @@ publishing {
         }
     }
 }
+
+// JNI symbols of the staged native libraries against the native methods declared in
+// the Java sources (scripts/verify-jni-symbols.sh). Part of `check`. -PrequireNative=true
+// makes a missing library a failure instead of a skip (the release gate sets it).
+val requireNativeLibraries = (findProperty("requireNative") as String?) == "true"
+val verifyJniSymbols = tasks.register<Exec>("verifyJniSymbols") {
+    group = "verification"
+    description = "Checks the exported Java_* symbols of the staged native libraries against the Java native methods."
+    dependsOn("collectNatives")
+    workingDir = rootProject.projectDir
+    commandLine(
+        "sh", rootProject.file("scripts/verify-jni-symbols.sh").path,
+        layout.buildDirectory.dir("generated/natives").get().asFile.path,
+        rootProject.file("src/main/java").path,
+        rootProject.file("src/ffm/java").path,
+        rootProject.file("src/vector/java").path
+    )
+    environment("REQUIRE_LIBRARIES", if (requireNativeLibraries) "1" else "0")
+}
+
+tasks.named("check") {
+    dependsOn(verifyJniSymbols)
+}

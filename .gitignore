@@ -17,3 +17,15 @@ __pycache__/
 # Native builds: made by CMake (-Pbichal.native.build=true) or staged by CI,
 # never committed (see README, "Native libraries").
 /natives/
+
+# Native binaries are never committed: CI builds them per platform
+# (bichal-build-logic mod-ci.yml, [natives.*]); see README, "Native code".
+*.so
+*.dll
+*.dylib
+*.lib
+*.exp
+*.pdb
+*.a
+*.o
+*.obj
