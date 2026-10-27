@@ -1,0 +1,96 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.bichal.mods",
+    "module": "celeris-1.21.11-fabric",
+    "version": "0.3.1.1",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "celeris-1.21.11-fabric-0.3.1.1.jar",
+          "url": "celeris-1.21.11-fabric-0.3.1.1.jar",
+          "size": 2115916,
+          "sha512": "f1d622f45740fb8c24f0f8271f5156ffa512a212ddf40b40060835b397fd1859cb8aca20d6f8f31d73cc52c5bb5d73443cd618814bd35aac55deabaff38f4157",
+          "sha256": "962f93614b44c6e04bb67a1e99a60bd8512162ae72862004026c2e4fa314baec",
+          "sha1": "a475d65d290f435efc3a7d959d06c6fb0ddf0dd5",
+          "md5": "c3855f01d9538d63144482ae77432eb7"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.19.5"
+          }
+        },
+        {
+          "group": "net.fabricmc.fabric-api",
+          "module": "fabric-api",
+          "version": {
+            "requires": "0.141.6+1.21.11"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "celeris-1.21.11-fabric-0.3.1.1.jar",
+          "url": "celeris-1.21.11-fabric-0.3.1.1.jar",
+          "size": 2115916,
+          "sha512": "f1d622f45740fb8c24f0f8271f5156ffa512a212ddf40b40060835b397fd1859cb8aca20d6f8f31d73cc52c5bb5d73443cd618814bd35aac55deabaff38f4157",
+          "sha256": "962f93614b44c6e04bb67a1e99a60bd8512162ae72862004026c2e4fa314baec",
+          "sha1": "a475d65d290f435efc3a7d959d06c6fb0ddf0dd5",
+          "md5": "c3855f01d9538d63144482ae77432eb7"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "celeris-1.21.11-fabric-0.3.1.1-sources.jar",
+          "url": "celeris-1.21.11-fabric-0.3.1.1-sources.jar",
+          "size": 2036560,
+          "sha512": "e1ca581fde42d5412e4891b604aa1178b69168db43e5376bfe9cbcdc58801af14a4eec83be6652ab8d3d5fdb2754a4900d52f748b6cd3e4b6fb9fd283cc81cde",
+          "sha256": "693852c49104731dde6e377eef77b3c879cc2d692f65e2877a66d308518b5501",
+          "sha1": "8d69e86b62e355831dacd513476e44f60fc28dba",
+          "md5": "5cb47a6e9bb2f779f96ff9805f27f157"
+        }
+      ]
+    }
+  ]
+}

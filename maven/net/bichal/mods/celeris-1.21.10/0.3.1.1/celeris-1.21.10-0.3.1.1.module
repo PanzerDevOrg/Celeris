@@ -1,0 +1,80 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.bichal.mods",
+    "module": "celeris-1.21.10",
+    "version": "0.3.1.1",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.8.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "celeris-1.21.10-0.3.1.1.jar",
+          "url": "celeris-1.21.10-0.3.1.1.jar",
+          "size": 2103383,
+          "sha512": "f4642b025b6c4723b062d9d5674b2457aa38d002646ead91cdf1dd2d81c17a3c2dde63fe667e2d8df70b6cb5daac13d2e6d71dd4a9f33fa819a18d1499f3697e",
+          "sha256": "31659f6a24e7d5b9a3da27f131c4650c2a376eb9832dee2cfa06defc4aafe4fb",
+          "sha1": "250b8fc6856bafb72dc22b774a0d0d0d5a603c73",
+          "md5": "015de0e6c719028ac0ccc454ac669ad8"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "celeris-1.21.10-0.3.1.1.jar",
+          "url": "celeris-1.21.10-0.3.1.1.jar",
+          "size": 2103383,
+          "sha512": "f4642b025b6c4723b062d9d5674b2457aa38d002646ead91cdf1dd2d81c17a3c2dde63fe667e2d8df70b6cb5daac13d2e6d71dd4a9f33fa819a18d1499f3697e",
+          "sha256": "31659f6a24e7d5b9a3da27f131c4650c2a376eb9832dee2cfa06defc4aafe4fb",
+          "sha1": "250b8fc6856bafb72dc22b774a0d0d0d5a603c73",
+          "md5": "015de0e6c719028ac0ccc454ac669ad8"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "celeris-1.21.10-0.3.1.1-sources.jar",
+          "url": "celeris-1.21.10-0.3.1.1-sources.jar",
+          "size": 2033378,
+          "sha512": "77769d5ee1409e982aa8401e54a01b4be0878e662ba951cd22cedbbba09f25de8779b81870f2e8181e98cce6ae706d4933167e1e69547fa018e07bb0ce2b9afe",
+          "sha256": "5c3b76953b9a0e7f667107fceef28ce4ec48e486f8c0be724f462ed2a36270ef",
+          "sha1": "d58989716a5947b31753a5c16be05d6dba5c7b45",
+          "md5": "695eb140572f24615b928fb087a993a1"
+        }
+      ]
+    }
+  ]
+}
