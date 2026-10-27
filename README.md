@@ -12,7 +12,7 @@
 
 | Mod | What it does for you |
 |---|---|
-| 🧱 **[Tessera](https://github.com/PanzerDevOrg/Tessera)** | Shrinks Minecraft's textures on the graphics card by **up to 75%**, with no visible difference. |
+| 🧱 **[Tessera](https://github.com/bichal/Tessera)** | Shrinks Minecraft's textures on the graphics card by **up to 75%**, with no visible difference. |
 
 ## ⚡ What it gives those mods
 
@@ -79,8 +79,8 @@ runner, from the same tagged commit as every file published here:
 - **zstd 1.5.7** (Meta's Zstandard, BSD-3-Clause), compiled from the official release tarball
   ([`zstd-1.5.7.tar.gz`](https://github.com/facebook/zstd/releases/tag/v1.5.7), SHA-256 `eb33e51f…6fa3`, checked
   by the build), plus a few small functions of Celeris's own that let Java 21 call it without extra flags:
-  [`native/zstd`](https://github.com/PanzerDevOrg/Celeris/tree/master/native/zstd).
-- **The physics kernel**, Celeris's own C++ code: [`native/`](https://github.com/PanzerDevOrg/Celeris/tree/master/native).
+  [`native/zstd`](https://github.com/bichal/Celeris/tree/master/native/zstd).
+- **The physics kernel**, Celeris's own C++ code: [`native/`](https://github.com/bichal/Celeris/tree/master/native).
 
 The release workflow builds them, packs the jars and uploads them here; GitHub releases also carry a Java-only file
 with no native code at all.
@@ -90,9 +90,9 @@ with no native code at all.
 Speed tips, how it works, the full version list and the guide for mod authors are on GitHub.
 
 <p align="center">
-<a href="https://github.com/PanzerDevOrg/Celeris"><img src="https://img.shields.io/badge/GitHub-Guide%20%26%20source-24292f?style=for-the-badge&logo=github&logoColor=white" alt="Guide and source on GitHub"></a>
-<a href="https://github.com/PanzerDevOrg/Celeris/issues"><img src="https://img.shields.io/badge/Found_a_bug%3F-Tell_us-d73a4a?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug"></a>
-<a href="https://github.com/PanzerDevOrg/Celeris/tree/master/docs/changelogs"><img src="https://img.shields.io/badge/What's_new-Changelog-2f81f7?style=for-the-badge&logo=github&logoColor=white" alt="Changelog"></a>
+<a href="https://github.com/bichal/Celeris"><img src="https://img.shields.io/badge/GitHub-Guide%20%26%20source-24292f?style=for-the-badge&logo=github&logoColor=white" alt="Guide and source on GitHub"></a>
+<a href="https://github.com/bichal/Celeris/issues"><img src="https://img.shields.io/badge/Found_a_bug%3F-Tell_us-d73a4a?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug"></a>
+<a href="https://github.com/bichal/Celeris/tree/master/docs/changelogs"><img src="https://img.shields.io/badge/What's_new-Changelog-2f81f7?style=for-the-badge&logo=github&logoColor=white" alt="Changelog"></a>
 </p>
 
 <!-- publish:off -->
@@ -146,17 +146,17 @@ Modrinth App: *Settings → Java and memory*. CurseForge: *Settings → Minecraf
 
 ```kotlin
 repositories {
-    maven("https://panzerdevorg.github.io/Celeris/maven") {
-        content { includeGroup("com.panzer.mods") }
+    maven("https://bichal.github.io/Celeris/maven") {
+        content { includeGroup("net.bichal.mods") }
     }
 }
 dependencies {
-    implementation("com.panzer.mods:celeris-1.21.1:0.3.1") // NeoForge: celeris-<minecraft version>
-    // Fabric (Loom): modImplementation("com.panzer.mods:celeris-1.21.1-fabric:0.3.1")
+    implementation("net.bichal.mods:celeris-1.21.1:0.3.1") // NeoForge: celeris-<minecraft version>
+    // Fabric (Loom): modImplementation("net.bichal.mods:celeris-1.21.1-fabric:0.3.1")
 }
 ```
 
-Source, examples and the package map: **[github.com/PanzerDevOrg/Celeris](https://github.com/PanzerDevOrg/Celeris)**
+Source, examples and the package map: **[github.com/bichal/Celeris](https://github.com/bichal/Celeris)**
 
 ## Package overview
 
@@ -224,25 +224,25 @@ All of it runs on one thread (normally the server thread) and has a pure-Java pa
 
 ## Building
 
-Clone the shared build logic next to Celeris; the build reads it from `../panzer-build-logic`:
+Clone the shared build logic next to Celeris; the build reads it from `../bichal-build-logic`:
 
 ```bash
-git clone https://github.com/PanzerDevOrg/PanzerBuildLogic.git panzer-build-logic
-git clone https://github.com/PanzerDevOrg/Celeris.git
+git clone https://github.com/bichal/BichalBuildLogic.git bichal-build-logic
+git clone https://github.com/bichal/Celeris.git
 cd Celeris
 ```
 
-The folder must be called `panzer-build-logic` and sit next to `Celeris` (hence the explicit name in the first clone).
-Without it the build stops at once with `panzer-build-logic not found at <path>` and the clone command to run.
-To reproduce exactly what CI built for a commit, check panzer-build-logic out at the commit pinned in
+The folder must be called `bichal-build-logic` and sit next to `Celeris` (hence the explicit name in the first clone).
+Without it the build stops at once with `bichal-build-logic not found at <path>` and the clone command to run.
+To reproduce exactly what CI built for a commit, check bichal-build-logic out at the commit pinned in
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) (`mod-ci.yml@<sha>`):
 
 ```bash
-git -C ../panzer-build-logic checkout "$(grep -oE 'mod-ci.yml@[0-9a-f]{40}' .github/workflows/ci.yml | cut -d@ -f2)"
+git -C ../bichal-build-logic checkout "$(grep -oE 'mod-ci.yml@[0-9a-f]{40}' .github/workflows/ci.yml | cut -d@ -f2)"
 ```
 
 Requirements: JDK 25 to run Gradle (Fabric Loom needs it); JDK 21 for the 1.21.x targets is downloaded automatically
-through Gradle toolchains. `-Ppanzer.loaders=neoforge` (or `fabric`) builds one loader only.
+through Gradle toolchains. `-Pbichal.loaders=neoforge` (or `fabric`) builds one loader only.
 
 ```bash
 ./gradlew build                     # every Minecraft version, with tests
@@ -255,11 +255,11 @@ through Gradle toolchains. `-Ppanzer.loaders=neoforge` (or `fabric`) builds one 
 
 Both native libraries are built with CMake: zstd 1.5.7 from its official release tarball ([`native/zstd`](./native/zstd),
 `./gradlew buildNativeZstd`) and the physics kernel from [`native/`](./native) (`./gradlew buildNativeCelerisPhysics`),
-or both with `-Ppanzer.native.build=true` on any build. CI builds them for every platform and bundles those builds
+or both with `-Pbichal.native.build=true` on any build. CI builds them for every platform and bundles those builds
 into the released jars; a local build without them uses deflate and the Java physics kernel.
 
 **Native libraries are never committed.** `natives/<os>/<arch>/` is build output (ignored by git): CMake writes it
-locally with `-Ppanzer.native.build=true`, and CI writes it from the per-platform native jobs before packaging, so a
+locally with `-Pbichal.native.build=true`, and CI writes it from the per-platform native jobs before packaging, so a
 released jar always carries libraries built from the sources of the same commit; nothing prebuilt in the repository
 can drift from them. The kernel is built with `-ffp-contract=off` and without `-ffast-math` (IEEE parity with the
 Java reference, checked by `PhysicsParityTest` on every ISA), plus `-fstack-protector-strong` and, on Linux, full
@@ -278,7 +278,7 @@ git tag v0.2.0 && git push origin v0.2.0
 CI publishes the Maven repository, a GitHub release with every jar, and the Modrinth and CurseForge files. Every other
 push runs the same release as a dry run and uploads a `release-preview` artifact with the pages as they would look.
 
-<!-- panzer:license -->
+<!-- bichal:license -->
 ## License
 
 | Content | License |
@@ -289,15 +289,15 @@ push runs the same release as a dry run and uploads a `release-preview` artifact
 
 **Source code:** you may study, modify and redistribute it under the AGPL; if you run a modified version as a network service, its source must be available to that service's users.
 
-**Artwork:** credit Panzer, no commercial use without permission, and share derivatives under the same license.
+**Artwork:** credit Bichal, no commercial use without permission, and share derivatives under the same license.
 
 See [`LICENSE`](./LICENSE) for the full summary.
-<!-- /panzer:license -->
+<!-- /bichal:license -->
 
 <!-- publish:on -->
 
 ---
 
-<!-- panzer:footer -->
-Code: **AGPL-3.0** · Art: **CC BY-NC-SA 4.0** · Made by **Panzer**
-<!-- /panzer:footer -->
+<!-- bichal:footer -->
+Code: **AGPL-3.0** · Art: **CC BY-NC-SA 4.0** · Made by **Bichal**
+<!-- /bichal:footer -->

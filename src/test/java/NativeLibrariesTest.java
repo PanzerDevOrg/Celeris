@@ -1,4 +1,4 @@
-import com.panzer.mods.celeris.util.NativeLibrariesTestAccess;
+import net.bichal.mods.celeris.util.NativeLibrariesTestAccess;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

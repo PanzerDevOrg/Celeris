@@ -1,11 +1,11 @@
-import com.panzer.mods.celeris.physics.BodyBatch;
-import com.panzer.mods.celeris.physics.BodyFlags;
-import com.panzer.mods.celeris.physics.BodyParams;
-import com.panzer.mods.celeris.physics.CellClass;
-import com.panzer.mods.celeris.physics.PhysicsFactory;
-import com.panzer.mods.celeris.physics.PhysicsMode;
-import com.panzer.mods.celeris.physics.PhysicsTestAccess;
-import com.panzer.mods.celeris.physics.TerrainView;
+import net.bichal.mods.celeris.physics.BodyBatch;
+import net.bichal.mods.celeris.physics.BodyFlags;
+import net.bichal.mods.celeris.physics.BodyParams;
+import net.bichal.mods.celeris.physics.CellClass;
+import net.bichal.mods.celeris.physics.PhysicsFactory;
+import net.bichal.mods.celeris.physics.PhysicsMode;
+import net.bichal.mods.celeris.physics.PhysicsTestAccess;
+import net.bichal.mods.celeris.physics.TerrainView;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

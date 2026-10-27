@@ -1,4 +1,4 @@
-import com.panzer.mods.celeris.core.concurrency.MpscRingBuffer;
+import net.bichal.mods.celeris.core.concurrency.MpscRingBuffer;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;

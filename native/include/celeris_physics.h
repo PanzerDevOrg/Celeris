@@ -5,7 +5,7 @@
  * Every entry point is reentrant and allocation-free: all memory (bodies,
  * terrain, scratch, pair output) is owned by the Java side and passed in.
  *
- * Memory contract (mirrors com.panzer.mods.celeris.physics.BodyLayout):
+ * Memory contract (mirrors net.bichal.mods.celeris.physics.BodyLayout):
  *   - One slab per batch, 64-byte aligned, Structure-of-Arrays.
  *   - `capacity` is a multiple of CP_LANE_PAD (16), so every column of 8-byte
  *     elements is a whole number of 128-byte blocks and every column of 4-byte

@@ -1,6 +1,6 @@
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.graph.segmented.GraphSegment;
-import com.panzer.mods.celeris.graph.segmented.SegmentedGraphImpl;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.graph.segmented.GraphSegment;
+import net.bichal.mods.celeris.graph.segmented.SegmentedGraphImpl;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

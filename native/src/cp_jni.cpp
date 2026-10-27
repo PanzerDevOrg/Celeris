@@ -4,7 +4,7 @@
 // jlong, so no JNIEnv function is called and no jni.h (nor JDK) is needed to
 // build them. JNIEXPORT/JNICALL are spelled out as in native/zstd/celeris_zstd_jni.h.
 //
-// Bound by com.panzer.mods.celeris.physics.JniPhysicsKernel.
+// Bound by net.bichal.mods.celeris.physics.JniPhysicsKernel.
 #include <stdint.h>
 
 #include "celeris_physics.h"
@@ -15,7 +15,7 @@
 #  define CP_JNICALL
 #endif
 
-#define CP_JNI(name) Java_com_panzer_mods_celeris_physics_JniPhysicsKernel_##name
+#define CP_JNI(name) Java_com_bichal_mods_celeris_physics_JniPhysicsKernel_##name
 
 #define AS_PTR(type, v) ((type) (intptr_t) (v))
 

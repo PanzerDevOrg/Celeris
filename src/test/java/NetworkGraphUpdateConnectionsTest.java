@@ -1,5 +1,5 @@
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.graph.segmented.SegmentedGraphImpl;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.graph.segmented.SegmentedGraphImpl;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

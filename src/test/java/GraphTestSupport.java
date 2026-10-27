@@ -1,8 +1,8 @@
-import com.panzer.mods.celeris.core.topology.ConnectionMask;
-import com.panzer.mods.celeris.core.topology.NetworkTopologyImpl;
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.graph.segmented.GraphSegment;
-import com.panzer.mods.celeris.graph.segmented.SegmentedGraphImpl;
+import net.bichal.mods.celeris.core.topology.ConnectionMask;
+import net.bichal.mods.celeris.core.topology.NetworkTopologyImpl;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.graph.segmented.GraphSegment;
+import net.bichal.mods.celeris.graph.segmented.SegmentedGraphImpl;
 
 @SuppressWarnings("unused")
 final class GraphTestSupport {

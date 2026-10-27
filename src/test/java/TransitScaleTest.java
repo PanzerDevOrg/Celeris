@@ -1,15 +1,15 @@
-import com.panzer.mods.celeris.core.topology.NetworkTopologyImpl;
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.graph.segmented.GraphSegment;
-import com.panzer.mods.celeris.graph.segmented.SegmentedGraphImpl;
-import com.panzer.mods.celeris.physics.ChunkWorkers;
-import com.panzer.mods.celeris.pipeline.transit.RoundRobinRouter;
-import com.panzer.mods.celeris.pipeline.transit.TransitConfig;
-import com.panzer.mods.celeris.pipeline.transit.TransitEndpoints;
-import com.panzer.mods.celeris.pipeline.transit.TransitEvents;
-import com.panzer.mods.celeris.pipeline.transit.TransitPayload;
-import com.panzer.mods.celeris.pipeline.transit.TransitQueue;
-import com.panzer.mods.celeris.pipeline.transit.TransitSolver;
+import net.bichal.mods.celeris.core.topology.NetworkTopologyImpl;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.graph.segmented.GraphSegment;
+import net.bichal.mods.celeris.graph.segmented.SegmentedGraphImpl;
+import net.bichal.mods.celeris.physics.ChunkWorkers;
+import net.bichal.mods.celeris.pipeline.transit.RoundRobinRouter;
+import net.bichal.mods.celeris.pipeline.transit.TransitConfig;
+import net.bichal.mods.celeris.pipeline.transit.TransitEndpoints;
+import net.bichal.mods.celeris.pipeline.transit.TransitEvents;
+import net.bichal.mods.celeris.pipeline.transit.TransitPayload;
+import net.bichal.mods.celeris.pipeline.transit.TransitQueue;
+import net.bichal.mods.celeris.pipeline.transit.TransitSolver;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;

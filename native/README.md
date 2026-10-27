@@ -1,6 +1,6 @@
 # celeris_physics
 
-Native kernel of Celeris's batch physics engine (`com.panzer.mods.celeris.physics`).
+Native kernel of Celeris's batch physics engine (`net.bichal.mods.celeris.physics`).
 It simulates thousands of entity bodies per call over an off-heap Structure-of-Arrays
 slab that the Java side owns. Java reaches it over JNI (`src/cp_jni.cpp`, no launch flag
 needed, not affected by `--enable-native-access`) or, as the second choice, through the FFM `Linker`.
@@ -49,12 +49,12 @@ cmake --build build-native --parallel
 ctest --test-dir build-native --output-on-failure
 ```
 
-or through Gradle (panzer-build-logic, `[natives.celeris_physics]` in
+or through Gradle (bichal-build-logic, `[natives.celeris_physics]` in
 `mod.stonecutter.properties.toml`):
 
 ```bash
 ./gradlew buildNativeCelerisPhysics          # host platform -> natives/<os>/<arch>/
-./gradlew build -Ppanzer.native.build=true   # rebuild it before packaging
+./gradlew build -Pbichal.native.build=true   # rebuild it before packaging
 ```
 
 CI builds and self-tests it on Linux x86_64/AArch64, Windows x86_64 and macOS
