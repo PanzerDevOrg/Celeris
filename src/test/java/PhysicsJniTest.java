@@ -1,10 +1,10 @@
-import com.panzer.mods.celeris.physics.BodyBatch;
-import com.panzer.mods.celeris.physics.BodyParams;
-import com.panzer.mods.celeris.physics.CellClass;
-import com.panzer.mods.celeris.physics.PhysicsFactory;
-import com.panzer.mods.celeris.physics.PhysicsJniTestAccess;
-import com.panzer.mods.celeris.physics.PhysicsMode;
-import com.panzer.mods.celeris.physics.TerrainView;
+import net.bichal.mods.celeris.physics.BodyBatch;
+import net.bichal.mods.celeris.physics.BodyParams;
+import net.bichal.mods.celeris.physics.CellClass;
+import net.bichal.mods.celeris.physics.PhysicsFactory;
+import net.bichal.mods.celeris.physics.PhysicsJniTestAccess;
+import net.bichal.mods.celeris.physics.PhysicsMode;
+import net.bichal.mods.celeris.physics.TerrainView;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,7 +31,7 @@ class PhysicsJniTest {
     @Test
     void terrainBehavesLikeTheReferenceTerrain() {
         PhysicsFactory jni = jniOrSkip();
-        try (TerrainView a = PhysicsTestSupport.randomWorld(com.panzer.mods.celeris.physics.PhysicsTestAccess.javaFactory(), 7);
+        try (TerrainView a = PhysicsTestSupport.randomWorld(net.bichal.mods.celeris.physics.PhysicsTestAccess.javaFactory(), 7);
              TerrainView b = PhysicsTestSupport.randomWorld(jni, 7)) {
             for (int x = -20; x < 36; x += 3) {
                 for (int y = -2; y < 36; y += 3) {

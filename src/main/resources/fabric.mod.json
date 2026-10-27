@@ -6,16 +6,16 @@
   "description": "${mod_description}",
   "authors": ["${mod_authors}"],
   "contact": {
-    "sources": "https://github.com/PanzerDevOrg/Celeris",
+    "sources": "https://github.com/bichal/Celeris",
     "issues": "${mod_issues}"
   },
   "license": "${mod_license}",
   "icon": "${mod_banner}",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.panzer.mods.celeris.CelerisFabric"],
-    "client": ["com.panzer.mods.celeris.CelerisFabric"],
-    "modmenu": ["com.panzer.mods.celeris.client.CelerisModMenu"]
+    "main": ["net.bichal.mods.celeris.CelerisFabric"],
+    "client": ["net.bichal.mods.celeris.CelerisFabric"],
+    "modmenu": ["net.bichal.mods.celeris.client.CelerisModMenu"]
   },
   "mixins": ["${mod_id}.mixins.json"],
   "depends": {

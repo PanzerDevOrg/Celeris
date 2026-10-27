@@ -1,5 +1,5 @@
-import com.panzer.mods.celeris.util.math.LocalBlockPos32;
-import com.panzer.mods.celeris_example.lightwave.LightWaveStep;
+import net.bichal.mods.celeris.util.math.LocalBlockPos32;
+import net.bichal.mods.celeris_example.lightwave.LightWaveStep;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

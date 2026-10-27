@@ -1,8 +1,8 @@
-import com.panzer.mods.celeris.core.memory.CompressionCodec;
-import com.panzer.mods.celeris.core.memory.DeflateCompressionCodecTestAccess;
-import com.panzer.mods.celeris.core.memory.PacketPipeline;
-import com.panzer.mods.celeris.core.memory.backend.HeapMemoryBackend;
-import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
+import net.bichal.mods.celeris.core.memory.CompressionCodec;
+import net.bichal.mods.celeris.core.memory.DeflateCompressionCodecTestAccess;
+import net.bichal.mods.celeris.core.memory.PacketPipeline;
+import net.bichal.mods.celeris.core.memory.backend.HeapMemoryBackend;
+import net.bichal.mods.celeris.core.memory.backend.MemoryBackend;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

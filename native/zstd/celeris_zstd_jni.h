@@ -5,7 +5,7 @@
  * match jni_md.h on every platform Celeris ships (x86_64 and aarch64; JNICALL
  * is __stdcall on Windows, which 64-bit compilers ignore).
  *
- * Bound by com.panzer.mods.celeris.core.memory.ZstdJniBinding. zstd errors
+ * Bound by net.bichal.mods.celeris.core.memory.ZstdJniBinding. zstd errors
  * come back as the usual (size_t)-code, which Java reads as a negative long.
  */
 #ifndef CELERIS_ZSTD_JNI_H
@@ -21,7 +21,7 @@
 #  define CELERIS_JNICALL
 #endif
 
-#define CELERIS_JNI(name) Java_com_panzer_mods_celeris_core_memory_ZstdJniBinding_##name
+#define CELERIS_JNI(name) Java_com_bichal_mods_celeris_core_memory_ZstdJniBinding_##name
 
 #ifdef __cplusplus
 extern "C" {

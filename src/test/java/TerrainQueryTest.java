@@ -1,7 +1,7 @@
-import com.panzer.mods.celeris.physics.PhysicsFactory;
-import com.panzer.mods.celeris.physics.PhysicsTestAccess;
-import com.panzer.mods.celeris.physics.TerrainQuery;
-import com.panzer.mods.celeris.physics.TerrainView;
+import net.bichal.mods.celeris.physics.PhysicsFactory;
+import net.bichal.mods.celeris.physics.PhysicsTestAccess;
+import net.bichal.mods.celeris.physics.TerrainQuery;
+import net.bichal.mods.celeris.physics.TerrainView;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

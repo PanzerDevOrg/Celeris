@@ -1,10 +1,10 @@
-import com.panzer.gradle.PanzerModExtension
+import net.bichal.gradle.BichalModExtension
 
 plugins {
-    id("panzer.neoforge-mod-example")
+    id("bichal.neoforge-mod-example")
 }
 
-val modProps = extensions.getByType(PanzerModExtension::class.java).props
+val modProps = extensions.getByType(BichalModExtension::class.java).props
 
 val exampleSourceSet = sourceSets.main.get()
 

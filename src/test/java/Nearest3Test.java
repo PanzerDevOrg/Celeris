@@ -1,4 +1,4 @@
-import com.panzer.mods.celeris.core.spatial.Nearest3;
+import net.bichal.mods.celeris.core.spatial.Nearest3;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;

@@ -1,4 +1,4 @@
-import com.panzer.mods.celeris.core.memory.NativeContextPoolTestAccess;
+import net.bichal.mods.celeris.core.memory.NativeContextPoolTestAccess;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

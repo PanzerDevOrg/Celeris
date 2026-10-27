@@ -1,8 +1,8 @@
-import com.panzer.mods.celeris.core.memory.CompressionCodec;
-import com.panzer.mods.celeris.core.memory.ZstdCompressionCodecTestAccess;
-import com.panzer.mods.celeris.core.memory.ZstdJniTestAccess;
-import com.panzer.mods.celeris.core.memory.backend.FfmMemoryBackend;
-import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
+import net.bichal.mods.celeris.core.memory.CompressionCodec;
+import net.bichal.mods.celeris.core.memory.ZstdCompressionCodecTestAccess;
+import net.bichal.mods.celeris.core.memory.ZstdJniTestAccess;
+import net.bichal.mods.celeris.core.memory.backend.FfmMemoryBackend;
+import net.bichal.mods.celeris.core.memory.backend.MemoryBackend;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;

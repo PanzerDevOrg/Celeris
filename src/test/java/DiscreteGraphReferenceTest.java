@@ -1,12 +1,12 @@
-import com.panzer.mods.celeris.core.dirty.LongRingDirtyQueue;
-import com.panzer.mods.celeris.core.memory.backend.HeapMemoryBackend;
-import com.panzer.mods.celeris.core.topology.ConnectionMask;
-import com.panzer.mods.celeris.core.topology.NetworkTopologyImpl;
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.graph.discrete.DiscreteGraphImpl;
-import com.panzer.mods.celeris.graph.discrete.DiscreteNodeStore;
-import com.panzer.mods.celeris.graph.discrete.PropagationBudget;
-import com.panzer.mods.celeris.pipeline.discrete.EventDrivenPipelineSolverImpl;
+import net.bichal.mods.celeris.core.dirty.LongRingDirtyQueue;
+import net.bichal.mods.celeris.core.memory.backend.HeapMemoryBackend;
+import net.bichal.mods.celeris.core.topology.ConnectionMask;
+import net.bichal.mods.celeris.core.topology.NetworkTopologyImpl;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.graph.discrete.DiscreteGraphImpl;
+import net.bichal.mods.celeris.graph.discrete.DiscreteNodeStore;
+import net.bichal.mods.celeris.graph.discrete.PropagationBudget;
+import net.bichal.mods.celeris.pipeline.discrete.EventDrivenPipelineSolverImpl;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

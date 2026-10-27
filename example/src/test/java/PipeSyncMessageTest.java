@@ -1,4 +1,4 @@
-import com.panzer.mods.celeris_example.pipe.PipeSyncMessage;
+import net.bichal.mods.celeris_example.pipe.PipeSyncMessage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

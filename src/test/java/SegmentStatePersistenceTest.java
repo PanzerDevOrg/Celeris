@@ -1,17 +1,17 @@
-import com.panzer.mods.celeris.core.format.StateFormat;
-import com.panzer.mods.celeris.core.topology.NetworkTopologyImpl;
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.graph.segmented.GraphSegment;
-import com.panzer.mods.celeris.graph.segmented.SegmentStateIO;
-import com.panzer.mods.celeris.graph.segmented.SegmentedGraphImpl;
-import com.panzer.mods.celeris.pipeline.transit.FilterRouter;
-import com.panzer.mods.celeris.pipeline.transit.RoundRobinRouter;
-import com.panzer.mods.celeris.pipeline.transit.TransitConfig;
-import com.panzer.mods.celeris.pipeline.transit.TransitEndpoints;
-import com.panzer.mods.celeris.pipeline.transit.TransitPayload;
-import com.panzer.mods.celeris.pipeline.transit.TransitQueue;
-import com.panzer.mods.celeris.pipeline.transit.TransitSolver;
-import com.panzer.mods.celeris.pipeline.transit.TransitStateCodec;
+import net.bichal.mods.celeris.core.format.StateFormat;
+import net.bichal.mods.celeris.core.topology.NetworkTopologyImpl;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.graph.segmented.GraphSegment;
+import net.bichal.mods.celeris.graph.segmented.SegmentStateIO;
+import net.bichal.mods.celeris.graph.segmented.SegmentedGraphImpl;
+import net.bichal.mods.celeris.pipeline.transit.FilterRouter;
+import net.bichal.mods.celeris.pipeline.transit.RoundRobinRouter;
+import net.bichal.mods.celeris.pipeline.transit.TransitConfig;
+import net.bichal.mods.celeris.pipeline.transit.TransitEndpoints;
+import net.bichal.mods.celeris.pipeline.transit.TransitPayload;
+import net.bichal.mods.celeris.pipeline.transit.TransitQueue;
+import net.bichal.mods.celeris.pipeline.transit.TransitSolver;
+import net.bichal.mods.celeris.pipeline.transit.TransitStateCodec;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -53,7 +53,7 @@ class SegmentStatePersistenceTest {
         if (bulk) {
             graph.addNodes(ids, bits, ids.length);
         } else {
-            for (int i = 0; i < ids.length; i++) graph.addNode(new NodeId(ids[i]), com.panzer.mods.celeris.core.topology.ConnectionMask.of(bits[i]));
+            for (int i = 0; i < ids.length; i++) graph.addNode(new NodeId(ids[i]), net.bichal.mods.celeris.core.topology.ConnectionMask.of(bits[i]));
         }
         return graph;
     }
@@ -133,7 +133,7 @@ class SegmentStatePersistenceTest {
         var changed = tNetwork(false, false);
         // a new pipe makes block 3 a junction: the main line is now two segments
         changed.updateConnections(new NodeId(NodeId.packRaw(3, 0, 0)),
-                com.panzer.mods.celeris.core.topology.ConnectionMask.of((1 << E) | (1 << W) | (1 << S)));
+                net.bichal.mods.celeris.core.topology.ConnectionMask.of((1 << E) | (1 << W) | (1 << S)));
         List<Long> unmatchedStarts = new ArrayList<>();
         var result = SegmentStateIO.read(changed, codec, saved, (start, second, end, count, payload) -> {
             unmatchedStarts.add(start);

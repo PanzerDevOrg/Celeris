@@ -1,6 +1,6 @@
-import com.panzer.mods.celeris.core.memory.backend.FfmMemoryBackend;
-import com.panzer.mods.celeris.core.memory.PacketPipeline;
-import com.panzer.mods.celeris.core.memory.ZstdCompressionCodecTestAccess;
+import net.bichal.mods.celeris.core.memory.backend.FfmMemoryBackend;
+import net.bichal.mods.celeris.core.memory.PacketPipeline;
+import net.bichal.mods.celeris.core.memory.ZstdCompressionCodecTestAccess;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

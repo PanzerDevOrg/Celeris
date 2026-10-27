@@ -1,5 +1,5 @@
-import com.panzer.mods.celeris.network.CompressedPayload;
-import com.panzer.mods.celeris.network.PayloadCompression;
+import net.bichal.mods.celeris.network.CompressedPayload;
+import net.bichal.mods.celeris.network.PayloadCompression;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

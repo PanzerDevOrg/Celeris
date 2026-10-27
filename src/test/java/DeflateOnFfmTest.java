@@ -1,7 +1,7 @@
-import com.panzer.mods.celeris.core.memory.CompressionCodec;
-import com.panzer.mods.celeris.core.memory.DeflateCompressionCodecTestAccess;
-import com.panzer.mods.celeris.core.memory.backend.FfmMemoryBackend;
-import com.panzer.mods.celeris.core.memory.backend.MemoryBackend;
+import net.bichal.mods.celeris.core.memory.CompressionCodec;
+import net.bichal.mods.celeris.core.memory.DeflateCompressionCodecTestAccess;
+import net.bichal.mods.celeris.core.memory.backend.FfmMemoryBackend;
+import net.bichal.mods.celeris.core.memory.backend.MemoryBackend;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

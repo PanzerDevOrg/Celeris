@@ -15,7 +15,7 @@ enable_preview = true
 add_to_runtime = true
 
 # Native libraries, staged from natives/<os>/<arch>/ into the jar as
-# natives/<os>-<arch>/ by panzer-build-logic (collectNatives).
+# natives/<os>-<arch>/ by bichal-build-logic (collectNatives).
 #
 # zstd: Zstandard 1.5.7 built from its official release tarball (native/zstd,
 # pinned by SHA-256) on each platform's CI runner, renamed inside the jar to the
@@ -29,10 +29,10 @@ required = false
 jar_name_linux = "libzstd.so.1"
 jar_name_windows = "libzstd.dll"
 
-# Batch physics kernel (native/). panzer-build-logic registers
+# Batch physics kernel (native/). bichal-build-logic registers
 # buildNativeCelerisPhysics (CMake, host platform -> natives/<os>/<arch>/) and
 # nativeHeadersCelerisPhysics (native/include, published as `native-headers`);
-# CI builds every platform on its own runner. -Ppanzer.native.build=true
+# CI builds every platform on its own runner. -Pbichal.native.build=true
 # rebuilds it before packaging; otherwise the committed binaries are used.
 # Optional: platforms without a binary use the Java kernel.
 [natives.celeris_physics]
@@ -41,17 +41,17 @@ headers = "native/include"
 platforms = ["linux-x86_64", "linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64"]
 required = false
 
-# Third-party code inside the jar (ids from panzer-build-logic/legal/catalog.toml):
+# Third-party code inside the jar (ids from bichal-build-logic/legal/catalog.toml):
 # its notice and license go into NOTICE. Code and asset licenses: [legal] in
 # the common TOML.
 [legal.third_party]
 components = ["zstd"]
 
-# Releases and descriptions (panzer-build-logic/publishing). README.md is the
+# Releases and descriptions (bichal-build-logic/publishing). README.md is the
 # description on GitHub, Modrinth and CurseForge. Per-system jars (only that
 # OS's natives; "java" = none) are attached to GitHub releases only.
-# maven_pages: v* tags also publish com.panzer.mods:celeris-<mc> to
-# https://panzerdevorg.github.io/Celeris/maven (gh-pages), which dependent mods use.
+# maven_pages: v* tags also publish net.bichal.mods:celeris-<mc> to
+# https://bichal.github.io/Celeris/maven (gh-pages), which dependent mods use.
 [publish]
 maven_pages = true
 modrinth_id = "sQphaM3I"
@@ -66,13 +66,13 @@ enabled = false
 [mod]
 id = "celeris"
 name = "Celeris"
-group = "com.panzer.mods"
-package = "com.panzer.mods.celeris"
+group = "net.bichal.mods"
+package = "net.bichal.mods.celeris"
 version = "0.3.1"
 authors = "Bichal"
 description = "Celeris: off-heap memory management, lock-free concurrency, and native SIMD/compression engine for NeoForge and Fabric."
 side = "BOTH"
-issues = "https://github.com/PanzerDevOrg/Celeris/issues"
+issues = "https://github.com/bichal/Celeris/issues"
 banner = "banner.png"
 
 # One build per binary-compatible group of Minecraft versions, each boot-tested
@@ -84,17 +84,17 @@ banner = "banner.png"
 # game_versions is what CI publishes to Modrinth/CurseForge and how the release
 # name is built (e.g. 0.1.0-1.21(.0-.6)); minecraft_version_range must cover
 # exactly the same versions.
-# Versions: panzer-build-logic's "panzer" profile (1.21.1, 1.21.10, 1.21.11,
+# Versions: bichal-build-logic's "bichal" profile (1.21.1, 1.21.10, 1.21.11,
 # 26.1; Minecraft/NeoForge builds in its common TOML). branches: extra projects
 # built per version too (example/, against Celeris).
-# `panzer compat` (Mods workflow, action compat): each build's jar on the other
+# `bichal compat` (Mods workflow, action compat): each build's jar on the other
 # versions in its game_versions, as a smoke test on a NeoForge dedicated server
 # (starts with the jar, stops cleanly).
 [compat]
 timeout_minutes = 10
 
 [stonecutter]
-profile = "panzer"
+profile = "bichal"
 vcs_version = "1.21.1"
 branches = ["example"]
 # Every version is built for NeoForge ("1.21.1") and Fabric ("1.21.1-fabric");

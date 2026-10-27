@@ -1,10 +1,10 @@
-import com.panzer.mods.celeris.api.transit.ClientItemTable;
-import com.panzer.mods.celeris.api.transit.TransitDelta;
-import com.panzer.mods.celeris.api.transit.TransitMotion;
-import com.panzer.mods.celeris.core.topology.NodeId;
-import com.panzer.mods.celeris.network.CompressedPayload;
-import com.panzer.mods.celeris.network.PayloadCompression;
-import com.panzer.mods.celeris.network.TransitDeltaPackets;
+import net.bichal.mods.celeris.api.transit.ClientItemTable;
+import net.bichal.mods.celeris.api.transit.TransitDelta;
+import net.bichal.mods.celeris.api.transit.TransitMotion;
+import net.bichal.mods.celeris.core.topology.NodeId;
+import net.bichal.mods.celeris.network.CompressedPayload;
+import net.bichal.mods.celeris.network.PayloadCompression;
+import net.bichal.mods.celeris.network.TransitDeltaPackets;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
