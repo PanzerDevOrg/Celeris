@@ -28,10 +28,10 @@
           "name": "celeris-1.21.11-0.3.1.1.jar",
           "url": "celeris-1.21.11-0.3.1.1.jar",
           "size": 2103384,
-          "sha512": "7b46c9411b2b9038e45f0b2ad943e9f6ea5789611226699825810e9a2c2eb07260556d5c0165199aefb7b4519447e099ffb193b15e17787805ca15479153c46d",
-          "sha256": "63af290b51986dd1fd465bd6c7ae21bb76c68386e269a7cb987e758044470845",
-          "sha1": "800de4e29bb71b6f675c9313cebfd6de695322ee",
-          "md5": "628c4bcab5d5bf5d1b37591831523901"
+          "sha512": "cd7694e390560235211b8707f907add3765705779ece63d4fa176b0abc6b387a39dfadcd63f17efbc2b5453609c1badb49d9fc470a6ac3e1327035f351344372",
+          "sha256": "2afcc012bd30b85a161cc1e71524aa0483d15f481a0c49f2b69e1c5c0694a2ea",
+          "sha1": "cd581ee3caac7459a99ee5542e120e02cd269db3",
+          "md5": "75c2d423c02b882f08986b53fe09b7b5"
         }
       ]
     },
@@ -49,10 +49,10 @@
           "name": "celeris-1.21.11-0.3.1.1.jar",
           "url": "celeris-1.21.11-0.3.1.1.jar",
           "size": 2103384,
-          "sha512": "7b46c9411b2b9038e45f0b2ad943e9f6ea5789611226699825810e9a2c2eb07260556d5c0165199aefb7b4519447e099ffb193b15e17787805ca15479153c46d",
-          "sha256": "63af290b51986dd1fd465bd6c7ae21bb76c68386e269a7cb987e758044470845",
-          "sha1": "800de4e29bb71b6f675c9313cebfd6de695322ee",
-          "md5": "628c4bcab5d5bf5d1b37591831523901"
+          "sha512": "cd7694e390560235211b8707f907add3765705779ece63d4fa176b0abc6b387a39dfadcd63f17efbc2b5453609c1badb49d9fc470a6ac3e1327035f351344372",
+          "sha256": "2afcc012bd30b85a161cc1e71524aa0483d15f481a0c49f2b69e1c5c0694a2ea",
+          "sha1": "cd581ee3caac7459a99ee5542e120e02cd269db3",
+          "md5": "75c2d423c02b882f08986b53fe09b7b5"
         }
       ]
     },
@@ -69,10 +69,10 @@
           "name": "celeris-1.21.11-0.3.1.1-sources.jar",
           "url": "celeris-1.21.11-0.3.1.1-sources.jar",
           "size": 2033377,
-          "sha512": "3d994e9404049ebe54374b6921987420037f1ce7438421936d5d1192617cdb049d46e5b0bab611f811b49e0ed433f4310224a63e421d9f8793e02eea2dc1a46c",
-          "sha256": "b46f2b451b0de0b55032bf0b36f9a503531aae4de28b6622c922d111e1682b90",
-          "sha1": "5571f3f178f399cd30e0a6c1c8523bcd96f13074",
-          "md5": "83a22e885b4e5b9a1a52c8d377eae684"
+          "sha512": "105652b95d1640d908e3d6c7523e01f02f8f0f298c0849ac99c90d65110ca4e8adb659bb05f7a5487323439e13a28efc89d5abd37064dc2177ea4aeee983f3fd",
+          "sha256": "0d25f6c8aecd001a80b863e2113b5fe1f2853ee02812fedf262deb1716072b52",
+          "sha1": "675e5544827384e1c933d9c0a02a09a8c9801c9a",
+          "md5": "98489fb6cde4cdfec321f909c186a689"
         }
       ]
     }
