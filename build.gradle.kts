@@ -209,20 +209,29 @@ publishing {
 // JNI symbols of the staged native libraries against the native methods declared in
 // the Java sources (scripts/verify-jni-symbols.sh). Part of `check`. -PrequireNative=true
 // makes a missing library a failure instead of a skip (the release gate sets it).
+// One check per library, each against the class that loads it: a platform without the
+// physics kernel (Java fallback) is not held to its symbols.
 val requireNativeLibraries = (findProperty("requireNative") as String?) == "true"
-val verifyJniSymbols = tasks.register<Exec>("verifyJniSymbols") {
-    group = "verification"
-    description = "Checks the exported Java_* symbols of the staged native libraries against the Java native methods."
-    dependsOn("collectNatives")
-    workingDir = rootProject.projectDir
-    commandLine(
-        "sh", rootProject.file("scripts/verify-jni-symbols.sh").path,
-        layout.buildDirectory.dir("generated/natives").get().asFile.path,
-        rootProject.file("src/main/java").path,
-        rootProject.file("src/ffm/java").path,
-        rootProject.file("src/vector/java").path
-    )
-    environment("REQUIRE_LIBRARIES", if (requireNativeLibraries) "1" else "0")
+val verifyJniSymbols = listOf(
+    Triple("verifyJniSymbolsPhysics", "*celeris_physics*", "JniPhysicsKernel"),
+    Triple("verifyJniSymbolsZstd", "*zstd*", "ZstdJniBinding"),
+).map { (name, library, loader) ->
+    tasks.register<Exec>(name) {
+        group = "verification"
+        description = "Checks the Java_* symbols of $library against the native methods of $loader."
+        dependsOn("collectNatives")
+        workingDir = rootProject.projectDir
+        commandLine(
+            "sh", rootProject.file("scripts/verify-jni-symbols.sh").path,
+            layout.buildDirectory.dir("generated/natives").get().asFile.path,
+            rootProject.file("src/main/java").path,
+            rootProject.file("src/ffm/java").path,
+            rootProject.file("src/vector/java").path
+        )
+        environment("REQUIRE_LIBRARIES", if (requireNativeLibraries) "1" else "0")
+        environment("LIBRARY_GLOB", library)
+        environment("CLASS_GLOB", loader)
+    }
 }
 
 tasks.named("check") {

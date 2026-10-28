@@ -4,6 +4,10 @@
 #
 # usage: verify-jni-symbols.sh <natives-dir> <java-src-dir>...
 #   REQUIRE_LIBRARIES=1   fail when no library is found (use in release gates)
+#   LIBRARY_GLOB=<glob>   check only the libraries whose file name matches
+#   CLASS_GLOB=<glob>     take expected symbols only from classes whose name matches
+# A platform is checked for the libraries it holds: with a LIBRARY_GLOB, a platform
+# without such a library is not checked against that library's classes.
 #
 # Expected symbol for a native method m of class C in package p:
 #   Java_<p with '.' -> '_'>_<C>_<m>      ('_' in a name becomes '_1')
@@ -36,6 +40,7 @@ for root in "$@"; do
     find "$root" -name '*.java' | sort | while read -r file; do
         pkg=$(sed -n 's/^package[[:space:]][[:space:]]*\([A-Za-z0-9_.]*\)[[:space:]]*;.*/\1/p' "$file" | head -n 1)
         cls=$(basename "$file" .java)
+        case $cls in ${CLASS_GLOB:-*}) ;; *) continue ;; esac
         mangled_pkg=$(printf '%s' "$pkg" | sed 's/_/_1/g; s/\./_/g')
         if [ -n "$mangled_pkg" ]; then prefix="Java_${mangled_pkg}_${cls}"; else prefix="Java_${cls}"; fi
         # A declaration: optional modifiers, `native`, return type, name, `(` -- at the
@@ -58,7 +63,10 @@ sort -u "$tmp/declared" > "$tmp/expected"
 expected_count=$(wc -l < "$tmp/expected" | tr -d ' ')
 
 # 2. Libraries, grouped by directory (one directory = one platform).
-find "$natives" -type f \( -name '*.so' -o -name '*.so.[0-9]*' -o -name '*.dylib' -o -name '*.dll' \) 2>/dev/null | sort > "$tmp/libs"
+find "$natives" -type f \( -name '*.so' -o -name '*.so.[0-9]*' -o -name '*.dylib' -o -name '*.dll' \) 2>/dev/null | sort |
+while read -r lib; do
+    case ${lib##*/} in ${LIBRARY_GLOB:-*}) echo "$lib" ;; esac
+done > "$tmp/libs"
 if [ ! -s "$tmp/libs" ]; then
     if [ "${REQUIRE_LIBRARIES:-0}" = "1" ]; then
         echo "verify-jni-symbols: no native library under $natives (REQUIRE_LIBRARIES=1)" >&2
