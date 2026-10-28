@@ -9,15 +9,15 @@
 > **Celeris is a performance library for NeoForge and Fabric mods.** It gives other mods fast building blocks so they can do heavy work without slowing the game down. On its own it adds nothing you can see in game: you install it because a mod you want needs it.
 
 <!-- publish:only modrinth -->
-**Download:** this is the Modrinth file list. Pick the file for your Minecraft version.
+Download on [Modrinth](https://modrinth.com/mod/sQphaM3I).
 <!-- /publish:only -->
 
 <!-- publish:only curseforge -->
-**Download:** this is the CurseForge file list. Pick the file for your Minecraft version.
+Download on [CurseForge](https://www.curseforge.com/projects/1722411).
 <!-- /publish:only -->
 
 <!-- publish:only github -->
-**Download:** the jars are attached to each [GitHub release](https://github.com/bichal/Celeris/releases).
+Download on [GitHub](https://github.com/bichal/Celeris/releases).
 <!-- /publish:only -->
 
 ## Mods that use it
