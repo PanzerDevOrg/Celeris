@@ -12,11 +12,11 @@ method and the costs too in [the benchmarks page](./docs/benchmarks.md)):
 - **4.9 times faster hand-off** from one worker thread to the game thread than JCTools, the go-to lock-free queue
   library, and still ahead with two or three workers.
 
-![Compression benchmark](./docs/media/benchmarks/compression.png)
-![Physics benchmark](./docs/media/benchmarks/physics.png)
-![Broadphase benchmark](./docs/media/benchmarks/broadphase.png)
-![Queue benchmark](./docs/media/benchmarks/queues.png)
+![Compression benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/compression.png)
+![Physics benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/physics.png)
+![Broadphase benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/broadphase.png)
+![Queue benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/queues.png)
 
-Full tables: [benchmarks](../benchmarks.md).
+Full tables: [benchmarks](https://github.com/bichal/Celeris/blob/main/docs/benchmarks.md).
 
 [Back to Home](Home.md)
