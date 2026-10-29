@@ -72,6 +72,13 @@ inline double clamp_int(double v) {
 }
 inline int32_t ifloor(double v) { return (int32_t) std::floor(clamp_int(v)); }
 inline int32_t iceil(double v) { return (int32_t) std::ceil(clamp_int(v)); }
+// Same floor/ceil for values the caller has already bounded. collide_body accepts a
+// body only if |position| <= POS_LIMIT and |velocity| <= VEL_LIMIT (and sizes <=
+// SIZE_LIMIT), so every coordinate it floors or ceils is within about 1.2e8, far
+// inside +-2^30: the clamp can never change the result there, and skipping it keeps
+// the hot loop short. Anything that is not bounded (the broadphase) keeps the clamp.
+inline int32_t ifloor_bounded(double v) { return (int32_t) std::floor(v); }
+inline int32_t iceil_bounded(double v) { return (int32_t) std::ceil(v); }
 inline bool is_solid(uint32_t c) { return (c - 1u) < 0xFEu; }
 
 // c ? a : b without a branch: the operands are data-dependent coin flips
@@ -207,13 +214,13 @@ inline double sweep(const Local& L, int a, double d, const double lo[3], const d
     }
     const int p = a == 0 ? 1 : 0;
     const int q = a == 2 ? 1 : 2;
-    const int32_t p0 = ifloor(lo[p] + EPS), p1 = ifloor(hi[p] - EPS);
-    const int32_t q0 = ifloor(lo[q] + EPS), q1 = ifloor(hi[q] - EPS);
+    const int32_t p0 = ifloor_bounded(lo[p] + EPS), p1 = ifloor_bounded(hi[p] - EPS);
+    const int32_t q0 = ifloor_bounded(lo[q] + EPS), q1 = ifloor_bounded(hi[q] - EPS);
     if ((p0 > p1) | (q0 > q1)) {
         return d;
     }
     const bool up = d > 0.0;
-    int32_t c = up ? ifloor(hi[a] - EPS) + 1 : ifloor(lo[a] + EPS) - 1;
+    int32_t c = up ? ifloor_bounded(hi[a] - EPS) + 1 : ifloor_bounded(lo[a] + EPS) - 1;
     const int32_t stop = up ? L.lo[a] + L.n[a] - 1 : L.lo[a];
     const int32_t step = up ? 1 : -1;
     for (; up ? c <= stop : c >= stop; c += step) {
@@ -247,9 +254,9 @@ inline double sweep(const Local& L, int a, double d, const double lo[3], const d
 // (Vec3i.compareTo: y, then z, then x). Returns false when none.
 inline bool find_support(const Local& L, double bx0, double by0, double bz0, double bx1, double by1, double bz1,
                          double px, double py, double pz, int32_t out[3]) {
-    const int32_t x0 = ifloor(bx0), x1 = iceil(bx1) - 1;
-    const int32_t y0 = ifloor(by0), y1 = iceil(by1) - 1;
-    const int32_t z0 = ifloor(bz0), z1 = iceil(bz1) - 1;
+    const int32_t x0 = ifloor_bounded(bx0), x1 = iceil_bounded(bx1) - 1;
+    const int32_t y0 = ifloor_bounded(by0), y1 = iceil_bounded(by1) - 1;
+    const int32_t z0 = ifloor_bounded(bz0), z1 = iceil_bounded(bz1) - 1;
     bool found = false;
     double best = 0.0;
     for (int32_t z = z0; z <= z1; z++) {
@@ -312,8 +319,8 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
         *fv = 1.0;
         // noPhysics is decided before that test: a box overlapping a block pushes the
         // item out (moveTowardsClosestSpace), which may make it move this tick.
-        if (box_blocked(t, ifloor(x0 + EPS), ifloor(y0 + EPS), ifloor(z0 + EPS),
-                        iceil(x1 - EPS) - 1, iceil(y1 - EPS) - 1, iceil(z1 - EPS) - 1)) {
+        if (box_blocked(t, ifloor_bounded(x0 + EPS), ifloor_bounded(y0 + EPS), ifloor_bounded(z0 + EPS),
+                        iceil_bounded(x1 - EPS) - 1, iceil_bounded(y1 - EPS) - 1, iceil_bounded(z1 - EPS) - 1)) {
             C.u[CP_FLAGS][i] = deferred_flags;
             return 1;
         }
@@ -329,11 +336,11 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     // Each axis is checked on its own BEFORE the product: three spans of a few
     // million blocks multiply past 2^63 and wrap (2^22 * 2^21 * 2^21 = 2^64 -> 0),
     // which passed the MAX_CELLS test and let the gather write past L.cell.
-    // (ifloor/iceil are clamped to +-2^30, so the difference fits in int32.)
+    // (the bounded floor/ceil stay within +-2^30, so the difference fits in int32.)
     bool too_big = false;
     for (int a = 0; a < 3; a++) {
-        L.lo[a] = ifloor(e0[a]);
-        int32_t n = iceil(e1[a]) - L.lo[a];
+        L.lo[a] = ifloor_bounded(e0[a]);
+        int32_t n = iceil_bounded(e1[a]) - L.lo[a];
         too_big |= n > MAX_CELLS;
         n = n & ~(n >> 31);                // max(n, 0)
         L.n[a] = n < MAX_CELLS ? n : MAX_CELLS;
@@ -404,9 +411,9 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
 
     // ItemEntity: noPhysics = !level.noCollision(this, box.deflate(1.0E-7)) -> moveTowardsClosestSpace
     if (any_solid) {
-        for (int32_t cz = ifloor(z0 + EPS); cz <= iceil(z1 - EPS) - 1; cz++) {
-            for (int32_t cy = ifloor(y0 + EPS); cy <= iceil(y1 - EPS) - 1; cy++) {
-                for (int32_t cx = ifloor(x0 + EPS); cx <= iceil(x1 - EPS) - 1; cx++) {
+        for (int32_t cz = ifloor_bounded(z0 + EPS); cz <= iceil_bounded(z1 - EPS) - 1; cz++) {
+            for (int32_t cy = ifloor_bounded(y0 + EPS); cy <= iceil_bounded(y1 - EPS) - 1; cy++) {
+                for (int32_t cx = ifloor_bounded(x0 + EPS); cx <= iceil_bounded(x1 - EPS) - 1; cx++) {
                     if (is_solid(L.at(cx, cy, cz))) {
                         *fh = 1.0;
                         *fv = 1.0;
@@ -484,8 +491,8 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     // runs. Only the default implementation (vy = 0, nothing else) is modelled.
     if (v_coll) {
         const uint32_t c = has_support
-                ? L.at(support[0], ifloor(ny - ON_POS_LEGACY), support[2])
-                : L.at(ifloor(nx), ifloor(ny - ON_POS_LEGACY), ifloor(nz));
+                ? L.at(support[0], ifloor_bounded(ny - ON_POS_LEGACY), support[2])
+                : L.at(ifloor_bounded(nx), ifloor_bounded(ny - ON_POS_LEGACY), ifloor_bounded(nz));
         if (c == CP_CELL_COMPLEX) {
             *fh = 1.0;
             *fv = 1.0;
@@ -498,10 +505,11 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
     // its getSpeedFactor always -- Entity.move applies the speed factor of
     // the block below even mid-air (soul sand, honey: COMPLEX). Items look
     // almost a whole block down (getOnPos(0.999999F)).
+    // The offset is a per-body parameter the input check does not bound: keep the clamp here.
     const double below_y = ny - C.f[CP_BELOW_OFFSET][i];
     const uint32_t below = has_support
             ? L.at(support[0], ifloor(below_y), support[2])
-            : L.at(ifloor(nx), ifloor(below_y), ifloor(nz));
+            : L.at(ifloor_bounded(nx), ifloor(below_y), ifloor_bounded(nz));
     if (below == CP_CELL_COMPLEX) {
         *fh = 1.0;
         *fv = 1.0;
