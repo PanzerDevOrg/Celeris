@@ -17,12 +17,6 @@
 
 > **Celeris is a performance library for NeoForge and Fabric mods.** It gives other mods fast building blocks so they can do heavy work without slowing the game down. On its own it adds nothing you can see in game: you install it because a mod you want needs it.
 
-## 🎮 Mods that use it
-
-| Mod | What it does for you |
-|---|---|
-| 🧱 **[Tessera](https://github.com/bichal/Tessera)** | Shrinks Minecraft's textures on the graphics card by **up to 75%**, with no visible difference. |
-
 ## ⚡ What it gives those mods
 
 - 🧵 **Work off the main thread.** Heavy jobs run on worker threads and their results come back to the game thread
