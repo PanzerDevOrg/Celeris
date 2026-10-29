@@ -41,7 +41,7 @@ A dedicated NeoForge server on a GitHub Actions runner (4 vCPU), flat world, N s
 reports the average milliseconds per tick: *falling* is the first 80 ticks after the throw, *resting* 1,200 ticks
 later with everything on the ground. Milliseconds per tick, lower is better; 50 ms is the 20 TPS budget. Re-measured on
 2026-10-29 with Celeris and Velox at `main` (GitHub run `bichal/BichalBuildLogic` 40922919248), one run per cell on a
-shared runner, so read differences under ~20 % as a tie; the chart above still shows the 2026-10-08 run:
+shared runner, so read differences under ~20 % as a tie:
 
 | Minecraft | Items | Vanilla falling / resting | Velox (native kernel) falling / resting | Speed-up |
 |---|---|---|---|---|
