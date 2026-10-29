@@ -49,7 +49,19 @@ constexpr double POS_LIMIT = 1.0e8;    // blocks; the world border ends at 3e7
 constexpr double VEL_LIMIT = 1.0e7;    // blocks per tick
 constexpr double SIZE_LIMIT = 1.0e4;   // half width / height, blocks
 
-inline bool within(double v, double limit) { return std::fabs(v) <= limit; }  // false for NaN
+// |v| <= limit, false for NaN, as integer arithmetic on the IEEE bit pattern: with the sign bit
+// cleared, patterns order like the values, and Inf and every NaN lie above any finite limit.
+// over(limit) = pattern(limit) + 1, so abs_bits(v) - over(limit) wraps (bit 63 set) exactly when
+// |v| <= limit. The eight tests are then ANDed and the bit read once, with no compare or branch
+// per value (the double compares cost 3 to 7 percent of a step on AVX2).
+inline uint64_t abs_bits(double v) {
+    uint64_t b;
+    std::memcpy(&b, &v, 8);
+    return b & 0x7FFFFFFFFFFFFFFFull;
+}
+inline uint64_t over(double limit) { return abs_bits(limit) + 1; }
+// Set bit 63 iff |v| <= limit.
+inline uint64_t within_bit(double v, uint64_t over_limit) { return abs_bits(v) - over_limit; }
 
 // floor/ceil to int without undefined behaviour: the value is clamped to
 // [INT_MIN/2, INT_MAX/2] BEFORE the cast (NaN -> INT_MIN/2), so the cast is
@@ -302,9 +314,10 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
             | CP_FLAG_DEFERRED | next_phase;
 
     // Non-finite or out-of-range state: vanilla handles it, nothing else is read.
-    if (!(within(x, POS_LIMIT) & within(y, POS_LIMIT) & within(z, POS_LIMIT)
-            & within(vx, VEL_LIMIT) & within(vy, VEL_LIMIT) & within(vz, VEL_LIMIT)
-            & within(hw, SIZE_LIMIT) & within(h, SIZE_LIMIT))) {
+    const uint64_t pos_over = over(POS_LIMIT), vel_over = over(VEL_LIMIT), size_over = over(SIZE_LIMIT);
+    if (!((within_bit(x, pos_over) & within_bit(y, pos_over) & within_bit(z, pos_over)
+            & within_bit(vx, vel_over) & within_bit(vy, vel_over) & within_bit(vz, vel_over)
+            & within_bit(hw, size_over) & within_bit(h, size_over)) >> 63)) {
         *fh = 1.0;
         *fv = 1.0;
         C.u[CP_FLAGS][i] = deferred_flags;
