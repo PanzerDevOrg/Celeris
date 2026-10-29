@@ -48,6 +48,8 @@ Each building block, measured against what a mod would otherwise use (JMH, Java 
 October 2026 with Celeris 0.2.3; the physics kernel has since become 7 to 20 % slower in exchange for checking every
 item for impossible values; method and full tables in the [benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
 
+- 🖥️ **A real server with 20,000 dropped items** (Minecraft 1.21.1, with the Velox mod): 18.3 ms per tick instead of
+  243.0 ms, 13.3× faster and back to a full 20 TPS (measured on 2026-10-29).
 - 🗜️ **12.8× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
   **3.1× faster decompression**. As fast as zstd-jni in a jar a quarter of its size.
 - 🏃 **32,768 dropped items moved in 0.88 ms** per tick on 3 threads with the native kernel, 5.3× faster than the
@@ -59,6 +61,7 @@ item for impossible values; method and full tables in the [benchmarks page](http
 - 🧵 **4.9× faster hand-off** from one worker thread to the game thread than JCTools, and still ahead with two or
   three workers.
 
+![Server tick benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/ingame.png)
 ![Compression benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/compression.png)
 ![Physics benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/physics.png)
 ![Broadphase benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/broadphase.png)
