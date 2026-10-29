@@ -19,8 +19,8 @@ The release workflow packs the libraries into the jars and uploads them. The rel
 
 ## What happens if a library does not load
 
-Celeris does not stop. It uses the Java code instead, and the log says which one it chose. See [Troubleshooting](Troubleshooting.md).
+Celeris does not stop. It uses the Java code instead, and the log says which one it chose. See [Troubleshooting](Troubleshooting).
 
 ## Known issue
 
-Version 0.3.1.1 has a naming problem in its native parts. The details and the workaround are in [Troubleshooting](Troubleshooting.md#known-issue-in-version-0311).
+Version 0.3.1.1 has a naming problem in its native parts. The details and the workaround are in [Troubleshooting](Troubleshooting#known-issue-in-version-0311).
