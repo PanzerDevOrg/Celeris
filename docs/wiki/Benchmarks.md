@@ -34,7 +34,7 @@ behaviour (see [Batch physics](#batch-physics)); on a real server that is lost i
 
 ## A real server
 
-![Server tick time](media/benchmarks/ingame.png)
+![Server tick time](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/ingame.png)
 
 A dedicated NeoForge server on a GitHub Actions runner (4 vCPU), flat world, N swords thrown over a 112 × 112 area
 (swords never stack, so every configuration keeps all of them). Vanilla's `tick sprint` runs ticks back to back and
@@ -58,7 +58,7 @@ took 4× to 7.5× at 20,000 resting items.
 
 ## Compression
 
-![Compression throughput](media/benchmarks/compression.png)
+![Compression throughput](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/compression.png)
 
 Synthetic chunk-section data (NBT-like palettes and block states, see `ChunkData.java`) at three sizes: one network
 packet (3 KiB), one chunk (38 KiB) and a region-sized blob (1 MiB). Time per operation in µs, lower is better:
@@ -96,7 +96,7 @@ transfers).
 
 ## Batch physics
 
-![Physics time per tick](media/benchmarks/physics.png)
+![Physics time per tick](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/physics.png)
 
 One game tick of N dropped items in a random 48×32×48 block world: gravity, drag, collision with blocks and ground
 friction, following vanilla's item movement rules. The items are thrown again every 40 ticks so the batch never just
@@ -124,7 +124,7 @@ jar); otherwise the Java kernel runs with identical results.
 
 ## Finding touching items
 
-![Broadphase on item piles](media/benchmarks/broadphase.png)
+![Broadphase on item piles](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/broadphase.png)
 
 `BodyBatch.broadphase` lists the pairs of items whose boxes touch (merge candidates, pushing). A pile of n items in
 one block is the worst case: nearly every pair touches, ~n²/2 of them. Before 0.3.0 every call counted them all;
@@ -144,7 +144,7 @@ the baseline ISA only it was 15–20 % behind Java here).
 
 ## Handing results to the game thread
 
-![Queue throughput](media/benchmarks/queues.png)
+![Queue throughput](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/queues.png)
 
 The pattern Celeris is built around: worker threads produce 8-byte results (tickets, handles, packed positions) and
 the game thread consumes them. Each round moves 20 million values through a 65,536-slot queue; producers spin when it

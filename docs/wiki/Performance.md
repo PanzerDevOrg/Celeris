@@ -1,6 +1,6 @@
 # Performance
 
-This page gives the main numbers. The [benchmark page](https://github.com/bichal/Celeris/blob/main/docs/benchmarks.md) has every table, the method, and the costs.
+This page gives the main numbers. The [benchmark page](Benchmarks) has every table, the method, and the costs.
 
 The numbers come from JMH benchmarks, run on a shared 4 core cloud machine with Java 21. Your numbers will differ. Read differences under about 20 percent as a tie. The ratios are what matter.
 

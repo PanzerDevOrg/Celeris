@@ -11,6 +11,7 @@
 - [Using Celeris in your mod](Using-Celeris-in-your-mod)
 - [Examples](Examples)
 - [Performance](Performance)
+- [Benchmarks](Benchmarks)
 - [Native libraries](Native-libraries)
 
 **Developers**

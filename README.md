@@ -45,7 +45,7 @@
 ## 🏁 How fast
 
 Each building block, measured against what a mod would otherwise use (JMH, Java 21, a 4-core machine; method and
-full tables in the [benchmarks page](https://github.com/bichal/Celeris/blob/main/docs/benchmarks.md)):
+full tables in the [benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
 
 - 🗜️ **12.8× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
   **3.1× faster decompression**. As fast as zstd-jni in a jar a quarter of its size.
