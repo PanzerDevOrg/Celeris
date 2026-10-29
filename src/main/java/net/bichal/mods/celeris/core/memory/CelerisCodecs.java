@@ -147,9 +147,15 @@ public final class CelerisCodecs {
         }
         long bound = candidate.compressBound(sample.length);
         long src = backend.allocate(sample.length, 8L);
-        long packed = backend.allocate(bound, 8L);
-        long out = backend.allocate(sample.length, 8L);
+        long packed = 0L;
+        long out = 0L;
+        boolean packedAllocated = false;
+        boolean outAllocated = false;
         try {
+            packed = backend.allocate(bound, 8L);
+            packedAllocated = true;
+            out = backend.allocate(sample.length, 8L);
+            outAllocated = true;
             backend.copyFromHeap(src, 0L, sample, 0, sample.length);
             long size = candidate.compress(backend, packed, bound, src, 0L, sample.length, 3);
             long restored = candidate.decompress(backend, out, sample.length, packed, 0L, size);
@@ -160,8 +166,12 @@ public final class CelerisCodecs {
             }
         } finally {
             backend.free(src);
-            backend.free(packed);
-            backend.free(out);
+            if (packedAllocated) {
+                backend.free(packed);
+            }
+            if (outAllocated) {
+                backend.free(out);
+            }
         }
     }
 }

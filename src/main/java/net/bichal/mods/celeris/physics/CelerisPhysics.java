@@ -54,7 +54,7 @@ public final class CelerisPhysics {
     }
 
     public static BodyBatch newBatch(int capacity, PhysicsMode mode) {
-        return newBatch(capacity, mode, capacity * 4);
+        return newBatch(capacity, mode, (int) Math.min((long) capacity * 4, 1 << 28));
     }
 
     public static BodyBatch newBatch(int capacity, PhysicsMode mode, int pairCapacity) {
@@ -104,6 +104,9 @@ public final class CelerisPhysics {
 
     private static void select() {
         String engine = System.getProperty("celeris.physics.engine", "auto");
+        if (!java.util.List.of("auto", "off", "java", "jni", "ffm").contains(engine.toLowerCase(java.util.Locale.ROOT))) {
+            LOGGER.warn("Celeris: unknown -Dceleris.physics.engine={} (expected auto, java, jni, ffm or off); using auto", engine);
+        }
         if ("off".equalsIgnoreCase(engine)) {
             unavailableReason = "disabled by -Dceleris.physics.engine=off";
             LOGGER.info("Celeris physics engine disabled (-Dceleris.physics.engine=off)");
