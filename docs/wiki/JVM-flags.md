@@ -1,18 +1,54 @@
 # JVM flags
 
-None are required. These open the fast paths that the JVM keeps closed by default:
+Celeris works without any startup flags. The flags on this page turn on faster code paths that Java keeps closed by default. Add them if you want the extra speed. Skip them if you do not.
 
-| Java | JVM arguments | Opens |
-|---|---|---|
-| 21 (Minecraft 1.21.x) | `--enable-preview --add-modules=jdk.incubator.vector` | FFM memory, SIMD (native physics and native zstd work without flags, over JNI) |
-| 25 (Minecraft 26.x) | `--add-modules=jdk.incubator.vector` | SIMD (the rest is already open on 25) |
+## Which flags to use
 
-On NeoForge, leave `--enable-native-access` out: NeoForge loads mods as named modules that the flag cannot cover, and on
-Java 21 it then blocks their FFM calls (native physics and zstd keep working: both use JNI, which the flag does not affect).
-Fabric loads mods on the class path, so there `--enable-native-access=ALL-UNNAMED` is harmless and silences the JVM's
-native-access warnings.
+| Minecraft | Java | Flags | What they turn on |
+|---|---|---|---|
+| 1.21.x | 21 | `--enable-preview` | The FFM code paths. In the current release this is also what the native physics kernel needs. See the note below. |
+| 1.21.x | 21 | `--enable-preview --add-modules=jdk.incubator.vector` | The same, plus faster SIMD math. |
+| 26.x | 25 | `--add-modules=jdk.incubator.vector` | Faster SIMD math. Java 25 already has the other paths open. |
 
-Modrinth App: *Settings > Java and memory*. CurseForge: *Settings > Minecraft > Additional arguments*. Prism: instance
-*Settings > Java*. Servers: `user_jvm_args.txt`. `--enable-preview` belongs to Java 21 only.
+## Note for version 0.3.1.1
 
-[Back to Home](Home.md)
+In version 0.3.1.1, the native parts (the physics kernel and zstd) were built with function names that do not match the Java classes. Java cannot link them, so Celeris uses the FFM path or the Java code instead. On Java 21, `--enable-preview` lets Celeris use FFM, so the native physics kernel can run.
+
+The fix is already in the source code and will ship in the next release. After that, the native parts load without flags, and these flags only add FFM memory and SIMD math.
+
+## Advanced switches
+
+These are for testing and for solving problems. You do not need them normally.
+
+| Switch | What it does |
+|---|---|
+| `-Dceleris.compatMode=true` | Uses only plain Java code. Slower, but it works everywhere. |
+| `-Dceleris.physics.engine=java` | Uses the Java physics kernel. |
+| `-Dceleris.physics.engine=off` | Turns the physics engine off. Mods that use it fall back to their normal code. |
+| `-Dceleris.physics.isa=avx2` | Picks the native instruction set. Choose one of `generic`, `avx2`, `avx512` or `neon`. |
+| `-Dceleris.physics.threads=4` | Sets how many worker threads the physics uses. |
+
+## Where to add the flags
+
+- **Modrinth App:** Settings, then Java and memory.
+- **CurseForge:** Settings, then Minecraft, then Additional arguments.
+- **Prism Launcher:** open the settings of your instance, then Java.
+- **Server:** open the file `user_jvm_args.txt` in the server folder, and put the flags on one line.
+
+Example for a Java 21 server:
+
+```text
+--enable-preview --add-modules=jdk.incubator.vector
+```
+
+## Two things to avoid
+
+- Do not add `--enable-native-access` on NeoForge. On Java 21 it blocks the FFM path for NeoForge mods. Fabric is fine with `--enable-native-access=ALL-UNNAMED`, which also silences native access warnings.
+- Do not add `--enable-preview` on Java 25. It is only for Java 21.
+
+## Check that it worked
+
+Start the game or server, and search the log for these lines:
+
+- `Celeris memory backend: FFM` means FFM memory is on.
+- `Celeris physics engine` followed by a name that starts with `native` means the native physics kernel is on. A name of `java` means the Java kernel is used.

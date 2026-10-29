@@ -1,77 +1,67 @@
 # Using Celeris in your mod
 
+This page shows how to add Celeris to your mod as a dependency. For short code you can copy, see [Examples](Examples.md).
+
+## 1. Add the repository and the dependency
+
+For NeoForge, in `build.gradle.kts`:
+
 ```kotlin
 repositories {
     maven("https://bichal.github.io/Celeris/maven") {
         content { includeGroup("net.bichal.mods") }
     }
 }
+
 dependencies {
-    implementation("net.bichal.mods:celeris-1.21.1:0.3.1") // NeoForge: celeris-<minecraft version>
-    // Fabric (Loom): modImplementation("net.bichal.mods:celeris-1.21.1-fabric:0.3.1")
+    // One artifact per Minecraft build: celeris-1.21.1, celeris-1.21.10, celeris-1.21.11 or celeris-26.1
+    implementation("net.bichal.mods:celeris-1.21.1:0.3.1.1")
 }
 ```
 
-Source, examples and the package map: **[github.com/bichal/Celeris](https://github.com/bichal/Celeris)**
+For Fabric with Fabric Loom, use the `-fabric` artifact:
 
-Declare it as a required dependency in your `neoforge.mods.toml` (Fabric: `"depends": { "celeris": ">=0.3.1" }` in
-`fabric.mod.json`):
+```kotlin
+dependencies {
+    modImplementation("net.bichal.mods:celeris-1.21.1-fabric:0.3.1.1")
+}
+```
+
+## 2. Declare Celeris as required
+
+For NeoForge, add this to `neoforge.mods.toml`. Replace `yourmod` with your own mod id.
 
 ```toml
 [[dependencies.yourmod]]
 modId = "celeris"
 type = "required"
-versionRange = "[0.2.0,)"
+versionRange = "[0.3.1.1,)"
 ordering = "AFTER"
 side = "BOTH"
 ```
 
-Quick example: offloading work and applying the results on the main thread.
+For Fabric, add `"celeris": ">=0.3.1.1"` to the `depends` section of `fabric.mod.json`.
 
-```java
-AsyncResultQueue<Result> results = new AsyncResultQueue<>(256); // capacity: power of two
-// worker thread
-results.offer(computeResult());
-// game/render thread, once per tick
-results.drainTo(this::apply, 32);
-```
+Use the oldest Celeris version your mod was tested with. 0.3.1.1 is the current one.
 
-Quick example: items in pipes (server tick, then what to send players).
+## 3. Know the main packages
 
-```java
-var migrator = new TransitMigrator((handle, speed, nodeRaw) -> dropInWorld(handle, nodeRaw));
-var graph = new SegmentedGraphImpl<>(topology, TransitPayload::new, migrator); // pipes keep their items when edited
-var solver = new TransitSolver(TransitConfig.defaults(), new RoundRobinRouter(), endpoints, migrator);
-solver.bind(graph);
-var recorder = new TransitDeltaRecorder(0L, bytes -> send(TransitDeltaPackets.encode(bytes)));
-solver.setEvents(recorder);
-migrator.setEvents(recorder, solver::tickCount);
-
-graph.addNodes(ids, masks, count);      // a whole chunk of pipes in one pass
-solver.insert(node, direction, handle); // an item enters the pipe leaving `node`
-solver.tick();                          // once per server tick
-recorder.drain(solver.tickCount());     // sends only what changed
-// client: TransitDeltaPackets.decode(payload, clientItemTable); position = TransitMotion.progress(...)
-```
-
-All of it runs on one thread (normally the server thread) and has a pure-Java path. More complete, runnable examples (pipes, wires, ring buffer, compressor, memory bank) live in
-[`example/`](./example).
-
-| Package | Contents |
+| Package | What it is for |
 |---|---|
-| `core.memory.backend` | `MemoryBackend` with automatic selection: FFM, then Unsafe, then **heap** |
-| `core.memory` | `PacketPipeline`, `MemoryBus`, zstd (native) / deflate compression codecs |
-| `core.concurrency` | `MpscRingBuffer`: lock-free multi-producer/single-consumer ring on off-heap memory |
-| `framework.async` | `AsyncResultQueue`: hand results from worker threads to the game/render thread |
-| `framework.ticking` | `IdleTickFilter`: skip work while nothing is pending |
-| `framework.capability/query` | Capability caching and throttled queries |
-| `api.simd` | `VectorOperations`: SIMD via `jdk.incubator.vector`, scalar fallback with identical results |
-| `core.topology`, `graph.*` | Network topology plus segmented (pipes, wires) and discrete (per-node signal) graphs |
-| `pipeline.*` | Event-driven and continuous (SIMD) pipeline solvers; `pipeline.transit`: item transport (`TransitSolver`, routers, migration, persistence) |
-| `api.transit` | What a client needs to draw transported items: `TransitMotion`, `TransitDelta`, `ClientItemTable` |
-| `network` | `PayloadCompression` / `CompressedPayload`: compressed custom payloads; `TransitDeltaPackets` for item messages |
-| `physics` | Batch physics engine: SoA bodies, native C++ kernel or pure-Java kernel, broadphase, entity bridge ([`native/`](./native)) |
+| `core.memory` | Off-heap memory, and compression with zstd (or deflate for network packets). |
+| `core.concurrency` | `MpscRingBuffer`, a lock-free queue on off-heap memory. Many threads can add to it, and one thread reads from it. |
+| `framework.async` | `AsyncResultQueue`: hands results from worker threads to the game thread. |
+| `framework.ticking` | `IdleTickFilter`: skips work while nothing is waiting. |
+| `framework.capability` and `framework.query` | Capability caching and throttled queries. |
+| `api.simd` | `VectorOperations`: SIMD math, with a plain Java fallback that gives the same results. |
+| `core.topology` and `graph` | Network topology, and graphs for pipes, wires and signals. |
+| `pipeline` | Solvers that move items through pipes, such as `TransitSolver`. |
+| `api.transit` | What a client needs to draw moving items. |
+| `network` | Compressed payloads for your own packets. |
+| `physics` | Batch physics for many bodies, with a native C++ kernel or a Java kernel. |
 
-Everything is chosen at startup and logged once. `-Dceleris.compatMode=true` forces the pure-Java paths.
+Most parts are used from one thread, normally the server or game thread. The examples say which thread each call belongs on.
 
-[Back to Home](Home.md)
+## Options chosen at startup
+
+Celeris chooses its memory, math and physics paths once, at startup, and logs its choice. To force the plain Java paths, start the game with `-Dceleris.compatMode=true`. See [JVM flags](JVM-flags.md).

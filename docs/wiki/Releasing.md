@@ -1,13 +1,27 @@
 # Releasing
 
-The README is the description on Modrinth and CurseForge too. To release: add `docs/changelogs/<version>.md`, set `version` under `[mod]` in
-`mod.stonecutter.properties.toml`, commit, then push a matching tag:
+This page is for maintainers.
+
+## Steps
+
+1. Write the changelog. Copy the latest file in `docs/changelogs/` to a new name, such as `docs/changelogs/0.3.2.md`, and rewrite it.
+2. Set the new version under `[mod]` in `mod.stonecutter.properties.toml`.
+3. Commit and push. Every push runs a dry run. In that CI run, open the `release-preview` artifact and check the pages and files.
+4. Create a tag with the same version, and push it:
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.3.2
+git push origin v0.3.2
 ```
 
-CI publishes the Maven repository, a GitHub release with every jar, and the Modrinth and CurseForge files. Every other
-push runs the same release as a dry run and uploads a `release-preview` artifact with the pages as they would look.
+CI then publishes the release to GitHub, Modrinth and CurseForge, and updates the Maven repository. CI fails if the changelog file for the version is missing.
 
-[Back to Home](Home.md)
+The shared build logic has a command that checks the changelog and the shared files, then pushes the tag. Run it from the bichal-build-logic folder:
+
+```bash
+./bichal release celeris --push
+```
+
+## Updating the wiki
+
+The pages in `docs/wiki/` are the source for this wiki. The GitHub wiki is a separate git repository, at `https://github.com/bichal/Celeris.wiki.git`. After you change a page, copy the changed files into that repository, commit them, and push.

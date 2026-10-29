@@ -1,15 +1,26 @@
 # Native libraries
 
-Celeris ships two kinds of native libraries, both built from public source by GitHub Actions on each platform's own
-runner, from the same tagged commit as every file published here:
+Some parts of Celeris are written in C and C++, because they run much faster there. They are compiled into one library file per system: `.so` on Linux, `.dll` on Windows and `.dylib` on macOS. The library files sit inside the Celeris jar.
 
-- **zstd 1.5.7** (Meta's Zstandard, BSD-3-Clause), compiled from the official release tarball
-  ([`zstd-1.5.7.tar.gz`](https://github.com/facebook/zstd/releases/tag/v1.5.7), SHA-256 `eb33e51f...6fa3`, checked
-  by the build), plus a few small functions of Celeris's own that let Java 21 call it without extra flags:
-  [`native/zstd`](https://github.com/bichal/Celeris/tree/main/native/zstd).
-- **The physics kernel**, Celeris's own C++ code: [`native/`](https://github.com/bichal/Celeris/tree/main/native).
+## What is inside
 
-The release workflow builds them, packs the jars and uploads them here; GitHub releases also carry a Java-only file
-with no native code at all.
+| Library | What it is | Source code |
+|---|---|---|
+| zstd 1.5.7 | Zstandard, a compression library from Meta, released under the BSD 3-Clause license. It is built from the official release, plus a few small Celeris functions so that Java 21 can call it. | [native/zstd](https://github.com/bichal/Celeris/tree/main/native/zstd) |
+| Physics kernel | Celeris's own code that moves batches of items and bodies. | [native](https://github.com/bichal/Celeris/tree/main/native) |
 
-[Back to Home](Home.md)
+## How they are built
+
+- GitHub Actions builds each library on its own system.
+- Each release is built from the same tagged commit as its source files.
+- Nothing is built by hand, and no compiled library is kept in the repository.
+
+The release workflow packs the libraries into the jars and uploads them. The release page also has a Java only file, with no native parts at all.
+
+## What happens if a library does not load
+
+Celeris does not stop. It uses the Java code instead, and the log says which one it chose. See [Troubleshooting](Troubleshooting.md).
+
+## Known issue
+
+Version 0.3.1.1 has a naming problem in its native parts. The details and the workaround are in [Troubleshooting](Troubleshooting.md#known-issue-in-version-0311).
