@@ -44,8 +44,9 @@
 
 ## 🏁 How fast
 
-Each building block, measured against what a mod would otherwise use (JMH, Java 21, a 4-core machine; method and
-full tables in the [benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
+Each building block, measured against what a mod would otherwise use (JMH, Java 21, a shared 4-core cloud VM,
+October 2026 with Celeris 0.2.3; the physics kernel has since become 7 to 20 % slower in exchange for checking every
+item for impossible values; method and full tables in the [benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
 
 - 🗜️ **12.8× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
   **3.1× faster decompression**. As fast as zstd-jni in a jar a quarter of its size.
@@ -53,6 +54,8 @@ full tables in the [benchmarks page](https://github.com/bichal/Celeris/wiki/Benc
   same rules in Java on one thread and under 2 % of a tick.
 - 🧲 **Item piles no longer stall**: finding the touching items in a pile of 16,384 takes 0.24 ms instead of up to a
   second.
+- ⚙️ **Native physics engines are about 1.5× faster than the Java kernel** on one thread (73 to 75 against 114 ns
+  per body, 100,000 bodies), and you can check it yourself with `./gradlew benchmarkTest`.
 - 🧵 **4.9× faster hand-off** from one worker thread to the game thread than JCTools, and still ahead with two or
   three workers.
 

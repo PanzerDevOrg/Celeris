@@ -2,7 +2,7 @@
 
 This page gives the main numbers. The [benchmark page](Benchmarks) has every table, the method, and the costs.
 
-The numbers come from JMH benchmarks, run on a shared 4 core cloud machine with Java 21. Your numbers will differ. Read differences under about 20 percent as a tie. The ratios are what matter.
+The numbers come from JMH benchmarks, run in October 2026 on a shared 4 core cloud machine with Java 21, with Celeris 0.2.3 (the physics kernel has since become 7 to 20 percent slower because it now checks every item for impossible values). The engine comparison in the [Benchmarks](Benchmarks) page can be reproduced with `./gradlew benchmarkTest`. Your numbers will differ. Read differences under about 20 percent as a tie. The ratios are what matter.
 
 ## Compression
 
