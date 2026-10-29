@@ -215,14 +215,17 @@ val verifyJniSymbols = listOf(
     Triple("verifyJniSymbolsPhysics", "*celeris_physics*", "JniPhysicsKernel"),
     Triple("verifyJniSymbolsZstd", "*zstd*", "ZstdJniBinding"),
 ).map { (name, library, loader) ->
+    // Read outside the task closure: a closure that touches `rootProject` captures the script object,
+    // which the configuration cache cannot serialize.
+    val jniSymbolsScript = rootProject.file("scripts/verify-jni-symbols.sh")
     tasks.register<Exec>(name) {
         group = "verification"
         description = "Checks the Java_* symbols of $library against the native methods of $loader."
         dependsOn("collectNatives")
-        onlyIf { rootProject.file("scripts/verify-jni-symbols.sh").isFile }
+        onlyIf { jniSymbolsScript.isFile }
         workingDir = rootProject.projectDir
         commandLine(
-            "sh", rootProject.file("scripts/verify-jni-symbols.sh").path,
+            "sh", jniSymbolsScript.path,
             layout.buildDirectory.dir("generated/natives").get().asFile.path,
             rootProject.file("src/main/java").path,
             rootProject.file("src/ffm/java").path,
