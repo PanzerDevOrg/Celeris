@@ -14,8 +14,8 @@ ratios are what matter.
 
 | Job | Celeris | Compared with | Result |
 |---|---|---|---|
-| A server with 20,000 dropped items, Minecraft 1.21.1 | 11.9 ms per tick (Velox + native kernel) | 139.9 ms, vanilla NeoForge | **11.8× faster**, from 3 TPS to a full 20 |
-| The same on Minecraft 26.1 | 29.3 ms per tick | 219.1 ms, vanilla NeoForge | **7.5× faster** |
+| A server with 20,000 dropped items, Minecraft 1.21.1 | 18.3 ms per tick (Velox + native kernel) | 243.0 ms, vanilla NeoForge | **13.3× faster**, from about 4 TPS to a full 20 |
+| The same on Minecraft 26.1 | 35.2 ms per tick | 225.8 ms, vanilla NeoForge | **6.4× faster** |
 | Compressing mod data (38 KiB) | native zstd, 542 MiB/s, ratio 5.5× | Java `Deflater` level 6 (what Minecraft uses), 42 MiB/s, ratio 5.8× | **12.8× faster** for nearly the same size |
 | Decompressing it | 1,296 MiB/s | Java `Inflater`, 417 MiB/s | **3.1× faster** |
 | Same, vs zstd-jni 1.5.7 | 542 / 1,296 MiB/s | 454–489 / 1,218–1,302 MiB/s | **tie**: same zstd 1.5.7 underneath, in a 2 MB jar instead of a 7.4 MB one |
@@ -39,19 +39,21 @@ behaviour (see [Batch physics](#batch-physics)); on a real server that is lost i
 A dedicated NeoForge server on a GitHub Actions runner (4 vCPU), flat world, N swords thrown over a 112 × 112 area
 (swords never stack, so every configuration keeps all of them). Vanilla's `tick sprint` runs ticks back to back and
 reports the average milliseconds per tick: *falling* is the first 80 ticks after the throw, *resting* 1,200 ticks
-later with everything on the ground. Milliseconds per tick, lower is better; 50 ms is the 20 TPS budget:
+later with everything on the ground. Milliseconds per tick, lower is better; 50 ms is the 20 TPS budget. Re-measured on
+2026-10-29 with Celeris and Velox at `main` (GitHub run `bichal/BichalBuildLogic` 40922919248), one run per cell on a
+shared runner, so read differences under ~20 % as a tie; the chart above still shows the 2026-10-08 run:
 
 | Minecraft | Items | Vanilla falling / resting | Velox (native kernel) falling / resting | Speed-up |
 |---|---|---|---|---|
-| 1.21.1 | 2,000 | 5.43 / 3.92 | 0.93 / 0.62 | 5.8× / 6.3× |
-| 1.21.1 | 8,000 | 39.45 / 30.37 | 6.34 / 3.38 | 6.2× / 9.0× |
-| 1.21.1 | 20,000 | 171.52 / 139.95 | 17.48 / 11.91 | 9.8× / 11.8× |
-| 26.1 | 2,000 | 9.80 / 7.34 | 2.53 / 1.92 | 3.9× / 3.8× |
-| 26.1 | 8,000 | 64.30 / 50.10 | 14.71 / 9.55 | 4.4× / 5.2× |
-| 26.1 | 20,000 | 255.86 / 219.13 | 37.42 / 29.30 | 6.8× / 7.5× |
+| 1.21.1 | 2,000 | 11.26 / 8.54 | 3.04 / 1.34 | 3.7× / 6.4× |
+| 1.21.1 | 8,000 | 91.23 / 54.40 | 11.36 / 6.32 | 8.0× / 8.6× |
+| 1.21.1 | 20,000 | 447.09 / 243.02 | 25.66 / 18.32 | 17.4× / 13.3× |
+| 26.1 | 2,000 | 11.71 / 7.70 | 2.63 / 1.89 | 4.5× / 4.1× |
+| 26.1 | 8,000 | 70.71 / 52.17 | 16.98 / 9.74 | 4.2× / 5.4× |
+| 26.1 | 20,000 | 296.56 / 225.84 | 41.35 / 35.17 | 7.2× / 6.4× |
 
 With Celeris's Java kernel instead of the native one the server is within a few percent (20,000 items resting:
-13.39 ms on 1.21.1, 28.57 ms on 26.1): the item physics itself is now a small part of the tick, and what remains is
+19.52 ms on 1.21.1, 33.80 ms on 26.1): the item physics itself is now a small part of the tick, and what remains is
 Minecraft's own per-entity work (chunk ticking checks, entity tracking, fluid checks), which Velox leaves to the
 game. On 26.1, 0.3.0's Velox also skips the per-item "entity inside block" walk for items over plain blocks, which
 took 4× to 7.5× at 20,000 resting items.

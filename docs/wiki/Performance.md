@@ -30,7 +30,7 @@ Celeris is about as fast as zstd-jni, the usual Java zstd library. Its jar is ab
 
 ## A real server
 
-Velox is a server mod built on Celeris. On a server with Minecraft 1.21.1 and 20,000 dropped items, Velox takes 11.9 ms per tick. Vanilla NeoForge takes 139.9 ms. That is 11.8 times faster, and it takes the server from 3 ticks per second to a full 20.
+Velox is a server mod built on Celeris. On a server with Minecraft 1.21.1 and 20,000 dropped items, Velox takes 18.3 ms per tick. Vanilla NeoForge takes 243.0 ms. That is 13.3 times faster, and it takes the server from about 4 ticks per second to a full 20 (measured on 2026-10-29, one run on a shared GitHub runner).
 
 ![Compression benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/compression.png)
 ![Physics benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/physics.png)
