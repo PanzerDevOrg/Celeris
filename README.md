@@ -7,12 +7,14 @@
 </p>
 
 <p align="center">
-<!-- publish:only modrinth -->
+<!-- Each store page links to the other platforms, never to itself; GitHub shows all of them. -->
+<!-- publish:only curseforge -->
 <a href="https://modrinth.com/mod/sQphaM3I"><img src="https://img.shields.io/badge/Download_on-Modrinth-1bd96a?style=for-the-badge&logo=modrinth&logoColor=white" alt="Download on Modrinth"></a>
 <!-- /publish:only -->
-<!-- publish:only curseforge -->
+<!-- publish:only modrinth -->
 <a href="https://www.curseforge.com/projects/1722411"><img src="https://img.shields.io/badge/Download_on-CurseForge-f16436?style=for-the-badge&logo=curseforge&logoColor=white" alt="Download on CurseForge"></a>
 <!-- /publish:only -->
+<a href="https://github.com/bichal/Celeris/releases"><img src="https://img.shields.io/badge/Download_on-GitHub-24292f?style=for-the-badge&logo=github&logoColor=white" alt="Download on GitHub"></a>
 </p>
 
 > **Celeris is a performance library for NeoForge and Fabric mods.** It gives other mods fast building blocks so they can do heavy work without slowing the game down. On its own it adds nothing you can see in game: you install it because a mod you want needs it.
