@@ -59,4 +59,4 @@ To build the native libraries, add `-Pbichal.native.build=true` to any build, or
 
 The native libraries are never stored in the repository. They are build output, written to `natives/` on your computer or by CI. The physics kernel is built so that its math gives the same results as the Java version. A test checks this on every processor type.
 
-Back to [Home](Home.md).
+Back to [Home](Home).

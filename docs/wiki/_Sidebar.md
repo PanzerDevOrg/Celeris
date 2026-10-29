@@ -1,19 +1,19 @@
 **Players and servers**
 
-- [Home](Home.md)
-- [Requirements and files](Requirements-and-files.md)
-- [Settings](Settings.md)
-- [JVM flags](JVM-flags.md)
-- [Troubleshooting](Troubleshooting.md)
+- [Home](Home)
+- [Requirements and files](Requirements-and-files)
+- [Settings](Settings)
+- [JVM flags](JVM-flags)
+- [Troubleshooting](Troubleshooting)
 
 **Mod authors**
 
-- [Using Celeris in your mod](Using-Celeris-in-your-mod.md)
-- [Examples](Examples.md)
-- [Performance](Performance.md)
-- [Native libraries](Native-libraries.md)
+- [Using Celeris in your mod](Using-Celeris-in-your-mod)
+- [Examples](Examples)
+- [Performance](Performance)
+- [Native libraries](Native-libraries)
 
 **Developers**
 
-- [Building](Building.md)
-- [Releasing](Releasing.md)
+- [Building](Building)
+- [Releasing](Releasing)

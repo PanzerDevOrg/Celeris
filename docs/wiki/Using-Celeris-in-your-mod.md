@@ -1,6 +1,6 @@
 # Using Celeris in your mod
 
-This page shows how to add Celeris to your mod as a dependency. For short code you can copy, see [Examples](Examples.md).
+This page shows how to add Celeris to your mod as a dependency. For short code you can copy, see [Examples](Examples).
 
 ## 1. Add the repository and the dependency
 
@@ -64,4 +64,4 @@ Most parts are used from one thread, normally the server or game thread. The exa
 
 ## Options chosen at startup
 
-Celeris chooses each path (memory, math, physics, compression) the first time that part is used, keeps the choice for the rest of the session, and logs it once. To force the plain Java paths, start the game with `-Dceleris.compatMode=true`. See [JVM flags](JVM-flags.md).
+Celeris chooses each path (memory, math, physics, compression) the first time that part is used, keeps the choice for the rest of the session, and logs it once. To force the plain Java paths, start the game with `-Dceleris.compatMode=true`. See [JVM flags](JVM-flags).

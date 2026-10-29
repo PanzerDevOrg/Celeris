@@ -12,30 +12,30 @@ On its own, Celeris adds nothing you can see in the game. Other mods use it. You
 
 ## Where to start
 
-**I play Minecraft.** You usually do not need to do anything. If a mod asks for Celeris, download the file for your Minecraft version. See [Requirements and files](Requirements-and-files.md).
+**I play Minecraft.** You usually do not need to do anything. If a mod asks for Celeris, download the file for your Minecraft version. See [Requirements and files](Requirements-and-files).
 
 **I run a server.** Read these pages in this order:
 
-1. [Requirements and files](Requirements-and-files.md): pick the right file.
-2. [Settings](Settings.md): choose how much the server compresses network data.
-3. [JVM flags](JVM-flags.md): optional startup options for faster code.
-4. [Troubleshooting](Troubleshooting.md): what the log says, and how to fix common problems.
+1. [Requirements and files](Requirements-and-files): pick the right file.
+2. [Settings](Settings): choose how much the server compresses network data.
+3. [JVM flags](JVM-flags): optional startup options for faster code.
+4. [Troubleshooting](Troubleshooting): what the log says, and how to fix common problems.
 
 **I make a mod that uses Celeris.**
 
-- [Using Celeris in your mod](Using-Celeris-in-your-mod.md): add Celeris as a dependency.
-- [Examples](Examples.md): short code you can copy.
-- [Performance](Performance.md): how fast each part is.
-- [Native libraries](Native-libraries.md): the parts written in C and C++.
+- [Using Celeris in your mod](Using-Celeris-in-your-mod): add Celeris as a dependency.
+- [Examples](Examples): short code you can copy.
+- [Performance](Performance): how fast each part is.
+- [Native libraries](Native-libraries): the parts written in C and C++.
 
 **I work on Celeris itself.**
 
-- [Building](Building.md): build the project from source.
-- [Releasing](Releasing.md): how a new version is published.
+- [Building](Building): build the project from source.
+- [Releasing](Releasing): how a new version is published.
 
 ## Need help?
 
-Check [Troubleshooting](Troubleshooting.md) first. If your problem is not there, [open an issue on GitHub](https://github.com/bichal/Celeris/issues). Include the lines from the log that start with Celeris.
+Check [Troubleshooting](Troubleshooting) first. If your problem is not there, [open an issue on GitHub](https://github.com/bichal/Celeris/issues). Include the lines from the log that start with Celeris.
 
 ## What changed
 
