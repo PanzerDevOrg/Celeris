@@ -18,8 +18,11 @@ import net.bichal.mods.celeris.core.memory.backend.MemoryBackend;
  * }</pre>
  *
  * <p>Calls dispatch to the SIMD backend when {@code jdk.incubator.vector} is
- * available and to a scalar implementation otherwise; results are the same
- * either way, so callers never need to check which one is active.
+ * available and to a scalar implementation otherwise. Element-wise operations
+ * ({@code addInPlace}, {@code multiplyScalarInPlace}, masks, ...) give the same
+ * bits either way. Reductions ({@link #dotProduct}, {@link #sum}) may differ in the
+ * last bits, because the SIMD backend sums per lane and the scalar one in order:
+ * never use them where two machines must agree bit for bit.
  *
  * @since 0.1.0
  */

@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerLevel;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Kick expensive work to a background pool, drain results on the tick thread.
@@ -33,6 +34,16 @@ public final class AsyncWorkExample {
 
     public void shutdown() {
         workers.shutdown();
+        try {
+            // Workers must be done before the queue's off-heap memory is freed.
+            if (!workers.awaitTermination(5, TimeUnit.SECONDS)) {
+                workers.shutdownNow();
+                workers.awaitTermination(5, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException e) {
+            workers.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         queue.close();
     }
 

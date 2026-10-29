@@ -111,15 +111,17 @@ public final class SegmentedGraphImpl<T> implements SegmentedGraph<T> {
         int reported = 0;
         // The listener may mark again while we drain; those wait for the next flush.
         int n = dirtyCount;
-        GraphSegmentImpl<T>[] batch = dirtyQueue;
+        GraphSegmentImpl<T>[] reportBatch = dirtyQueue;
         for (int i = 0; i < n; i++) {
-            GraphSegmentImpl<T> s = batch[i];
+            GraphSegmentImpl<T> s = reportBatch[i];
             s.dirtyQueued = false;
             if (s.listIndex >= 0 && listener != null) {
                 reported++;
                 listener.payloadDirty(s);
             }
         }
+        // A listener that marked again may have grown (replaced) the queue: compact the current array.
+        GraphSegmentImpl<T>[] batch = dirtyQueue;
         if (dirtyCount == n) {
             java.util.Arrays.fill(batch, 0, n, null);
             dirtyCount = 0;

@@ -64,6 +64,6 @@ final class ScalarVectorBackend implements VectorBackend {
 
     @Override
     public String name() {
-        return "scalar (compat mode)";
+        return net.bichal.mods.celeris.core.memory.backend.CelerisRuntime.isCompatModeForced() ? "scalar (compat mode)" : "scalar";
     }
 }

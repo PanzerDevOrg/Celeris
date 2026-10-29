@@ -190,7 +190,7 @@ What this says, and what it does not:
   migrated when the network changes.
 - The vector advance is **not** measurably faster than the scalar loop (within noise at every size): advancing the
   positions is not where a tick's time goes (spacing and hand-overs are). It is used above 64 items per queue and gives
-  bit-identical results to the scalar path (`TransitSolverTest`), so it costs nothing, but do not count on it for speed.
+  bit-identical results to the scalar path (the advance is one IEEE add per item; `TransitSolverTest`), so it costs nothing, but do not count on it for speed.
 - An early version gathered every queue into big arrays and sorted arrivals globally; it was slower than the object
   baseline. The shipped version steps queue by queue and orders arrivals through a sorted copy of the segments that is
   rebuilt only when the network changes.
@@ -232,3 +232,37 @@ The straight run is the worst case for one-by-one fusion (each block re-traces t
 the square of its length), which is why the gap is so large; real worlds look more like the grid. The result of
 `addNodes` is the same set of segments as adding one at a time (`SegmentedGraphBulkTest` checks it against a
 brute-force trace of every network it builds).
+
+## Benchmark index and local re-run
+
+Every benchmark that exists in the repository, where it lives and how to run it. The `@Tag("benchmark")` tests are
+excluded from `test` and run with `./gradlew benchmarkTest` (add `-Pbichal.native.build=true` to build and measure the
+native kernel). The JMH benchmarks (`*Bench`) belong to the bench harness and Velox, not to this repository's tests.
+
+| Benchmark | Measures | Where |
+|---|---|---|
+| `PhysicsBackendBenchmarkTest` | Step time per body of the Java, FFM and JNI engines, in batches of 1,024 and 16 | this repo, `benchmarkTest` |
+| `RingBufferBenchmarkTest` | MPSC throughput against `ArrayBlockingQueue`, `LinkedBlockingQueue`, `ConcurrentLinkedQueue` | this repo, `benchmarkTest` |
+| `Nearest3BenchmarkTest` | Nearest-of-3 query, packed-long loop against the `int[]` kernel | this repo, `benchmarkTest` |
+| `TransitBench` | Items in pipes, flat layout against objects | JMH, sections above |
+| `BulkBuildBench` | `addNodes` against adding blocks one by one | JMH, sections above |
+| In-game `perf-test` | Server tick time with N dropped items | bichal-build-logic workflow |
+
+Re-run on 2026-10-29 on a developer laptop, to check the engines after the fixes in this change (not comparable with
+the cloud-VM numbers above: different CPU, a Windows desktop, Java 21 with `--enable-preview`, 20 logical CPUs, one
+trial of the harness, `jdk.incubator.vector` active). Best of five trials, one thread, 100,000 bodies:
+
+| Machine | Engine | Batches of 1,024 | Batches of 16 |
+|---|---|---|---|
+| Intel Core i7-13700H, Windows 11, Zulu 21 | Java | 113.6 ns/body (11.36 ms per tick) | 117.4 ns/body (11.74 ms per tick) |
+| | FFM | 74.8 ns/body (7.48 ms per tick) | 88.4 ns/body (8.84 ms per tick) |
+| | JNI | 73.2 ns/body (7.32 ms per tick) | 79.8 ns/body (7.98 ms per tick) |
+
+The native engines are about 1.5× faster than the Java kernel here, in line with the 1.3–1.6× of the table in
+[Batch physics](#batch-physics). JNI and FFM tie on large batches; JNI is about 10 % ahead on batches of 16, where the
+cost of the call shows. MPSC ring buffer, median of the run: `MpscRingBuffer` 19.7 M ops/s, `ArrayBlockingQueue`
+9.7 M, `LinkedBlockingQueue` 8.9 M, `ConcurrentLinkedQueue` 7.8 M (2.0× the best contender). Nearest-of-3: 48.9 ns
+against 40.3 ns per query (1.21×).
+
+The dirty queue changed in this version (growable bitset made of fixed chunks, overflow list), so it has a regression
+test (`LongRingDirtyQueueTest`) but no throughput figure yet.

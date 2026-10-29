@@ -23,6 +23,7 @@ public final class TransitDeltaRecorder implements TransitEvents {
     private final TransitDelta.Writer writer = new TransitDelta.Writer();
     private final Sink sink;
     private long baseTick;
+    private long dropped;
 
     // An enter waiting to see whether it is half of a transfer.
     private boolean hasEnter;
@@ -42,6 +43,23 @@ public final class TransitDeltaRecorder implements TransitEvents {
     /** Operations recorded and not yet drained (a pending enter counts). */
     public int pending() {
         return writer.opCount() + (hasEnter ? 1 : 0);
+    }
+
+    /**
+     * Operations the writer refused even on a fresh message (speed above the format's limit, NaN progress or
+     * speed, negative ids): mirrors never hear about these, so a non-zero count means a mirror may drift.
+     */
+    public long droppedOperations() {
+        return dropped;
+    }
+
+    /** The writer refused an operation: it may only be too far in time from the message's base tick. Start a new message at {@code tick}. */
+    private void rebase(long tick) {
+        if (writer.opCount() > 0) {
+            sink.accept(writer.toBytes());
+        }
+        baseTick = tick;
+        writer.reset(tick);
     }
 
     /** Hands everything recorded so far to the sink as one or more messages, then starts a new message at {@code nextBaseTick}. */
@@ -71,26 +89,46 @@ public final class TransitDeltaRecorder implements TransitEvents {
         if (reason == LEFT_TRANSFERRED && hasEnter && enterHandle == handle && enterTick == tick) {
             hasEnter = false;
             ensureRoom();
-            writer.move(handle, enterSegment, enterForward, enterProgress, enterSpeed, tick);
+            if (!writer.move(handle, enterSegment, enterForward, enterProgress, enterSpeed, tick)) {
+                rebase(tick);
+                if (!writer.move(handle, enterSegment, enterForward, enterProgress, enterSpeed, tick)) {
+                    dropped++;
+                }
+            }
             return;
         }
         flushEnter();
         ensureRoom();
-        writer.leave(handle, tick);
+        if (!writer.leave(handle, tick)) {
+            rebase(tick);
+            if (!writer.leave(handle, tick)) {
+                dropped++;
+            }
+        }
     }
 
     @Override
     public void itemSpeedChanged(long segmentId, boolean forward, int handle, float speed, float progress, long tick) {
         flushEnter();
         ensureRoom();
-        writer.speed(handle, progress, speed, tick);
+        if (!writer.speed(handle, progress, speed, tick)) {
+            rebase(tick);
+            if (!writer.speed(handle, progress, speed, tick)) {
+                dropped++;
+            }
+        }
     }
 
     private void flushEnter() {
         if (hasEnter) {
             hasEnter = false;
             ensureRoom();
-            writer.enter(enterHandle, enterSegment, enterForward, enterProgress, enterSpeed, enterTick);
+            if (!writer.enter(enterHandle, enterSegment, enterForward, enterProgress, enterSpeed, enterTick)) {
+                rebase(enterTick);
+                if (!writer.enter(enterHandle, enterSegment, enterForward, enterProgress, enterSpeed, enterTick)) {
+                    dropped++;
+                }
+            }
         }
     }
 

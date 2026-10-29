@@ -23,6 +23,17 @@ import static org.junit.jupiter.api.Assertions.*;
 @SuppressWarnings({"unused"})
 class CodecSmokeTest {
 
+    /** libzstd is built by CI per platform; a local build without it skips these (or fails when natives are required). */
+    @org.junit.jupiter.api.BeforeEach
+    void zstdAvailable() {
+        try {
+            ZstdCompressionCodecTestAccess.create();
+        } catch (Throwable t) {
+            RequireNative.skipOrFail("no bundled libzstd for this platform (" + t.getMessage() + ")");
+        }
+    }
+
+
     @Test
     void rawCodecRoundTrip() {
         try (FfmMemoryBackend backend = new FfmMemoryBackend()) {

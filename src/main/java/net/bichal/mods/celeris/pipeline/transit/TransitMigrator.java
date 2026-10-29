@@ -13,7 +13,8 @@ import java.util.function.LongSupplier;
  * Carries items across graph mutations: when segments are split, merged or
  * rebuilt, every item on a removed segment is placed on the new segment that
  * covers the same stretch of world, with the same speed and the same distance
- * along that stretch. No item is dropped or duplicated.
+ * along that stretch. No item is duplicated, and none vanishes unreported: one that
+ * cannot be placed becomes an orphan and is reported lost (see below).
  *
  * <p>An item standing on a stretch that no new segment covers (its block was
  * removed, or the run was left without a valid end for a moment while several

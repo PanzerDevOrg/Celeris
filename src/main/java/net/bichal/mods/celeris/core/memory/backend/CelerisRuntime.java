@@ -8,9 +8,8 @@ import org.slf4j.LoggerFactory;
  * Celeris runs on:
  *
  * <ol>
- *   <li>If {@code -Dceleris.compatMode=true} (or the equivalent config
- *       entry, wired by the block layer at startup via
- *       {@link #forceCompatMode()}) is set, always use {@link HeapMemoryBackend}
+ *   <li>If {@code -Dceleris.compatMode=true} (or {@link #forceCompatMode()}
+ *       is called before first use) is set, always use {@link HeapMemoryBackend}
  *       -- no detection attempted, no FFM class ever touched.</li>
  *   <li>Otherwise, probe whether FFM is actually usable on this JVM by
  *       performing one real allocation through it. A JVM missing
@@ -44,8 +43,8 @@ public final class CelerisRuntime {
     private static final String FFM_BACKEND_CLASS = "net.bichal.mods.celeris.core.memory.backend.FfmMemoryBackend";
     private static final String UNSAFE_BACKEND_CLASS = "net.bichal.mods.celeris.core.memory.backend.UnsafeMemoryBackend";
     /**
-     * Off-heap backends in preference order: FFM (Java 22+, or 21 with
-     * --enable-preview), then Unsafe (any JDK, no flags). Heap is the final
+     * Off-heap backends in preference order: FFM (1.21.x jars: Java 21 with
+     * --enable-preview; 26.x jars: Java 25), then Unsafe (any JDK, no flags). Heap is the final
      * pure-Java fallback when neither loads.
      */
     private static final String[] OFF_HEAP_BACKEND_CLASSES = {FFM_BACKEND_CLASS, UNSAFE_BACKEND_CLASS};
@@ -59,8 +58,8 @@ public final class CelerisRuntime {
     /**
      * Forces compat mode regardless of what the FFM probe would find.
      * Must be called before the first {@link #backend()} call to have any
-     * effect -- intended to be invoked from mod config loading, ahead of
-     * any subsystem that touches memory (i.e. before {@code FMLCommonSetupEvent}).
+     * effect. Nothing in Celeris calls it today: the supported switch is
+     * {@code -Dceleris.compatMode=true}.
      * <p>
      * Also governs {@code VectorOperations}' SIMD-vs-scalar selection (see
      * {@code net.bichal.mods.celeris.api.simd.CelerisVectorRuntime}),

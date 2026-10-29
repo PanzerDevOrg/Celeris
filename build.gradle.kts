@@ -17,7 +17,6 @@ val modProps = extensions.getByType(BichalModExtension::class.java).props
 val ringBufferCap: Long = modProps.req(project, "ring_buffer.default_capacity_pow2").toLong()
 val ringBufferCacheLine: Long = modProps.req(project, "ring_buffer.cache_line_bytes").toLong()
 val netCompressThreshold: Long = modProps.req(project, "network.compression_threshold_bytes").toLong()
-val netCompressAlgo: String = modProps.req(project, "network.compression_algo")
 
 val mainSourceSet = sourceSets.main.get()
 
@@ -33,7 +32,6 @@ pluginManager.withPlugin("net.neoforged.moddev") { configure<NeoForgeExtension> 
             systemProperty("celeris.ringbuffer.capacity", ringBufferCap.toString())
             systemProperty("celeris.ringbuffer.cacheline", ringBufferCacheLine.toString())
             systemProperty("celeris.network.threshold", netCompressThreshold.toString())
-            systemProperty("celeris.network.algo", netCompressAlgo)
         }
 
         register("client") {
@@ -207,7 +205,8 @@ publishing {
 }
 
 // JNI symbols of the staged native libraries against the native methods declared in
-// the Java sources (scripts/verify-jni-symbols.sh). Part of `check`. -PrequireNative=true
+// the Java sources (scripts/verify-jni-symbols.sh, a local-only script: where it is absent
+// the task is skipped). Part of `check`. -PrequireNative=true
 // makes a missing library a failure instead of a skip (the release gate sets it).
 // One check per library, each against the class that loads it: a platform without the
 // physics kernel (Java fallback) is not held to its symbols.
@@ -220,6 +219,7 @@ val verifyJniSymbols = listOf(
         group = "verification"
         description = "Checks the Java_* symbols of $library against the native methods of $loader."
         dependsOn("collectNatives")
+        onlyIf { rootProject.file("scripts/verify-jni-symbols.sh").isFile }
         workingDir = rootProject.projectDir
         commandLine(
             "sh", rootProject.file("scripts/verify-jni-symbols.sh").path,

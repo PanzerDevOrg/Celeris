@@ -1,6 +1,5 @@
 package net.bichal.mods.celeris_example.wire;
 
-import net.bichal.mods.celeris.core.dirty.DirtyQueue;
 import net.bichal.mods.celeris.core.dirty.LongRingDirtyQueue;
 import net.bichal.mods.celeris.core.memory.backend.CelerisRuntime;
 import net.bichal.mods.celeris.core.topology.*;
@@ -56,6 +55,7 @@ public final class WireNetworkManager implements AutoCloseable {
     private final ServerLevel level;
     private final NetworkTopology topology;
     private final DiscreteNodeStore nodes;
+    private final LongRingDirtyQueue dirtyQueue;
     private final DiscreteGraphImpl graph;
     private final EventDrivenPipelineSolver solver;
 
@@ -63,7 +63,7 @@ public final class WireNetworkManager implements AutoCloseable {
         this.level = level;
         this.topology = new NetworkTopologyImpl();
         this.nodes = new DiscreteNodeStore(CelerisRuntime.backend(), INITIAL_NODE_CAPACITY);
-        DirtyQueue dirtyQueue = new LongRingDirtyQueue();
+        this.dirtyQueue = new LongRingDirtyQueue();
         this.graph = new DiscreteGraphImpl(topology, nodes, dirtyQueue, PropagationBudget.standard());
         this.solver = new EventDrivenPipelineSolverImpl(graph.solver(), graph.dirtyQueue());
         this.graph.addListener(this::onSignalChanged);
@@ -114,6 +114,7 @@ public final class WireNetworkManager implements AutoCloseable {
 
     @Override
     public void close() {
+        dirtyQueue.close();
         nodes.close();
     }
 }

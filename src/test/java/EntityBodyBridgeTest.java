@@ -119,4 +119,33 @@ class EntityBodyBridgeTest {
             bridge.close();
         }
     }
+
+    @Test
+    void aWriteMadeDuringTheDeferredPassIsNotOverwrittenBySyncOut() {
+        try (TerrainView t = PhysicsTestSupport.floorWorld(factory)) {
+            FakeEntity victim = new FakeEntity(0.5, 8.0, 0.5);
+            FakeEntity pusher = new FakeEntity(9.5, 5.0, 9.5); // near the unloaded section: deferred
+            EntityBodyBridge.Accessor<FakeEntity> pushing = new EntityBodyBridge.Accessor<>() {
+                @Override public int slot(FakeEntity e) { return accessor.slot(e); }
+                @Override public void setSlot(FakeEntity e, int s) { accessor.setSlot(e, s); }
+                @Override public BodyParams params(FakeEntity e) { return accessor.params(e); }
+                @Override public void read(FakeEntity e, BodyBatch b, int s) { accessor.read(e, b, s); }
+                @Override public void write(FakeEntity e, BodyBatch b, int s, int f) { accessor.write(e, b, s, f); }
+                @Override public void tickVanilla(FakeEntity e) {
+                    if (e == pusher) {
+                        victim.vy = 1.0;
+                        bridge.markDirty(victim);
+                    }
+                }
+            };
+            bridge = new EntityBodyBridge<>(factory.newBatch(64, PhysicsMode.VANILLA, 0), pushing);
+            assertTrue(bridge.register(victim));
+            assertTrue(bridge.register(pusher));
+            assertEquals(1, bridge.tick(t, 0));
+            assertEquals(1.0, victim.vy, "knockback kept");
+            bridge.tick(t, 0);
+            assertTrue(victim.vy > 0.9, "knockback survives the next tick: " + victim.vy);
+            bridge.close();
+        }
+    }
 }

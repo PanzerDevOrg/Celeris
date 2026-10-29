@@ -11,6 +11,7 @@ needed, not affected by `--enable-native-access`) or, as the second choice, thro
 native/
 ├── include/celeris_physics.h   C ABI: column layout, flags, cell classes, entry points
 ├── src/cp_api.cpp              exports, CPUID/XGETBV detection, ISA dispatch (baseline ISA)
+├── src/cp_jni.cpp              JNI entry points (the default binding); same kernel as the C ABI
 ├── src/cp_kernel.inc           the kernel (collision + step), included once per ISA
 ├── src/cp_isa_generic.cpp      baseline: SSE2 on x86-64, any AArch64
 ├── src/cp_isa_avx2.cpp         AVX2 + FMA     (-mavx2 -mfma, /arch:AVX2)

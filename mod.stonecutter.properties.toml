@@ -107,7 +107,6 @@ cache_line_bytes = 64
 
 [network]
 compression_threshold_bytes = 256
-compression_algo = "zstd"
 
 # modmenu_version: Mod Menu (Fabric) whose API the config-screen entrypoint
 # compiles against (compile only: not bundled, not required). From

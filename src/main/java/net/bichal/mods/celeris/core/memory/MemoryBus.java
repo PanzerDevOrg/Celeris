@@ -33,6 +33,9 @@ public final class MemoryBus implements AutoCloseable {
     }
 
     public int openChannel(long byteSize) {
+        if (byteSize <= 0) {
+            throw new IllegalArgumentException("channel size must be positive: " + byteSize);
+        }
         long alignedSize = BranchlessTables.alignUp(byteSize, CHANNEL_ALIGNMENT_BYTES);
         long handle = backend.allocate(alignedSize, CHANNEL_ALIGNMENT_BYTES);
         int id = channelIdGenerator.getAndIncrement();

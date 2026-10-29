@@ -2,6 +2,8 @@ package net.bichal.mods.celeris.core.dirty;
 
 import net.bichal.mods.celeris.core.concurrency.MpscRingBuffer;
 
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,17 +27,28 @@ import java.util.concurrent.locks.ReentrantLock;
  * by signal level before evaluating them regardless (see its javadoc) --
  * so nothing in this design ever depends on strict publish order being
  * preserved.
+ *
+ * <p>The presence bitset is made of fixed chunks that are never copied or
+ * replaced once installed, so growing it cannot lose a bit that a concurrent
+ * {@link #poll()} clears. An index published while the ring is full goes to an
+ * overflow list instead of being dropped. The ring is off-heap: {@link #close()}
+ * frees it.
  */
-public final class LongRingDirtyQueue implements DirtyQueue {
+public final class LongRingDirtyQueue implements DirtyQueue, AutoCloseable {
 
     private static final int WORD_BITS = 32;
+    private static final int CHUNK_WORDS = 1024;
+    private static final int CHUNK_BITS = CHUNK_WORDS * WORD_BITS;
     private static final int DEFAULT_RING_CAPACITY_POW2 = MpscRingBuffer.DEFAULT_CAPACITY_POW2;
 
     private static final long EMPTY = -1L;
 
     private final MpscRingBuffer ring;
     private final ReentrantLock growthLock = new ReentrantLock();
-    private volatile AtomicIntegerArray presenceWords = new AtomicIntegerArray(64);
+    /** Chunks are installed once, under the lock, and shared by every later copy of this array. */
+    private volatile AtomicIntegerArray[] chunks = new AtomicIntegerArray[1];
+    private final ConcurrentLinkedQueue<Integer> overflow = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger overflowSize = new AtomicInteger();
 
     public LongRingDirtyQueue() {
         this(DEFAULT_RING_CAPACITY_POW2);
@@ -69,69 +82,90 @@ public final class LongRingDirtyQueue implements DirtyQueue {
         }
     }
 
+    private AtomicIntegerArray chunk(int denseIndex) {
+        int c = denseIndex / CHUNK_BITS;
+        AtomicIntegerArray[] table = chunks;
+        if (c < table.length) {
+            AtomicIntegerArray found = table[c];
+            if (found != null) {
+                return found;
+            }
+        }
+        return installChunk(c);
+    }
+
+    private AtomicIntegerArray installChunk(int c) {
+        growthLock.lock();
+        try {
+            AtomicIntegerArray[] table = chunks;
+            if (c >= table.length) {
+                table = java.util.Arrays.copyOf(table, Math.max(c + 1, table.length * 2));
+                chunks = table;
+            }
+            AtomicIntegerArray found = table[c];
+            if (found == null) {
+                found = new AtomicIntegerArray(CHUNK_WORDS);
+                table[c] = found;
+            }
+            return found;
+        } finally {
+            growthLock.unlock();
+        }
+    }
+
     @Override
     public void markDirty(int denseIndex) {
-        ensureCapacity(denseIndex);
-        int wordIndex = denseIndex >>> 5;
+        if (denseIndex < 0) {
+            throw new IllegalArgumentException("denseIndex < 0: " + denseIndex);
+        }
+        AtomicIntegerArray words = chunk(denseIndex);
+        int wordIndex = (denseIndex % CHUNK_BITS) >>> 5;
         int bit = 1 << (denseIndex & (WORD_BITS - 1));
 
-        AtomicIntegerArray words = presenceWords;
         if (!setBit(words, wordIndex, bit)) {
             return; // already pending
         }
 
         if (!ring.tryPublish(denseIndex)) {
-            // Ring saturated (should not happen in practice -- the ring is
-            // sized well above PropagationBudget.maxNodesPerPass, and a
-            // single propagate() pass fully drains before the next batch
-            // of external mutations can refill it). Revert the presence
-            // bit so a future markDirty for the same index gets a fresh
-            // chance to publish instead of being dropped silently.
-            clearBit(words, wordIndex, bit);
+            // Ring saturated: keep the update on the overflow list rather than
+            // dropping it. poll() drains the ring first, then this list.
+            overflowSize.incrementAndGet();
+            overflow.add(denseIndex);
         }
     }
 
     @Override
     public int poll() {
         long value = ring.tryConsume(EMPTY);
-        if (value == EMPTY) {
-            return -1;
+        int denseIndex;
+        if (value != EMPTY) {
+            denseIndex = (int) value;
+        } else {
+            Integer spilled = overflow.poll();
+            if (spilled == null) {
+                return -1;
+            }
+            overflowSize.decrementAndGet();
+            denseIndex = spilled;
         }
-        int denseIndex = (int) value;
-        clearBit(presenceWords, denseIndex >>> 5, 1 << (denseIndex & (WORD_BITS - 1)));
+        clearBit(chunk(denseIndex), (denseIndex % CHUNK_BITS) >>> 5, 1 << (denseIndex & (WORD_BITS - 1)));
         return denseIndex;
     }
 
     @Override
     public boolean isIdle() {
-        return !ring.hasNext();
+        return !ring.hasNext() && overflow.isEmpty();
     }
 
-    /** Derived from ring cursors -- no separate counter to contend on per item. */
+    /** Derived from ring cursors and the overflow count -- no separate counter to contend on per item. */
     @Override
     public int pendingCount() {
-        return ring.size();
+        return ring.size() + overflowSize.get();
     }
 
-    private void ensureCapacity(int denseIndex) {
-        int requiredWords = denseIndex / WORD_BITS + 1;
-        if (requiredWords <= presenceWords.length()) {
-            return;
-        }
-        growthLock.lock();
-        try {
-            AtomicIntegerArray current = presenceWords;
-            if (requiredWords <= current.length()) {
-                return;
-            }
-            int newLength = Integer.highestOneBit(requiredWords - 1) << 1;
-            AtomicIntegerArray grown = new AtomicIntegerArray(newLength);
-            for (int i = 0; i < current.length(); i++) {
-                grown.set(i, current.get(i));
-            }
-            presenceWords = grown;
-        } finally {
-            growthLock.unlock();
-        }
+    /** Frees the off-heap ring. The queue must not be used afterwards. */
+    @Override
+    public void close() {
+        ring.close();
     }
 }

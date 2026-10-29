@@ -15,15 +15,12 @@ import java.util.function.LongConsumer;
  */
 public final class CapabilityInvalidationFilter {
 
-    @SuppressWarnings("FieldCanBeLocal")
-    private long lastInvalidatedStateBits;
     private boolean initialized;
 
     /** Calls {@code invalidateCapabilitiesAt} with {@code packedPos} only if this is the first call or the state change was structural. */
     public void onStateChange(long previousStateBits, long newStateBits, long packedPos, LongConsumer invalidateCapabilitiesAt) {
         if (!initialized || StateBitmask.isStructuralChange(previousStateBits, newStateBits)) {
             invalidateCapabilitiesAt.accept(packedPos);
-            lastInvalidatedStateBits = newStateBits;
             initialized = true;
         }
     }

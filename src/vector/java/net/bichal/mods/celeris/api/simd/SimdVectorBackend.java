@@ -73,7 +73,7 @@ public final class SimdVectorBackend implements VectorBackend {
         }
         float sum = accumulator.reduceLanes(VectorOperators.ADD);
         for (; i < length; i++) {
-            sum += a[i] * b[i];
+            sum = Math.fma(a[i], b[i], sum);
         }
         return sum;
     }

@@ -25,10 +25,13 @@ public interface MemoryBackend extends AutoCloseable {
     long allocate(long byteSize, long alignment);
 
     /**
-     * Releases the allocation behind {@code handle}. Memory is reclaimed
-     * eagerly and the handle value may be reused by a later
-     * {@link #allocate}; any access through a freed handle is a caller bug
-     * (FFM backend: fails fast with {@code IllegalStateException}).
+     * Releases the allocation behind {@code handle}. The FFM and Unsafe backends
+     * reclaim the memory at once; the heap (compat) backend drops its reference and
+     * leaves the direct buffer to the garbage collector, so under
+     * {@code -XX:+DisableExplicitGC} heavy allocate/free churn can exhaust direct
+     * memory. Any access through a freed handle is a caller bug (FFM and heap
+     * backends fail fast with {@code IllegalStateException}; the Unsafe backend
+     * does not and a free racing an access can crash the JVM).
      */
     void free(long handle);
 

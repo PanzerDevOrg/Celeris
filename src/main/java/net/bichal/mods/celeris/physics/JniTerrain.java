@@ -176,6 +176,7 @@ final class JniTerrain implements TerrainView {
 
     @Override
     public int solidClass(float value) {
+        checkOpen();
         if (value == DEFAULT_FRICTION) {
             return CellClass.SOLID_DEFAULT;
         }
@@ -194,6 +195,7 @@ final class JniTerrain implements TerrainView {
 
     @Override
     public float friction(int cellClass) {
+        checkOpen();
         return UNSAFE.getFloat(friction.address + ((long) (cellClass & 0xFF) << 2));
     }
 

@@ -76,15 +76,24 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
         return kernel.name();
     }
 
+    private void checkCapacity(int slot) {
+        if (slot < 0 || slot >= capacity) {
+            throw new IndexOutOfBoundsException("slot " + slot + " of " + capacity);
+        }
+    }
+
     private double get(int column, int slot) {
+        checkCapacity(slot);
         return slab.get(F64, f64Offset(column, capacity) + ((long) slot << 3));
     }
 
     private void put(int column, int slot, double value) {
+        checkCapacity(slot);
         slab.set(F64, f64Offset(column, capacity) + ((long) slot << 3), value);
     }
 
     private long flagsAt(int slot) {
+        checkCapacity(slot);
         return u32Offset(FLAGS, capacity) + ((long) slot << 2);
     }
 
@@ -247,6 +256,9 @@ final class SegmentBodyBatch implements BodyBatch, ChunkWorkers.ChunkTask {
 
     @Override
     public int deferred(int k) {
+        if (k < 0 || k >= deferredCount) {
+            throw new IndexOutOfBoundsException("deferred " + k + " of " + deferredCount);
+        }
         return slab.get(U32, u32Offset(DEFERRED_LIST, capacity) + ((long) k << 2));
     }
 

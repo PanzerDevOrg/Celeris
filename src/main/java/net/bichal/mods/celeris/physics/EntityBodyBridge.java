@@ -149,6 +149,9 @@ public final class EntityBodyBridge<E> implements AutoCloseable {
 
             for (int k = 0; k < deferred; k++) {
                 int slot = batch.deferred(k);
+                if (get(pendingRemoval, slot)) {
+                    continue; // unregistered earlier in this tick: no vanilla tick for it
+                }
                 E entity = (E) owners[slot];
                 accessor.tickVanilla(entity);
                 if (!get(pendingRemoval, slot)) {
@@ -159,7 +162,10 @@ public final class EntityBodyBridge<E> implements AutoCloseable {
             int n = batch.size();
             for (int slot = 0; slot < n; slot++) {
                 int f = batch.flags(slot);
-                if ((f & (BodyFlags.MOVED | BodyFlags.DEFERRED)) == BodyFlags.MOVED && !get(pendingRemoval, slot)) {
+                // A dirty bit set now was set after the step (a deferred entity's vanilla tick pushed this
+                // one): the entity is newer than the batch, so it is read in next tick, not overwritten.
+                if ((f & (BodyFlags.MOVED | BodyFlags.DEFERRED)) == BodyFlags.MOVED && !get(pendingRemoval, slot)
+                        && !get(dirty, slot)) {
                     accessor.write((E) owners[slot], batch, slot, f);
                 }
             }

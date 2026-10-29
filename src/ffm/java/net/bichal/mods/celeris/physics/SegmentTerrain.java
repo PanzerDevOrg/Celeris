@@ -245,6 +245,8 @@ final class SegmentTerrain implements TerrainView {
         header.set(ValueLayout.ADDRESS, H_PAGES, pages);
     }
 
+    private boolean closed;
+
     private void writeOrigin() {
         header.set(ValueLayout.JAVA_INT, H_ORIGIN_X, originX);
         header.set(ValueLayout.JAVA_INT, H_ORIGIN_X + 4, originY);
@@ -253,6 +255,10 @@ final class SegmentTerrain implements TerrainView {
 
     @Override
     public void close() {
+        if (closed) {
+            return; // idempotent, like the heap and JNI terrains
+        }
+        closed = true;
         pagesArena.close();
         arena.close();
     }

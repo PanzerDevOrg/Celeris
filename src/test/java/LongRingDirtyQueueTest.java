@@ -45,4 +45,55 @@ class LongRingDirtyQueueTest {
         assertEquals(1, queue.pendingCount());
         assertEquals(farIndex, queue.poll());
     }
+
+    @Test
+    void growthRacingPollNeverLosesOrDuplicatesAMark() throws Exception {
+        final int total = 400_000;
+        try (LongRingDirtyQueue queue = new LongRingDirtyQueue(1 << 18)) {
+            java.util.concurrent.atomic.AtomicInteger produced = new java.util.concurrent.atomic.AtomicInteger();
+            int[] seen = new int[total];
+            Thread producer = new Thread(() -> {
+                for (int i = 0; i < total; i++) {
+                    queue.markDirty(i);
+                    produced.incrementAndGet();
+                }
+            });
+            producer.start();
+            int polled = 0;
+            long deadline = System.nanoTime() + 30_000_000_000L;
+            while (polled < total && System.nanoTime() < deadline) {
+                int idx = queue.poll();
+                if (idx >= 0) {
+                    seen[idx]++;
+                    polled++;
+                }
+            }
+            producer.join();
+            assertEquals(total, polled);
+            for (int i = 0; i < total; i++) {
+                assertEquals(1, seen[i], "index " + i);
+            }
+            queue.markDirty(total - 1); // not stuck "pending" after its poll
+            assertEquals(total - 1, queue.poll());
+        }
+    }
+
+    @Test
+    void aFullRingSpillsToTheOverflowListInsteadOfDropping() {
+        try (LongRingDirtyQueue queue = new LongRingDirtyQueue(16)) {
+            int n = 100;
+            for (int i = 0; i < n; i++) {
+                queue.markDirty(i);
+            }
+            assertEquals(n, queue.pendingCount());
+            java.util.BitSet seen = new java.util.BitSet();
+            int idx;
+            while ((idx = queue.poll()) >= 0) {
+                assertTrue(!seen.get(idx), "duplicate " + idx);
+                seen.set(idx);
+            }
+            assertEquals(n, seen.cardinality());
+            assertTrue(queue.isIdle());
+        }
+    }
 }

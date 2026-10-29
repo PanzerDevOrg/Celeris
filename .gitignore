@@ -29,3 +29,7 @@ __pycache__/
 *.a
 *.o
 *.obj
+
+# Local-only working material (kept on disk, never committed)
+/scripts/
+/docs/audit/

@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Native zstd over JNI on the Unsafe backend: what a Java 21 player gets
@@ -25,7 +24,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class ZstdJniCodecTest {
 
     private static CompressionCodec codec() {
-        assumeTrue(ZstdJniTestAccess.isAvailable(), "no bundled libzstd for this platform");
+        RequireNative.assumeOrFail(ZstdJniTestAccess.isAvailable(), "no bundled libzstd for this platform");
         return ZstdJniTestAccess.create();
     }
 
@@ -98,7 +97,7 @@ class ZstdJniCodecTest {
 
     @Test
     void sharedAcrossThreadsWithOverflowingPool() throws Exception {
-        assumeTrue(ZstdJniTestAccess.isAvailable(), "no bundled libzstd for this platform");
+        RequireNative.assumeOrFail(ZstdJniTestAccess.isAvailable(), "no bundled libzstd for this platform");
         // Pool of 2 under 8 threads: exercises reuse, creation on empty and freeing on full.
         CompressionCodec codec = ZstdJniTestAccess.create(2);
         ExecutorService pool = Executors.newFixedThreadPool(8);

@@ -8,8 +8,10 @@ name: Native sanitizers
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths: ["native/**", ".github/workflows/native-sanitizers.yml"]
+  schedule:
+    - cron: "17 3 * * 1"
   pull_request:
     paths: ["native/**", ".github/workflows/native-sanitizers.yml"]
   workflow_dispatch:

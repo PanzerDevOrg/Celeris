@@ -27,7 +27,7 @@ class PhysicsParityTest {
         try {
             return PhysicsTestAccess.nativeFactory();
         } catch (Throwable t) {
-            assumeTrue(false, "celeris_physics not built for this platform (" + t.getMessage()
+            RequireNative.skipOrFail("celeris_physics not built for this platform (" + t.getMessage()
                     + "); run ./gradlew buildNativeCelerisPhysics");
             return null;
         }
@@ -37,7 +37,7 @@ class PhysicsParityTest {
         try {
             return PhysicsJniTestAccess.jniFactory();
         } catch (Throwable t) {
-            assumeTrue(false, "celeris_physics not built for this platform (" + t + "); run ./gradlew buildNativeCelerisPhysics");
+            RequireNative.skipOrFail("celeris_physics not built for this platform (" + t + "); run ./gradlew buildNativeCelerisPhysics");
             return null;
         }
     }
@@ -56,15 +56,18 @@ class PhysicsParityTest {
         PhysicsFactory jni = jniOrSkip();
         PhysicsFactory ref = PhysicsTestAccess.javaFactory();
         String initial = PhysicsJniTestAccess.forceJniIsa("");
-        for (String isa : PhysicsJniTestAccess.jniIsas()) {
-            assertEquals(isa, PhysicsJniTestAccess.forceJniIsa(isa));
-            for (PhysicsMode mode : PhysicsMode.values()) {
-                for (int rules : RULES) {
-                    assertSameRun(ref, jni, mode, rules, "jni-" + isa);
+        try {
+            for (String isa : PhysicsJniTestAccess.jniIsas()) {
+                assertEquals(isa, PhysicsJniTestAccess.forceJniIsa(isa));
+                for (PhysicsMode mode : PhysicsMode.values()) {
+                    for (int rules : RULES) {
+                        assertSameRun(ref, jni, mode, rules, "jni-" + isa);
+                    }
                 }
             }
+        } finally {
+            PhysicsJniTestAccess.forceJniIsa(initial);
         }
-        PhysicsJniTestAccess.forceJniIsa(initial);
     }
 
     @Test
@@ -73,15 +76,18 @@ class PhysicsParityTest {
         PhysicsFactory ffm = ffmOrNull();
         assumeTrue(ffm != null, "FFM not available in this JVM (Java 21 needs --enable-preview)");
         String initial = PhysicsJniTestAccess.forceJniIsa("");
-        for (String isa : PhysicsJniTestAccess.jniIsas()) {
-            assertEquals(isa, PhysicsJniTestAccess.forceJniIsa(isa));
-            for (PhysicsMode mode : PhysicsMode.values()) {
-                for (int rules : RULES) {
-                    assertSameRun(ffm, jni, mode, rules, "jni-" + isa + " vs ffm");
+        try {
+            for (String isa : PhysicsJniTestAccess.jniIsas()) {
+                assertEquals(isa, PhysicsJniTestAccess.forceJniIsa(isa));
+                for (PhysicsMode mode : PhysicsMode.values()) {
+                    for (int rules : RULES) {
+                        assertSameRun(ffm, jni, mode, rules, "jni-" + isa + " vs ffm");
+                    }
                 }
             }
+        } finally {
+            PhysicsJniTestAccess.forceJniIsa(initial);
         }
-        PhysicsJniTestAccess.forceJniIsa(initial);
     }
 
     @Test

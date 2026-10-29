@@ -36,13 +36,18 @@ public final class HeapMemoryBackend implements MemoryBackend {
     private static final VarHandle INT_ACQUIRE_RELEASE_HANDLE =
             MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
     private static final VarHandle BUFFER_ELEMENT =
-            MethodHandles.arrayElementVarHandle(ByteBuffer[].class);
+            MethodHandles.arrayElementVarHandle(Slot[].class);
+
+    /** A live allocation. The generation makes a stale handle (freed, slot reused) fail instead of aliasing a newer one. */
+    private record Slot(ByteBuffer buffer, int generation) {
+    }
 
     // Same lock-free handle table design as FfmMemoryBackend: readers do one
     // volatile array read + one acquire element read; allocate/free serialize
     // on `tableLock` and publish grown tables whole. Freed handles are
     // recycled via `freeList`.
-    private volatile ByteBuffer[] buffers = new ByteBuffer[INITIAL_CAPACITY];
+    private volatile Slot[] buffers = new Slot[INITIAL_CAPACITY];
+    private int[] generations = new int[INITIAL_CAPACITY];
     private int[] freeList = new int[INITIAL_CAPACITY];
     private int freeCount;
     private int nextHandle;
@@ -66,16 +71,15 @@ public final class HeapMemoryBackend implements MemoryBackend {
                 throw new IllegalStateException("HeapMemoryBackend is closed");
             }
             int handle = freeCount > 0 ? freeList[--freeCount] : nextHandle++;
-            ByteBuffer[] table = buffers;
+            Slot[] table = buffers;
             if (handle >= table.length) {
-                ByteBuffer[] grown = new ByteBuffer[table.length << 1];
-                System.arraycopy(table, 0, grown, 0, table.length);
-                grown[handle] = buffer;
-                buffers = grown;
-            } else {
-                BUFFER_ELEMENT.setRelease(table, handle, buffer);
+                table = Arrays.copyOf(table, table.length << 1);
+                generations = Arrays.copyOf(generations, table.length);
+                buffers = table;
             }
-            return handle;
+            int generation = generations[handle];
+            BUFFER_ELEMENT.setRelease(table, handle, new Slot(buffer, generation));
+            return ((long) generation << 32) | handle;
         }
     }
 
@@ -96,103 +100,114 @@ public final class HeapMemoryBackend implements MemoryBackend {
     public void free(long handle) {
         int h = (int) handle;
         synchronized (tableLock) {
-            ByteBuffer[] table = buffers;
-            if (h < 0 || h >= table.length || table[h] == null) {
-                return; // idempotent
+            Slot[] table = buffers;
+            if (h < 0 || h >= table.length || table[h] == null || table[h].generation() != (int) (handle >>> 32)) {
+                return; // idempotent; a stale handle never frees a newer allocation
             }
             BUFFER_ELEMENT.setRelease(table, h, null);
+            generations[h]++;
             if (freeCount == freeList.length) {
                 freeList = Arrays.copyOf(freeList, freeList.length << 1);
             }
             freeList[freeCount++] = h;
         }
-        // Direct memory is released by the buffer's Cleaner once unreachable;
-        // dropping the table reference is the only step available to us here.
+        // Direct memory is released by the buffer's Cleaner once unreachable (after a GC):
+        // dropping the table reference is the only step available to us here. Not eager.
+    }
+
+    /** Offsets and lengths beyond int range fail like the other backends do, instead of wrapping. */
+    private static int idx(long value) {
+        if (value != (int) value) {
+            throw new IndexOutOfBoundsException("offset/length out of range: " + value);
+        }
+        return (int) value;
     }
 
     private ByteBuffer bufferOf(long handle) {
-        ByteBuffer b = (ByteBuffer) BUFFER_ELEMENT.getAcquire(buffers, (int) handle);
-        if (b == null) {
+        Slot[] table = buffers;
+        int index = (int) handle;
+        Slot slot = index >= 0 && index < table.length ? (Slot) BUFFER_ELEMENT.getAcquire(table, index) : null;
+        if (slot == null || slot.generation() != (int) (handle >>> 32)) {
             throw new IllegalStateException("Celeris: access through freed/unknown handle " + handle);
         }
-        return b;
+        return slot.buffer();
     }
 
     @Override
     public byte getByte(long handle, long offset) {
-        return bufferOf(handle).get((int) offset);
+        return bufferOf(handle).get(idx(offset));
     }
 
     @Override
     public void setByte(long handle, long offset, byte value) {
-        bufferOf(handle).put((int) offset, value);
+        bufferOf(handle).put(idx(offset), value);
     }
 
     @Override
     public int getInt(long handle, long offset) {
-        return bufferOf(handle).getInt((int) offset);
+        return bufferOf(handle).getInt(idx(offset));
     }
 
     @Override
     public void setInt(long handle, long offset, int value) {
-        bufferOf(handle).putInt((int) offset, value);
+        bufferOf(handle).putInt(idx(offset), value);
     }
 
     @Override
     public long getLong(long handle, long offset) {
-        return bufferOf(handle).getLong((int) offset);
+        return bufferOf(handle).getLong(idx(offset));
     }
 
     @Override
     public void setLong(long handle, long offset, long value) {
-        bufferOf(handle).putLong((int) offset, value);
+        bufferOf(handle).putLong(idx(offset), value);
     }
 
     @Override
     public long getLongAcquire(long handle, long offset) {
-        return (long) LONG_ACQUIRE_RELEASE_HANDLE.getAcquire(bufferOf(handle), (int) offset);
+        return (long) LONG_ACQUIRE_RELEASE_HANDLE.getAcquire(bufferOf(handle), idx(offset));
     }
 
     @Override
     public void setLongRelease(long handle, long offset, long value) {
-        LONG_ACQUIRE_RELEASE_HANDLE.setRelease(bufferOf(handle), (int) offset, value);
+        LONG_ACQUIRE_RELEASE_HANDLE.setRelease(bufferOf(handle), idx(offset), value);
     }
 
     @Override
     public int getIntAcquire(long handle, long offset) {
-        return (int) INT_ACQUIRE_RELEASE_HANDLE.getAcquire(bufferOf(handle), (int) offset);
+        return (int) INT_ACQUIRE_RELEASE_HANDLE.getAcquire(bufferOf(handle), idx(offset));
     }
 
     @Override
     public void setIntRelease(long handle, long offset, int value) {
-        INT_ACQUIRE_RELEASE_HANDLE.setRelease(bufferOf(handle), (int) offset, value);
+        INT_ACQUIRE_RELEASE_HANDLE.setRelease(bufferOf(handle), idx(offset), value);
     }
 
     @Override
     public short getShort(long handle, long offset) {
-        return bufferOf(handle).getShort((int) offset);
+        return bufferOf(handle).getShort(idx(offset));
     }
 
     @Override
     public void setShort(long handle, long offset, short value) {
-        bufferOf(handle).putShort((int) offset, value);
+        bufferOf(handle).putShort(idx(offset), value);
     }
 
     @Override
     public float getFloat(long handle, long offset) {
-        return bufferOf(handle).getFloat((int) offset);
+        return bufferOf(handle).getFloat(idx(offset));
     }
 
     @Override
     public void setFloat(long handle, long offset, float value) {
-        bufferOf(handle).putFloat((int) offset, value);
+        bufferOf(handle).putFloat(idx(offset), value);
     }
 
     @Override
     public void fill(long handle, long offset, long length, byte value) {
         ByteBuffer b = bufferOf(handle);
-        int off = (int) offset;
-        int end = (int) (offset + length);
+        int off = idx(offset);
+        int end = idx(offset + length);
         // 8 bytes per store on the bulk of the range, byte tail.
         long word = (value & 0xFFL) * 0x0101010101010101L;
         int i = off;
@@ -210,22 +225,22 @@ public final class HeapMemoryBackend implements MemoryBackend {
 
     @Override
     public void copyFromHeap(long handle, long dstOffset, byte[] src, int srcOffset, int length) {
-        bufferOf(handle).put((int) dstOffset, src, srcOffset, length);
+        bufferOf(handle).put(idx(dstOffset), src, srcOffset, length);
     }
 
     @Override
     public void copyToHeap(long handle, long srcOffset, byte[] dst, int dstOffset, int length) {
-        bufferOf(handle).get((int) srcOffset, dst, dstOffset, length);
+        bufferOf(handle).get(idx(srcOffset), dst, dstOffset, length);
     }
 
     @Override
     public void copy(long srcHandle, long srcOffset, long dstHandle, long dstOffset, long length) {
-        bufferOf(dstHandle).put((int) dstOffset, bufferOf(srcHandle), (int) srcOffset, (int) length);
+        bufferOf(dstHandle).put(idx(dstOffset), bufferOf(srcHandle), idx(srcOffset), idx(length));
     }
 
     @Override
     public ByteBuffer byteBuffer(long handle, long offset, int length) {
-        return bufferOf(handle).slice(Math.toIntExact(offset), length);
+        return bufferOf(handle).slice(idx(offset), length).order(ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
@@ -237,7 +252,7 @@ public final class HeapMemoryBackend implements MemoryBackend {
     public void close() {
         synchronized (tableLock) {
             closed = true;
-            buffers = new ByteBuffer[0];
+            buffers = new Slot[0];
             freeCount = 0;
             nextHandle = 0;
         }

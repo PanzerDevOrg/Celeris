@@ -63,17 +63,45 @@ public final class PayloadCompression {
 
     private static CompressedPayload compress(byte[] rawData, int thresholdBytes, int compressionLevel, boolean copy) {
         byte[] packed = rawData.length >= thresholdBytes ? HeapDeflate.compressIfSmaller(rawData, compressionLevel) : null;
-        return packed != null ? new CompressedPayload(packed, true, rawData.length) : uncompressed(rawData, copy);
+        return fitsOnWire(packed != null ? new CompressedPayload(packed, true, rawData.length) : uncompressed(rawData, copy));
     }
 
     private static CompressedPayload compressAtDeflateLevel(byte[] rawData, int deflateLevel, boolean copy) {
         byte[] packed = deflateLevel > 0 && rawData.length >= DEFAULT_THRESHOLD_BYTES
                 ? HeapDeflate.deflateIfSmaller(rawData, deflateLevel) : null;
-        return packed != null ? new CompressedPayload(packed, true, rawData.length) : uncompressed(rawData, copy);
+        return fitsOnWire(packed != null ? new CompressedPayload(packed, true, rawData.length) : uncompressed(rawData, copy));
+    }
+
+    /** Fails at the call site, with a clear message, instead of at packet-encode time. */
+    private static CompressedPayload fitsOnWire(CompressedPayload payload) {
+        if (payload.data().length > CompressedPayload.MAX_COMPRESSED_PAYLOAD_SIZE) {
+            throw new IllegalArgumentException("Celeris payload is " + payload.data().length
+                    + " bytes on the wire (max " + CompressedPayload.MAX_COMPRESSED_PAYLOAD_SIZE + "); split it");
+        }
+        return payload;
     }
 
     private static CompressedPayload uncompressed(byte[] rawData, boolean copy) {
         return new CompressedPayload(copy ? rawData.clone() : rawData, false, rawData.length);
+    }
+
+    /**
+     * Checks a received payload's header without inflating it: the declared size must be within
+     * {@link #MAX_DECOMPRESSED_SIZE}, and an uncompressed payload must carry exactly the declared bytes.
+     * Cheap enough for the network thread, unlike {@link #decompress}.
+     *
+     * @throws IllegalArgumentException if the header is out of range or inconsistent
+     */
+    public static void validate(CompressedPayload payload) {
+        int declared = payload.originalSize();
+        if (declared < 0 || declared > MAX_DECOMPRESSED_SIZE) {
+            throw new IllegalArgumentException("Celeris payload declares " + declared
+                    + " decompressed bytes (max " + MAX_DECOMPRESSED_SIZE + ")");
+        }
+        if (!payload.compressed() && payload.data().length != declared) {
+            throw new IllegalArgumentException("Celeris payload declares " + declared + " bytes but carries "
+                    + payload.data().length);
+        }
     }
 
     /**

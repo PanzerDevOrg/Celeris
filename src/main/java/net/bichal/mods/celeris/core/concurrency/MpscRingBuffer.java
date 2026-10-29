@@ -21,8 +21,9 @@ import java.lang.invoke.VarHandle;
  *       {@link #tryConsumeBatch} at a time. Calling either from more than one
  *       thread concurrently is undefined behavior -- {@code readCursor} is not
  *       CAS-guarded, only the write side is.</li>
- *   <li>{@code capacityPow2} must be a power of two; slots are padded to a
- *       full cache line each to avoid false sharing between producers.</li>
+ *   <li>{@code capacityPow2} must be a power of two. Slots are packed densely
+ *       (four 16-byte slots share a 64-byte line); {@code -Dceleris.ringbuffer.padSlots=true}
+ *       pads each slot to a cache line to avoid false sharing between producers.</li>
  *   <li>{@link #tryPublish} and {@link #tryConsume}/{@link #tryConsumeBatch}
  *       never block: a full ring makes {@code tryPublish} return {@code
  *       false} immediately, and an empty ring makes the consume methods
@@ -82,8 +83,11 @@ public final class MpscRingBuffer implements AutoCloseable {
     }
 
     public MpscRingBuffer(MemoryBackend backend, int capacityPow2, int slotBytes) {
-        if (!BranchlessTables.isPowerOfTwo(capacityPow2)) {
-            throw new IllegalArgumentException("Celeris ring buffer capacity must be a power of two");
+        if (!BranchlessTables.isPowerOfTwo(capacityPow2) || capacityPow2 <= 0) {
+            throw new IllegalArgumentException("Celeris ring buffer capacity must be a positive power of two");
+        }
+        if (slotBytes <= 0) {
+            throw new IllegalArgumentException("Celeris ring buffer slotBytes must be positive: " + slotBytes);
         }
         this.backend = backend;
         this.capacity = capacityPow2;
@@ -185,14 +189,35 @@ public final class MpscRingBuffer implements AutoCloseable {
      *         written to, or {@code -1} if the ring was full
      */
     public long tryPublishIndexed(MemoryBackend srcBackend, long srcHandle, long srcOffset) {
+        probeSource(srcBackend, srcHandle, srcOffset);
         long ticket = reserveSlot();
         if (ticket < 0) {
             return -1L;
         }
         long slotIndex = ticket & indexMask;
-        writePayload(srcBackend, srcHandle, srcOffset, slotIndex);
+        writePayloadOrSkip(srcBackend, srcHandle, srcOffset, slotIndex, ticket);
         setStateRelease(slotIndex, ticket);
         return slotIndex;
+    }
+
+    /**
+     * Touches the first and last byte of the source before a slot is reserved, so a bad handle
+     * or range throws here and not after the ticket exists (an unpublished ticket stalls the consumer).
+     */
+    private void probeSource(MemoryBackend srcBackend, long srcHandle, long srcOffset) {
+        srcBackend.getByte(srcHandle, srcOffset);
+        srcBackend.getByte(srcHandle, srcOffset + slotBytes - 1);
+    }
+
+    /** If the copy still fails after the probe, the slot is published zeroed so the ring never wedges. */
+    private void writePayloadOrSkip(MemoryBackend srcBackend, long srcHandle, long srcOffset, long slotIndex, long ticket) {
+        try {
+            writePayload(srcBackend, srcHandle, srcOffset, slotIndex);
+        } catch (RuntimeException | Error e) {
+            backend.fill(dataHandle, payloadOffset(slotIndex), slotBytes, (byte) 0);
+            setStateRelease(slotIndex, ticket);
+            throw e;
+        }
     }
 
     /**
@@ -258,7 +283,7 @@ public final class MpscRingBuffer implements AutoCloseable {
 
     public void publishReserved(long reservationTicket, MemoryBackend srcBackend, long srcHandle, long srcOffset) {
         long slotIndex = reservationTicket & indexMask;
-        writePayload(srcBackend, srcHandle, srcOffset, slotIndex);
+        writePayloadOrSkip(srcBackend, srcHandle, srcOffset, slotIndex, reservationTicket);
         setStateRelease(slotIndex, reservationTicket);
     }
 

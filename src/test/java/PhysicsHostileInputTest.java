@@ -2,6 +2,7 @@ import net.bichal.mods.celeris.physics.BodyBatch;
 import net.bichal.mods.celeris.physics.BodyFlags;
 import net.bichal.mods.celeris.physics.BodyParams;
 import net.bichal.mods.celeris.physics.PhysicsFactory;
+import net.bichal.mods.celeris.physics.PhysicsJniTestAccess;
 import net.bichal.mods.celeris.physics.PhysicsMode;
 import net.bichal.mods.celeris.physics.PhysicsTestAccess;
 import net.bichal.mods.celeris.physics.TerrainView;
@@ -39,13 +40,25 @@ class PhysicsHostileInputTest {
                 out.add(new Kernel("native-" + isa, nat));
             }
         } catch (Throwable notBuilt) {
-            // Java kernel only: the native library is not built for this platform.
+            // FFM is optional (Java 21 without --enable-preview has none).
+        }
+        try {
+            PhysicsFactory jni = PhysicsJniTestAccess.jniFactory();
+            for (String isa : PhysicsJniTestAccess.jniIsas()) {
+                out.add(new Kernel("native-jni-" + isa, jni));
+            }
+        } catch (Throwable notBuilt) {
+            if (RequireNative.required()) {
+                throw new AssertionError("native library required but unavailable: " + notBuilt, notBuilt);
+            }
         }
         return out;
     }
 
     private static void select(Kernel k) {
-        if (k.name.startsWith("native-")) {
+        if (k.name.startsWith("native-jni-")) {
+            PhysicsJniTestAccess.forceJniIsa(k.name.substring("native-jni-".length()));
+        } else if (k.name.startsWith("native-")) {
             PhysicsTestAccess.forceNativeIsa(k.factory, k.name.substring("native-".length()));
         }
     }

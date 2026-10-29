@@ -32,6 +32,14 @@ final class JniPhysicsKernel {
             throw new IllegalStateException("celeris_physics ABI " + version + "/0x" + Integer.toHexString(layout)
                     + " does not match Java " + BodyLayout.ABI_VERSION + "/0x" + Integer.toHexString(BodyLayout.signature()));
         }
+        // JNI binds lazily: call every entry point once, with null arguments the kernel
+        // rejects (-1) without touching memory, so a library that lacks a symbol fails
+        // here (and selection falls back) instead of at the first tick.
+        if (nativeStep(0L, 0, 0L, 0, 0, 0) != -1
+                || nativeBroadphase(0L, 0, 0, 0L, 0, 0.0, 0L, 0, 0) != -1) {
+            throw new IllegalStateException("celeris_physics accepted a null call; refusing to use it");
+        }
+        nativeActiveIsa();
         RawMemory.probe();
         String isa = System.getProperty("celeris.physics.isa");
         if (isa != null) {

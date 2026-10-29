@@ -134,27 +134,29 @@ public final class TopologicalDAGSolver {
 
         int changedCount = 0;
         int[] nb = neighborScratch;
-        for (int i = 0; i < orderCount; i++) {
-            int denseIndex = topoOrderScratch[i];
-            int newLevel = computeIncomingLevel(denseIndex, nb);
-            int oldLevel = nodes.signalLevel(denseIndex);
-            if (newLevel != oldLevel) {
-                nodes.setSignalLevel(denseIndex, newLevel);
-                changedCount++;
-                if (levelChangeSink != null) {
-                    levelChangeSink.onChanged(denseIndex, oldLevel, newLevel);
-                }
-                int n = topology.neighborDenseIndices(denseIndex, nb);
-                for (int k = 0; k < n; k++) {
-                    dirtyQueue.markDirty(nb[k]);
+        try {
+            for (int i = 0; i < orderCount; i++) {
+                int denseIndex = topoOrderScratch[i];
+                int newLevel = computeIncomingLevel(denseIndex, nb);
+                int oldLevel = nodes.signalLevel(denseIndex);
+                if (newLevel != oldLevel) {
+                    nodes.setSignalLevel(denseIndex, newLevel);
+                    changedCount++;
+                    if (levelChangeSink != null) {
+                        levelChangeSink.onChanged(denseIndex, oldLevel, newLevel);
+                    }
+                    int n = topology.neighborDenseIndices(denseIndex, nb);
+                    for (int k = 0; k < n; k++) {
+                        dirtyQueue.markDirty(nb[k]);
+                    }
                 }
             }
-        }
-
-        // Reset only the table entries this pass touched.
-        int[] t = denseToLocal;
-        for (int i = 0; i < discoveredCount; i++) {
-            t[discoveredScratch[i]] = -1;
+        } finally {
+            // Reset only the table entries this pass touched, also when a listener threw.
+            int[] t = denseToLocal;
+            for (int i = 0; i < discoveredCount; i++) {
+                t[discoveredScratch[i]] = -1;
+            }
         }
         return changedCount;
     }

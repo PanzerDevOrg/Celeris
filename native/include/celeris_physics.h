@@ -1,9 +1,14 @@
 /*
  * celeris_physics -- batch body simulation kernel for Celeris.
  *
- * C ABI consumed from Java through the FFM Linker (see NativePhysicsKernel).
- * Every entry point is reentrant and allocation-free: all memory (bodies,
- * terrain, scratch, pair output) is owned by the Java side and passed in.
+ * C ABI consumed from Java through JNI (cp_jni.cpp, tried first) or the FFM
+ * Linker (see NativePhysicsKernel). Every entry point is allocation-free: all
+ * memory (bodies, terrain, scratch, pair output) is owned by the Java side and
+ * passed in. cp_step and cp_broadphase are reentrant on disjoint buffers;
+ * cp_force_isa changes process-wide state, so call it before stepping, not
+ * concurrently with it. cp_step checks pointers, alignment and capacity, but
+ * trusts that the buffers, page counts and terrain origin it is given are as
+ * long as the header fields say.
  *
  * Memory contract (mirrors net.bichal.mods.celeris.physics.BodyLayout):
  *   - One slab per batch, 64-byte aligned, Structure-of-Arrays.

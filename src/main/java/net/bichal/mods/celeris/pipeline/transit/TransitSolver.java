@@ -91,6 +91,11 @@ public final class TransitSolver implements PipelineSolver {
     private final SegmentedGraph.SegmentVisitor<TransitPayload> maskCollector =
             (segment, direction) -> branchMask |= 1 << direction;
 
+    /**
+     * Without a migrator, items on segments the graph removes or reshapes are dropped without a
+     * {@link LostSink} call or an event: pass a {@link TransitMigrator} (also given to the graph) when
+     * the network can change while items are in flight.
+     */
     public TransitSolver(TransitConfig config, JunctionRouter router, TransitEndpoints endpoints) {
         this(config, router, endpoints, null, VectorOperations::addInPlace);
     }
@@ -155,6 +160,10 @@ public final class TransitSolver implements PipelineSolver {
      * entry is full.
      */
     public boolean insert(NodeId node, int direction, int handle, float speed) {
+        if (!Float.isFinite(speed)) {
+            // NaN progress never reaches the exit and would keep the lane awake for good.
+            throw new IllegalArgumentException("speed must be finite");
+        }
         if (graph == null) {
             return false;
         }

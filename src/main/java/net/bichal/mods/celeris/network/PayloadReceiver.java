@@ -4,11 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * What both loaders do with a received {@link CompressedPayload}: inflate and
- * check it on the thread the loader hands it over on, with no further hop to
- * the game thread. On NeoForge the handlers are registered for the network
- * thread, so inflating up to {@link PayloadCompression}'s limit never stalls a
- * tick or a frame.
+ * What both loaders do with a received {@link CompressedPayload}: check its header
+ * on the thread the loader hands it over on. The body is <em>not</em> inflated here:
+ * nothing in Celeris consumes the bytes, and inflating up to
+ * {@link PayloadCompression#MAX_DECOMPRESSED_SIZE} for every packet would let any
+ * client make the server burn CPU and memory for a result that is thrown away. A mod
+ * that registers its own handler decompresses when it needs the data
+ * ({@link PayloadCompression#decompress}).
  */
 final class PayloadReceiver {
 
@@ -18,18 +20,17 @@ final class PayloadReceiver {
     }
 
     static void receive(String side, CompressedPayload payload) {
-        byte[] decompressed;
         try {
-            decompressed = PayloadCompression.decompress(payload);
+            PayloadCompression.validate(payload);
         } catch (RuntimeException e) {
-            // Peer-controlled input: a malformed or oversized payload is dropped.
+            // Peer-controlled input: a payload with an impossible header is dropped.
             LOGGER.warn("Celeris ({}): dropping invalid payload ({} bytes on wire): {}",
                     side, payload.data().length, e.toString());
             return;
         }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Celeris ({}): received {} bytes ({} on wire, compressed={})",
-                    side, decompressed.length, payload.data().length, payload.compressed());
+                    side, payload.originalSize(), payload.data().length, payload.compressed());
         }
     }
 }

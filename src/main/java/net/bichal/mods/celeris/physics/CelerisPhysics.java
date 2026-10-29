@@ -16,8 +16,8 @@ import org.slf4j.LoggerFactory;
  *       on Java 21 without {@code --enable-preview} and is not blocked by
  *       {@code --enable-native-access}.</li>
  *   <li>{@code ffm}: the same kernel through the FFM {@code Linker}. Tried when
- *       JNI cannot load. Needs FFM: Java 22+ (Minecraft 26.x), or Java 21 with
- *       {@code --enable-preview} (Minecraft 1.21.x).</li>
+ *       JNI cannot load. Needs FFM: 1.21.x jars need Java 21 with
+ *       {@code --enable-preview}; 26.x jars need Java 25.</li>
  *   <li>{@code java}: the pure-Java reference kernel on Java arrays
  *       ({@link HeapPhysicsFactory}). Same results, same parallel chunking;
  *       used whenever the native kernel cannot be (no library for this
@@ -121,7 +121,10 @@ public final class CelerisPhysics {
             }
             if (!"jni".equalsIgnoreCase(engine)) {
                 if (!CelerisRuntime.isFfmActive()) {
-                    append(failures, "ffm: FFM not available; on Java 21 add --enable-preview");
+                    append(failures, Runtime.version().feature() == 21
+                            ? "ffm: FFM not available; on Java 21 add --enable-preview"
+                            : "ffm: FFM not available in this jar on Java " + Runtime.version().feature()
+                                    + " (1.21.x jars use FFM only on Java 21 with --enable-preview)");
                 } else if (load(FFM_FACTORY_CLASS, "ffm", failures)) {
                     return;
                 }

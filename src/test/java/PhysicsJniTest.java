@@ -8,7 +8,6 @@ import net.bichal.mods.celeris.physics.TerrainView;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /** The JNI engine's own behaviour: terrain, bounds and lifetime. Kernel results are in {@link PhysicsParityTest}. */
 class PhysicsJniTest {
@@ -17,7 +16,7 @@ class PhysicsJniTest {
         try {
             return PhysicsJniTestAccess.jniFactory();
         } catch (Throwable t) {
-            assumeTrue(false, "celeris_physics not built for this platform (" + t + ")");
+            RequireNative.skipOrFail("celeris_physics not built for this platform (" + t + ")");
             return null;
         }
     }
