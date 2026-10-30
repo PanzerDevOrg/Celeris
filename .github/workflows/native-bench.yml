@@ -12,7 +12,7 @@ on:
     inputs:
       ref-a:
         description: Reference build (branch, tag or commit)
-        default: c2deb03ca536941196e01f833ae8a9fd6748a095^
+        default: ee57408c3a5b0b41f470ab0be4a877a7bca73d2a  # c2deb03^, the last build without the input checks
       ref-b:
         description: Build to compare (also provides cp_bench)
         default: main
