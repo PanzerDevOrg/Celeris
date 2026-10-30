@@ -18,7 +18,9 @@ native/
 ├── src/cp_isa_avx512.cpp       AVX-512 F/DQ/VL (opt-in)
 ├── src/cp_isa_neon.cpp         AArch64 Advanced SIMD
 ├── src/cp_broadphase.inc       spatial-hash broadphase, compiled per ISA like cp_kernel.inc
-└── test/cp_selftest.cpp        scenarios + ISA parity + broadphase vs brute force
+├── test/cp_selftest.cpp        scenarios + ISA parity + broadphase vs brute force
+├── test/cp_fuzz.cpp            hostile inputs on every ISA (CI runs it under ASan/UBSan)
+└── test/cp_bench.cpp           step benchmark: several builds of the library timed interleaved in one process
 ```
 
 ## Design rules

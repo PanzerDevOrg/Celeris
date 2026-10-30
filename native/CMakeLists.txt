@@ -107,4 +107,11 @@ if(CP_BUILD_TESTS AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(cp_fuzz PRIVATE include)
     target_link_libraries(cp_fuzz PRIVATE celeris_physics)
     add_test(NAME cp_fuzz COMMAND cp_fuzz)
+    # Step benchmark that loads several builds of the library and times them interleaved
+    # (not a test; see the header of test/cp_bench.cpp).
+    if(NOT WIN32)
+        add_executable(cp_bench test/cp_bench.cpp)
+        target_include_directories(cp_bench PRIVATE include)
+        target_link_libraries(cp_bench PRIVATE ${CMAKE_DL_LIBS})
+    endif()
 endif()
