@@ -1,21 +1,20 @@
-# Step time of two builds of the physics kernel, side by side, on the CI runners (x86-64 and
-# ARM, so the AVX2, AVX-512 and NEON paths each get measured where the CPU has them).
-# Manual: both refs are built and native/test/cp_bench steps the same scene through both,
-# alternating block by block; the number to read is the ratio, with its quartiles. Absolute
-# times on a shared runner are not comparable between runs. ref-a must share the column
-# layout of cp_step with ref-b (true since the kernel's first release).
+# Step time of several builds of the physics kernel, side by side, on the CI runners (x86-64
+# and ARM, so the AVX2, AVX-512 and NEON paths each get measured where the CPU has them).
+# Manual: every ref is built, and native/test/cp_bench steps the same scene through all of
+# them, alternating block by block. Read the ratio against the first build, with its
+# quartiles; the last build is listed twice and the repeat shows how far two readings of the
+# same code differ in that run. Absolute times on a shared runner are not comparable between
+# runs. Every ref must share the column layout of cp_step with this one (true since the
+# kernel's first release). cp_bench itself is taken from the ref the workflow runs on.
 # Not managed by bichal-build-logic: this file belongs to Celeris.
 name: Native bench
 
 on:
   workflow_dispatch:
     inputs:
-      ref-a:
-        description: Reference build (branch, tag or commit)
-        default: ee57408c3a5b0b41f470ab0be4a877a7bca73d2a  # c2deb03^, the last build without the input checks
-      ref-b:
-        description: Build to compare (also provides cp_bench)
-        default: main
+      refs:
+        description: Builds to compare, space-separated branches, tags or commits (the first is the reference)
+        default: ee57408c3a5b0b41f470ab0be4a877a7bca73d2a main  # c2deb03^ (no input checks), then main
       unit:
         description: Bodies per batch (1024 or 16)
         default: "1024"
@@ -34,29 +33,34 @@ jobs:
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
+    env:
+      REFS: ${{ inputs.refs }}
+      UNIT: ${{ inputs.unit }}
+      TICKS: ${{ inputs.ticks }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
         with:
-          ref: ${{ inputs.ref-a }}
-          path: a
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
-        with:
-          ref: ${{ inputs.ref-b }}
-          path: b
-          persist-credentials: false
-      - name: Build both
+      - name: Build every ref
         run: |
-          cmake -S a/native -B build-a -DCMAKE_BUILD_TYPE=Release -DCP_BUILD_TESTS=OFF
-          cmake --build build-a -j "$(nproc)"
-          cmake -S b/native -B build-b -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-b -j "$(nproc)" --target celeris_physics cp_bench
-      - name: Step time, A against B and B again (the repeat is the noise floor)
+          cmake -S native -B build-bench -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-bench -j "$(nproc)" --target cp_bench
+          libs=()
+          i=0
+          for ref in $REFS; do
+            git worktree add --detach "../w$i" "$ref" >/dev/null
+            cmake -S "../w$i/native" -B "build-$i" -DCMAKE_BUILD_TYPE=Release -DCP_BUILD_TESTS=OFF >/dev/null
+            cmake --build "build-$i" -j "$(nproc)"
+            libs+=("build-$i/libceleris_physics.so")
+            echo "build $i = $ref ($(git rev-parse --short "$ref"))"
+            i=$((i + 1))
+          done
+          printf '%s\n' "${libs[@]}" "${libs[-1]}" > libs.txt
+      - name: Step time
         run: |
           grep -m1 'model name\|Model name' /proc/cpuinfo || true
+          mapfile -t libs < libs.txt
           for isa in generic avx2 avx512 neon; do
-            ./build-b/cp_bench ab "$isa" "${{ inputs.unit }}" "${{ inputs.ticks }}" \
-              build-a/libceleris_physics.so build-b/libceleris_physics.so build-b/libceleris_physics.so \
-              || echo "$isa: not available on this runner"
+            ./build-bench/cp_bench ab "$isa" "${UNIT:-1024}" "${TICKS:-400}" "${libs[@]}" || echo "$isa: not available on this runner"
           done
