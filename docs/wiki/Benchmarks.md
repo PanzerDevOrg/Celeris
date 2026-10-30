@@ -135,7 +135,12 @@ also appear between builds that do the same work (code layout), so that is the r
 same comparison through the JVM (separate processes, 8 alternating rounds, best of five trials, median) ends in a
 tie on every ISA, because this VM's run-to-run noise (5–16 %) is larger than what is being measured. The input check
 is the only part of the cost that remains: the clamp left in the broadphase and in the below-block lookup costs
-nothing measurable (−0.1 to −1.4 %, about the size of the same-binary noise). FFM and JNI run the same native code and tie on
+nothing measurable (−0.1 to −1.4 %, about the size of the same-binary noise). On AArch64 (GitHub's `ubuntu-24.04-arm` runner, Neoverse, same method through the
+`Native bench` workflow, 2026-10-30) the checks cost more, and the bit-pattern form that helps on x86 does nothing:
+against `c2deb03^` the NEON step is +4.2 % with `fabs` compares, +4.9 % with the bit pattern and +3.3 % with the check
+removed. AArch64 has a one-instruction absolute compare (FACGE), which the kernel now uses there: +3.1 %, the level of
+the build without the check (two readings of the same code in that run differ by up to 2 points, so about +1 to +3 %).
+FFM and JNI run the same native code and tie on
 both batch sizes (JNI −2 % to +5 % of FFM over 8 alternating rounds, inside the IQR). The Java kernel clamps every
 floor and ceil too; leaving the clamp out where the check already bounds the value, as the native kernel does, was
 tried with both versions in one JVM, interleaved, and cannot be told from noise (the same code against itself reads
@@ -269,6 +274,7 @@ native kernel). The JMH benchmarks (`*Bench`) belong to the bench harness and Ve
 | `PhysicsBackendBenchmarkTest` | Step time per body of the Java, FFM and JNI engines, in batches of 1,024 and 16 | this repo, `benchmarkTest` |
 | `RingBufferBenchmarkTest` | MPSC throughput against `ArrayBlockingQueue`, `LinkedBlockingQueue`, `ConcurrentLinkedQueue` | this repo, `benchmarkTest` |
 | `cp_bench` | Step time of several builds of the native library, timed interleaved in one process | this repo, `native/test` (CMake target `cp_bench`) |
+| `Native bench` workflow | `cp_bench` on the x86-64 and ARM runners for any list of refs (manual) | this repo, `.github/workflows/native-bench.yml` |
 | `Nearest3BenchmarkTest` | Nearest-of-3 query, packed-long loop against the `int[]` kernel | this repo, `benchmarkTest` |
 | `TransitBench` | Items in pipes, flat layout against objects | JMH, sections above |
 | `BulkBuildBench` | `addNodes` against adding blocks one by one | JMH, sections above |
