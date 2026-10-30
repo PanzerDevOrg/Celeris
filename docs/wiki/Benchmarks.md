@@ -127,7 +127,8 @@ for every normal item are unchanged, bit for bit, between the Java and native ke
 **What the checks cost** (2026-10-30; 4 vCPU Intel Xeon @ 2.1 GHz with AVX-512, one thread, 100,000 items in batches
 of 1,024 and of 16; the table above predates the checks and is not repeated). The native library of `c2deb03^` (the
 last build without them) and the current one step the same scene in one process, alternating block by block, 400
-ticks; the figure is the median of the per-tick time ratio, over two runs (the same binary against itself reads
+ticks (`native/test/cp_bench.cpp`: `cp_bench ab avx2 1024 400 old.so new.so`); the figure is the median of the
+per-tick time ratio, over two runs (the same binary against itself reads
 0 to +1 %, the IQR is about 2 points). Current kernel against the one before the checks: AVX2 −1.5 to −2.5 %,
 generic +0.6 to +1.0 %, AVX-512 +0.7 to +1.2 %, the same on both batch sizes: a tie within ±3 %. Differences of 2–4 %
 also appear between builds that do the same work (code layout), so that is the resolution of this comparison. The
@@ -135,7 +136,10 @@ same comparison through the JVM (separate processes, 8 alternating rounds, best 
 tie on every ISA, because this VM's run-to-run noise (5–16 %) is larger than what is being measured. The input check
 is the only part of the cost that remains: the clamp left in the broadphase and in the below-block lookup costs
 nothing measurable (−0.1 to −1.4 %, about the size of the same-binary noise). FFM and JNI run the same native code and tie on
-both batch sizes (JNI −2 % to +5 % of FFM over 8 alternating rounds, inside the IQR).
+both batch sizes (JNI −2 % to +5 % of FFM over 8 alternating rounds, inside the IQR). The Java kernel clamps every
+floor and ceil too; leaving the clamp out where the check already bounds the value, as the native kernel does, was
+tried with both versions in one JVM, interleaved, and cannot be told from noise (the same code against itself reads
+−4 % to +4 % between JVM runs, the change −8 % to +7 %), so the Java kernel is unchanged.
 
 The native kernel is picked automatically when the CPU and JVM allow it (AVX2, AVX-512 or NEON builds ship in the
 jar); otherwise the Java kernel runs with identical results.
@@ -264,6 +268,7 @@ native kernel). The JMH benchmarks (`*Bench`) belong to the bench harness and Ve
 |---|---|---|
 | `PhysicsBackendBenchmarkTest` | Step time per body of the Java, FFM and JNI engines, in batches of 1,024 and 16 | this repo, `benchmarkTest` |
 | `RingBufferBenchmarkTest` | MPSC throughput against `ArrayBlockingQueue`, `LinkedBlockingQueue`, `ConcurrentLinkedQueue` | this repo, `benchmarkTest` |
+| `cp_bench` | Step time of several builds of the native library, timed interleaved in one process | this repo, `native/test` (CMake target `cp_bench`) |
 | `Nearest3BenchmarkTest` | Nearest-of-3 query, packed-long loop against the `int[]` kernel | this repo, `benchmarkTest` |
 | `TransitBench` | Items in pipes, flat layout against objects | JMH, sections above |
 | `BulkBuildBench` | `addNodes` against adding blocks one by one | JMH, sections above |
