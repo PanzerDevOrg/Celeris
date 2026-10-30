@@ -25,7 +25,7 @@ permissions: {}
 
 jobs:
   descriptions:
-    uses: bichal/BichalBuildLogic/.github/workflows/mod-description.yml@cc01da719036f2d3754b8328744fb1a686e1f06f # bichal-build-logic main, 2026-10-29 (no release tags yet)
+    uses: bichal/BichalBuildLogic/.github/workflows/mod-description.yml@b47c0061cd3af9c73f47957c8afd18c421a84016 # bichal-build-logic main, 2026-10-30 (no release tags yet)
     # Reads the repository; Modrinth is updated with its own token.
     permissions:
       contents: read

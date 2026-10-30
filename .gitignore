@@ -12,6 +12,8 @@ stonecutter.properties.toml
 .env
 repomix*
 __pycache__/
+# written by `bichal vendor` next to fetched sources
+.vendored.json
 # <<< bichal-build-logic
 
 # Native builds: made by CMake (-Pbichal.native.build=true) or staged by CI,
