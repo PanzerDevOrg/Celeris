@@ -62,6 +62,16 @@ Use the oldest Celeris version your mod was tested with. 0.3.1.1 is the current 
 
 Most parts are used from one thread, normally the server or game thread. The examples say which thread each call belongs on.
 
+## Choosing the physics engine
+
+Batch physics runs on the pure-Java kernel unless you ask for the native one. The native kernel (JNI, or FFM where JNI cannot load) steps bodies 1.5 to 2 times faster than the Java kernel, but it only pays off when your own work leaves room for it, so it is a choice for your mod, not for Celeris. To make it, call this from your mod's initialiser, before the first batch is created:
+
+```java
+CelerisPhysics.allowNative("yourmodid");
+```
+
+It is a request, not a command. Celeris still falls back to the Java kernel if the native library cannot load, and a player or server owner can force the Java kernel with `-Dceleris.physics.engine=java`. The engine is chosen once per JVM, when the first batch is created, so a request made after that is logged and has no effect. Every mod that calls `allowNative` shares the one engine. To turn native on for all mods during a test, start with `-Dceleris.physics.engine=auto`. See [JVM flags](JVM-flags).
+
 ## Options chosen at startup
 
 Celeris chooses each path (memory, math, physics, compression) the first time that part is used, keeps the choice for the rest of the session, and logs it once. To force the plain Java paths, start the game with `-Dceleris.compatMode=true`. See [JVM flags](JVM-flags).

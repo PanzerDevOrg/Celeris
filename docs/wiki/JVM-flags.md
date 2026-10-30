@@ -23,7 +23,9 @@ These are for testing and for solving problems. You do not need them normally.
 | Switch | What it does |
 |---|---|
 | `-Dceleris.compatMode=true` | Uses only plain Java code. Slower, but it works everywhere. |
-| `-Dceleris.physics.engine=java` | Uses the Java physics kernel. |
+| `-Dceleris.physics.engine=java` | Uses the Java physics kernel, even for a mod that asked for the native one. |
+| `-Dceleris.physics.engine=auto` | Lets every mod use the native physics kernel (JNI first, then FFM, then Java). Without this switch the native kernel runs only for a mod that asks for it, such as Velox. |
+| `-Dceleris.physics.engine=jni` or `ffm` | Lets the native kernel run through that binding only. If it cannot load, the Java kernel takes over. |
 | `-Dceleris.physics.engine=off` | Turns the physics engine off. Mods that use it fall back to their normal code. |
 | `-Dceleris.physics.isa=avx2` | Picks the native instruction set. Choose one of `generic`, `avx2`, `avx512` or `neon`. |
 | `-Dceleris.physics.threads=4` | Sets how many worker threads the physics uses. |
@@ -51,4 +53,4 @@ Example for a Java 21 server:
 Start the game or server, and search the log for these lines:
 
 - `Celeris memory backend: FFM` means FFM memory is on.
-- `Celeris physics engine` followed by a name that starts with `native` means the native physics kernel is on. A name of `java` means the Java kernel is used.
+- `Celeris physics engine` followed by a name that starts with `native` means the native physics kernel is on. A name of `java` means the Java kernel is used, which is the default for a mod that does not ask for the native one.

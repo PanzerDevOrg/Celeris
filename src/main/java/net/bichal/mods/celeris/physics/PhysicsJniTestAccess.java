@@ -36,4 +36,9 @@ public final class PhysicsJniTestAccess {
         }
         return JniPhysicsKernel.ISA_NAMES[JniPhysicsKernel.activeIsa()];
     }
+
+    /** The engine family {@code CelerisPhysics} would try for a property value and a native request. */
+    public static String enginePolicy(String property, boolean nativeRequested) {
+        return CelerisPhysics.policy(property, nativeRequested);
+    }
 }

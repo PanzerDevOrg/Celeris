@@ -23,7 +23,7 @@ The line `Celeris engine working` means Celeris started. The physics engine line
 |---|---|---|
 | `Celeris memory backend` | `FFM` | `Unsafe` works without flags on any Java version. `Heap (compat mode)` uses plain Java only, and is the slowest. |
 | `Celeris compression codec` | `zstd` | `deflate` is used when zstd is not available. It works too. |
-| `Celeris physics engine` | A name that starts with `native` | `java` is the Java kernel. It works, but it is slower. |
+| `Celeris physics engine` | `java`, or a name that starts with `native` | `java` is the Java kernel, the default. A mod that asks for the native kernel (Velox does) gets a name that starts with `native`. |
 
 ## Common problems
 
@@ -33,9 +33,11 @@ The mod needs Celeris, and it is not installed, or the file is for a different M
 
 ### The physics engine says java
 
-This is not an error. Celeris uses the Java kernel, which is slower.
+This is not an error. The Java kernel is the default: the native kernel runs only for a mod that asks for it, or when you start with `-Dceleris.physics.engine=auto`. The native kernel is faster in the kernel itself (1.5 to 2 times), but in a real server the two give the same tick to within noise. See [Benchmarks](Benchmarks).
 
-To get the native kernel:
+If a mod should be using the native kernel and the line still says `java`:
+
+- Check you did not add `-Dceleris.physics.engine=java`, which overrides the mod.
 
 - On Java 21, add `--enable-preview`. See [JVM flags](JVM-flags).
 - On NeoForge, remove `--enable-native-access` from the arguments if you added it.
