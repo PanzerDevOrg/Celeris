@@ -63,6 +63,27 @@ inline uint64_t over(double limit) { return abs_bits(limit) + 1; }
 // Set bit 63 iff |v| <= limit.
 inline uint64_t within_bit(double v, uint64_t over_limit) { return abs_bits(v) - over_limit; }
 
+// Whether position, velocity and size are all within POS_LIMIT, VEL_LIMIT and SIZE_LIMIT
+// (NaN is not). AArch64 has FACGE, |a| >= |b| into a mask in one instruction (false for NaN),
+// so the eight tests are eight FACGE and seven AND on the vector registers, and the flags are
+// never touched; elsewhere the bit-pattern form above.
+inline bool inputs_within(double x, double y, double z, double vx, double vy, double vz, double hw, double h) {
+#if defined(__aarch64__) && defined(__ARM_NEON)
+    const float64x1_t pos = vdup_n_f64(POS_LIMIT), vel = vdup_n_f64(VEL_LIMIT), size = vdup_n_f64(SIZE_LIMIT);
+    const uint64x1_t p = vand_u64(vand_u64(vcale_f64(vdup_n_f64(x), pos), vcale_f64(vdup_n_f64(y), pos)),
+                                  vcale_f64(vdup_n_f64(z), pos));
+    const uint64x1_t v = vand_u64(vand_u64(vcale_f64(vdup_n_f64(vx), vel), vcale_f64(vdup_n_f64(vy), vel)),
+                                  vcale_f64(vdup_n_f64(vz), vel));
+    const uint64x1_t s = vand_u64(vcale_f64(vdup_n_f64(hw), size), vcale_f64(vdup_n_f64(h), size));
+    return vget_lane_u64(vand_u64(vand_u64(p, v), s), 0) != 0;
+#else
+    const uint64_t pos_over = over(POS_LIMIT), vel_over = over(VEL_LIMIT), size_over = over(SIZE_LIMIT);
+    return ((within_bit(x, pos_over) & within_bit(y, pos_over) & within_bit(z, pos_over)
+            & within_bit(vx, vel_over) & within_bit(vy, vel_over) & within_bit(vz, vel_over)
+            & within_bit(hw, size_over) & within_bit(h, size_over)) >> 63) != 0;
+#endif
+}
+
 // floor/ceil to int without undefined behaviour: the value is clamped to
 // [INT_MIN/2, INT_MAX/2] BEFORE the cast (NaN -> INT_MIN/2), so the cast is
 // always in range and sums/differences of two results cannot overflow.
@@ -314,10 +335,7 @@ inline int collide_body(const Columns& C, const cp_terrain* t, int32_t i, int32_
             | CP_FLAG_DEFERRED | next_phase;
 
     // Non-finite or out-of-range state: vanilla handles it, nothing else is read.
-    const uint64_t pos_over = over(POS_LIMIT), vel_over = over(VEL_LIMIT), size_over = over(SIZE_LIMIT);
-    if (!((within_bit(x, pos_over) & within_bit(y, pos_over) & within_bit(z, pos_over)
-            & within_bit(vx, vel_over) & within_bit(vy, vel_over) & within_bit(vz, vel_over)
-            & within_bit(hw, size_over) & within_bit(h, size_over)) >> 63)) {
+    if (!inputs_within(x, y, z, vx, vy, vz, hw, h)) {
         *fh = 1.0;
         *fv = 1.0;
         C.u[CP_FLAGS][i] = deferred_flags;

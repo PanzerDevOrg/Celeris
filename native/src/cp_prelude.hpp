@@ -13,6 +13,10 @@
 #  include <emmintrin.h>
 #endif
 
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#  include <arm_neon.h>
+#endif
+
 #include "celeris_physics.h"
 
 namespace cp {
