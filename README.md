@@ -45,19 +45,24 @@
 ## 🏁 How fast
 
 Each building block, measured against what a mod would otherwise use (JMH, Java 21, a shared 4-core cloud VM,
-October 2026 with Celeris 0.2.3; the physics kernel has since become 7 to 20 % slower in exchange for checking every
-item for impossible values; method and full tables in the [benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
+October 2026 with Celeris 0.2.3. The physics kernel has since started checking every item for impossible values; it
+is within about 3 % of the build before those checks (measured 2026-10-30). Method and full tables in the
+[benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
 
 - 🖥️ **A real server with 20,000 dropped items** (Minecraft 1.21.1, with the Velox mod): 18.3 ms per tick instead of
-  243.0 ms, 13.3× faster and back to a full 20 TPS (measured on 2026-10-29).
+  243.0 ms, 13.3× faster and back to a full 20 TPS (measured on 2026-10-29). The gain is Velox batching the item
+  movement and skipping vanilla's per-item work, not the native kernel: the kernel is under 3 % of that tick, and
+  the Java and native kernels give the same tick to within noise.
 - 🗜️ **12.8× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
   **3.1× faster decompression**. As fast as zstd-jni in a jar a quarter of its size.
 - 🏃 **32,768 dropped items moved in 0.88 ms** per tick on 3 threads with the native kernel, 5.3× faster than the
-  same rules in Java on one thread and under 2 % of a tick.
+  same rules in Java on one thread and under 2 % of a tick. At the same 3 threads the Java kernel takes 1.45 ms, so
+  1.6× is the kernel and the rest is the threads.
 - 🧲 **Item piles no longer stall**: finding the touching items in a pile of 16,384 takes 0.24 ms instead of up to a
   second.
-- ⚙️ **Native physics engines are about 1.5× faster than the Java kernel** on one thread (73 to 75 against 114 ns
-  per body, 100,000 bodies), and you can check it yourself with `./gradlew benchmarkTest`.
+- ⚙️ **Native physics engines are 1.5× to 1.8× faster than the Java kernel** on one thread (laptop: 73 to 75 against
+  114 ns per body; 4-vCPU cloud VM: 105 to 107 against 196, batches of 1,024; 100,000 bodies). JNI and FFM tie.
+  You can check it yourself with `./gradlew benchmarkTest`.
 - 🧵 **4.9× faster hand-off** from one worker thread to the game thread than JCTools, and still ahead with two or
   three workers.
 

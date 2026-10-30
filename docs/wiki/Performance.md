@@ -2,7 +2,7 @@
 
 This page gives the main numbers. The [benchmark page](Benchmarks) has every table, the method, and the costs.
 
-The numbers come from JMH benchmarks, run in October 2026 on a shared 4 core cloud machine with Java 21, with Celeris 0.2.3 (the physics kernel has since become 7 to 20 percent slower because it now checks every item for impossible values). The engine comparison in the [Benchmarks](Benchmarks) page can be reproduced with `./gradlew benchmarkTest`. Your numbers will differ. Read differences under about 20 percent as a tie. The ratios are what matter.
+The numbers come from JMH benchmarks, run in October 2026 on a shared 4 core cloud machine with Java 21, with Celeris 0.2.3 (the physics kernel has since started checking every item for impossible values; it is within about 3 percent of the build before those checks, measured on 2026-10-30). The engine comparison in the [Benchmarks](Benchmarks) page can be reproduced with `./gradlew benchmarkTest`. Your numbers will differ. Read differences under about 20 percent as a tie. The ratios are what matter.
 
 ## Compression
 
@@ -15,7 +15,7 @@ Celeris is about as fast as zstd-jni, the usual Java zstd library. Its jar is ab
 
 ## Dropped items
 
-- 32,768 dropped items moved in 0.88 ms per tick, on 3 threads, with the native kernel. A game tick lasts 50 ms at 20 ticks per second, so this is under 2 percent of a tick.
+- 32,768 dropped items moved in 0.88 ms per tick, on 3 threads, with the native kernel. A game tick lasts 50 ms at 20 ticks per second, so this is under 2 percent of a tick. The Java kernel on the same 3 threads takes 1.45 ms, so the kernel accounts for a factor of 1.6 and the extra threads for the rest.
 - The same rules in plain Java, on one thread, take 4.72 ms. That is 5.3 times longer.
 - Finding the items that touch each other in a pile of 16,384 takes 0.24 ms. Before, the same search could take close to a second.
 
@@ -30,7 +30,7 @@ Celeris is about as fast as zstd-jni, the usual Java zstd library. Its jar is ab
 
 ## A real server
 
-Velox is a server mod built on Celeris. On a server with Minecraft 1.21.1 and 20,000 dropped items, Velox takes 18.3 ms per tick. Vanilla NeoForge takes 243.0 ms. That is 13.3 times faster, and it takes the server from about 4 ticks per second to a full 20 (measured on 2026-10-29, one run on a shared GitHub runner).
+Velox is a server mod built on Celeris. On a server with Minecraft 1.21.1 and 20,000 dropped items, Velox takes 18.3 ms per tick. Vanilla NeoForge takes 243.0 ms. That is 13.3 times faster, and it takes the server from about 4 ticks per second to a full 20 (measured on 2026-10-29, one run on a shared GitHub runner). The gain is Velox batching the item movement, not the native kernel: the kernel is under 3 percent of that tick and the Java kernel gives the same tick to within noise.
 
 ![Compression benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/compression.png)
 ![Physics benchmark](https://raw.githubusercontent.com/bichal/Celeris/main/docs/media/benchmarks/physics.png)

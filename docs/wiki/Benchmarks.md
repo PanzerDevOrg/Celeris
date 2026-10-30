@@ -8,13 +8,15 @@ bichal-build-logic's `perf-test` workflow.
 **Measured:** 2026-10-08, Celeris 0.2.3 (commit 4586d93) with Velox 0.1.0. **Machine:** 4 vCPU Intel Xeon @ 2.1 GHz
 (shared cloud VM, AVX2), Linux, OpenJDK 21. **Harness:** JMH 1.37, 1 fork, 3 × 1 s warm-up, 5 × 1 s measurement
 (± is JMH's 99.9 % error). A shared VM is noisy: read differences under ~20 % as a tie. Your numbers will differ; the
-ratios are what matter.
+ratios are what matter. Commit 4586d93 is not in this repository's history, so the tables dated 2026-10-08 cannot be
+rebuilt from a checkout; the sections that say otherwise (physics checks, engines, broadphase) give their own date
+and method.
 
 ## Summary
 
 | Job | Celeris | Compared with | Result |
 |---|---|---|---|
-| A server with 20,000 dropped items, Minecraft 1.21.1 | 18.3 ms per tick (Velox + native kernel) | 243.0 ms, vanilla NeoForge | **13.3× faster**, from about 4 TPS to a full 20 |
+| A server with 20,000 dropped items, Minecraft 1.21.1 | 18.3 ms per tick (Velox) | 243.0 ms, vanilla NeoForge | **13.3× faster**, from about 4 TPS to a full 20 |
 | The same on Minecraft 26.1 | 35.2 ms per tick | 225.8 ms, vanilla NeoForge | **6.4× faster** |
 | Compressing mod data (38 KiB) | native zstd, 542 MiB/s, ratio 5.5× | Java `Deflater` level 6 (what Minecraft uses), 42 MiB/s, ratio 5.8× | **12.8× faster** for nearly the same size |
 | Decompressing it | 1,296 MiB/s | Java `Inflater`, 417 MiB/s | **3.1× faster** |
@@ -28,9 +30,9 @@ ratios are what matter.
 | Building a 10,000-block pipe network (a chunk or world load) | 2.7–3.9 ms (`addNodes`) | 45 ms (grid) to 8,966 ms (one long straight run), adding blocks one by one | **12× to 3,300× faster** |
 
 Where Celeris is not the fastest, this page says so: LZ4 compresses 2.3× faster than zstd, at the price of output about
-40 % larger (3.9× instead of 5.5×). The native physics kernel is 7–20 % slower than in the previous build of this
-page, because it now checks every item for impossible values and computes block coordinates without undefined
-behaviour (see [Batch physics](#batch-physics)); on a real server that is lost in the rest of the tick.
+40 % larger (3.9× instead of 5.5×). The native physics kernel now checks every item for impossible values and
+computes block coordinates without undefined behaviour; measured against the build before those checks it is within
+about 3 % (see [Batch physics](#batch-physics)), which on a real server is lost in the rest of the tick.
 
 ## A real server
 
@@ -43,7 +45,7 @@ later with everything on the ground. Milliseconds per tick, lower is better; 50 
 2026-10-29 with Celeris and Velox at `main` (GitHub run `bichal/BichalBuildLogic` 40922919248), one run per cell on a
 shared runner, so read differences under ~20 % as a tie:
 
-| Minecraft | Items | Vanilla falling / resting | Velox (native kernel) falling / resting | Speed-up |
+| Minecraft | Items | Vanilla falling / resting | Velox falling / resting | Speed-up |
 |---|---|---|---|---|
 | 1.21.1 | 2,000 | 11.26 / 8.54 | 3.04 / 1.34 | 3.7× / 6.4× |
 | 1.21.1 | 8,000 | 91.23 / 54.40 | 11.36 / 6.32 | 8.0× / 8.6× |
@@ -52,8 +54,10 @@ shared runner, so read differences under ~20 % as a tie:
 | 26.1 | 8,000 | 70.71 / 52.17 | 16.98 / 9.74 | 4.2× / 5.4× |
 | 26.1 | 20,000 | 296.56 / 225.84 | 41.35 / 35.17 | 7.2× / 6.4× |
 
-With Celeris's Java kernel instead of the native one the server is within a few percent (20,000 items resting:
-19.52 ms on 1.21.1, 33.80 ms on 26.1): the item physics itself is now a small part of the tick, and what remains is
+Velox ran with the native kernel here. With Celeris's Java kernel instead the server ties (20,000 items resting:
+19.52 ms on 1.21.1, 33.80 ms on 26.1), and in a JFR profile the kernel is under 3 % of the tick: the speed-up comes
+from Velox batching the item movement, not from the native kernel. The item physics itself is a small part of the
+tick, and what remains is
 Minecraft's own per-entity work (chunk ticking checks, entity tracking, fluid checks), which Velox leaves to the
 game. On 26.1, 0.3.0's Velox also skips the per-item "entity inside block" walk for items over plain blocks, which
 took 4× to 7.5× at 20,000 resting items.
@@ -114,12 +118,24 @@ still. Time per tick in µs:
 | 32,768, 3 worker threads | 1,454.3 ± 427.3 | 882.6 ± 163.5 | 1.6× (5.3× vs one Java thread) |
 
 Both kernels now refuse items whose position, speed or size is not a finite, plausible number (NaN, infinity,
-1e300, billions of blocks away) and leave them to vanilla, and they compute block coordinates through a clamp, so no
-input can make them read or write outside their buffers or hit undefined behaviour in C++. That costs: measured in
-the same session against the build before those checks, the step is 7–13 % slower at 10,000 items and 12–21 % at
-32,768 (callgrind: +11 % instructions on the baseline ISA). Results for every normal item are unchanged, bit for
-bit, between the Java and native kernels on every CPU (`PhysicsParityTest`), and AddressSanitizer/UBSan check the
-native one on x86-64 and ARM in CI (`native-sanitizers.yml`).
+1e300, billions of blocks away) and leave them to vanilla, and they compute block coordinates without undefined
+behaviour, so no input can make them read or write outside their buffers or hit undefined behaviour in C++. Results
+for every normal item are unchanged, bit for bit, between the Java and native kernels on every CPU
+(`PhysicsParityTest`), and AddressSanitizer/UBSan check the native one on x86-64 and ARM in CI
+(`native-sanitizers.yml`).
+
+**What the checks cost** (2026-10-30; 4 vCPU Intel Xeon @ 2.1 GHz with AVX-512, one thread, 100,000 items in batches
+of 1,024 and of 16; the table above predates the checks and is not repeated). The native library of `c2deb03^` (the
+last build without them) and the current one step the same scene in one process, alternating block by block, 400
+ticks; the figure is the median of the per-tick time ratio, over two runs (the same binary against itself reads
+0 to +1 %, the IQR is about 2 points). Current kernel against the one before the checks: AVX2 −1.5 to −2.5 %,
+generic +0.6 to +1.0 %, AVX-512 +0.7 to +1.2 %, the same on both batch sizes: a tie within ±3 %. Differences of 2–4 %
+also appear between builds that do the same work (code layout), so that is the resolution of this comparison. The
+same comparison through the JVM (separate processes, 8 alternating rounds, best of five trials, median) ends in a
+tie on every ISA, because this VM's run-to-run noise (5–16 %) is larger than what is being measured. The input check
+is the only part of the cost that remains: the clamp left in the broadphase and in the below-block lookup costs
+nothing measurable (−0.1 to −1.4 %, about the size of the same-binary noise). FFM and JNI run the same native code and tie on
+both batch sizes (JNI −2 % to +5 % of FFM over 8 alternating rounds, inside the IQR).
 
 The native kernel is picked automatically when the CPU and JVM allow it (AVX2, AVX-512 or NEON builds ship in the
 jar); otherwise the Java kernel runs with identical results.
@@ -142,7 +158,10 @@ exactly the first ones of the full list, in the same order on the Java and nativ
 
 Once the scan stops early, what is left is hashing every item into a cell and sorting them by cell, the same work
 on both kernels, so Java and native are level (the native broadphase is now compiled per ISA like the step; built for
-the baseline ISA only it was 15–20 % behind Java here).
+the baseline ISA only it was 15–20 % behind Java here). Re-measured on 2026-10-30, one thread, 16,384 items in one
+cell with a pair buffer of 16,384, 8 alternating rounds, best of five trials, median: FFM 0.23 ms, JNI 0.23 ms (a
+tie), Java 0.24 ms (about 5 % behind, inside this VM's noise). Spread over several cells (a 0.75-block cube) the
+native broadphase is ahead: 0.47 ms against 0.62 ms for Java, FFM and JNI still tied.
 
 ## Handing results to the game thread
 
@@ -261,8 +280,9 @@ trial of the harness, `jdk.incubator.vector` active). Best of five trials, one t
 | | JNI | 73.2 ns/body (7.32 ms per tick) | 79.8 ns/body (7.98 ms per tick) |
 
 The native engines are about 1.5× faster than the Java kernel here, in line with the 1.3–1.6× of the table in
-[Batch physics](#batch-physics). JNI and FFM tie on large batches; JNI is about 10 % ahead on batches of 16, where the
-cost of the call shows. MPSC ring buffer, median of the run: `MpscRingBuffer` 19.7 M ops/s, `ArrayBlockingQueue`
+[Batch physics](#batch-physics). JNI and FFM tie: the ~10 % gap on batches of 16 in this table is inside this
+harness's noise (±8 %), and a cloud-VM re-measurement with 8 alternating rounds finds none (JNI −2 % to +5 % of FFM).
+MPSC ring buffer, median of the run: `MpscRingBuffer` 19.7 M ops/s, `ArrayBlockingQueue`
 9.7 M, `LinkedBlockingQueue` 8.9 M, `ConcurrentLinkedQueue` 7.8 M (2.0× the best contender). Nearest-of-3: 48.9 ns
 against 40.3 ns per query (1.21×).
 
