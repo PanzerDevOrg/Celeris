@@ -1,0 +1,62 @@
+# Step time of two builds of the physics kernel, side by side, on the CI runners (x86-64 and
+# ARM, so the AVX2, AVX-512 and NEON paths each get measured where the CPU has them).
+# Manual: both refs are built and native/test/cp_bench steps the same scene through both,
+# alternating block by block; the number to read is the ratio, with its quartiles. Absolute
+# times on a shared runner are not comparable between runs. ref-a must share the column
+# layout of cp_step with ref-b (true since the kernel's first release).
+# Not managed by bichal-build-logic: this file belongs to Celeris.
+name: Native bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref-a:
+        description: Reference build (branch, tag or commit)
+        default: c2deb03ca536941196e01f833ae8a9fd6748a095^
+      ref-b:
+        description: Build to compare (also provides cp_bench)
+        default: main
+      unit:
+        description: Bodies per batch (1024 or 16)
+        default: "1024"
+      ticks:
+        description: Measured ticks
+        default: "400"
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          ref: ${{ inputs.ref-a }}
+          path: a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          ref: ${{ inputs.ref-b }}
+          path: b
+          persist-credentials: false
+      - name: Build both
+        run: |
+          cmake -S a/native -B build-a -DCMAKE_BUILD_TYPE=Release -DCP_BUILD_TESTS=OFF
+          cmake --build build-a -j "$(nproc)"
+          cmake -S b/native -B build-b -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-b -j "$(nproc)" --target celeris_physics cp_bench
+      - name: Step time, A against B and B again (the repeat is the noise floor)
+        run: |
+          grep -m1 'model name\|Model name' /proc/cpuinfo || true
+          for isa in generic avx2 avx512 neon; do
+            ./build-b/cp_bench ab "$isa" "${{ inputs.unit }}" "${{ inputs.ticks }}" \
+              build-a/libceleris_physics.so build-b/libceleris_physics.so build-b/libceleris_physics.so \
+              || echo "$isa: not available on this runner"
+          done
