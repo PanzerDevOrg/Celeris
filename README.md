@@ -49,20 +49,19 @@ October 2026 with Celeris 0.2.3. The physics kernel has since started checking e
 is within about 3 % of the build before those checks (measured 2026-10-30). Method and full tables in the
 [benchmarks page](https://github.com/bichal/Celeris/wiki/Benchmarks)):
 
-- 🖥️ **A real server with 20,000 dropped items** (Minecraft 1.21.1, with the Velox mod): 18.3 ms per tick instead of
-  243.0 ms, 13.3× faster and back to a full 20 TPS (measured on 2026-10-29). The gain is Velox batching the item
-  movement and skipping vanilla's per-item work, not the native kernel: the kernel is under 3 % of that tick, and
-  the Java and native kernels give the same tick to within noise.
+- 🖥️ **A real server with 20,000 dropped items** (Minecraft 1.21.1, with the Velox mod, median of 3 runs on 2026-10-30):
+  **28.0 ms per tick instead of 493.0 ms** while they fall (18× faster) and **21.3 ms instead of 260.4 ms** once they
+  rest (12×), back to a full 20 TPS. The gain is Velox batching the item movement and skipping vanilla's per-item
+  work, not native code: with the Java, JNI or FFM kernel the server gives the same tick to within noise.
 - 🗜️ **12.8× faster compression** than Java's built-in deflate (what Minecraft uses) for nearly the same size, and
   **3.1× faster decompression**. As fast as zstd-jni in a jar a quarter of its size.
-- 🏃 **32,768 dropped items moved in 0.88 ms** per tick on 3 threads with the native kernel, 5.3× faster than the
-  same rules in Java on one thread and under 2 % of a tick. At the same 3 threads the Java kernel takes 1.45 ms, so
-  1.6× is the kernel and the rest is the threads.
-- 🧲 **Item piles no longer stall**: finding the touching items in a pile of 16,384 takes 0.24 ms instead of up to a
-  second.
-- ⚙️ **Native physics engines are 1.5× to 1.8× faster than the Java kernel** on one thread (laptop: 73 to 75 against
-  114 ns per body; 4-vCPU cloud VM: 105 to 107 against 196, batches of 1,024; 100,000 bodies). JNI and FFM tie.
-  You can check it yourself with `./gradlew benchmarkTest`.
+- ⚙️ **Three physics engines, same results bit for bit:** the Java kernel, and the native kernel through JNI or FFM.
+  Stepping 32,768 items on one thread takes 6.97 ms in Java, 3.41 ms through JNI and 3.52 ms through FFM (AVX2): the
+  native kernel is about 2× faster in the kernel itself, but the step is only 1 to 2 % of a server tick with native
+  code and about 7 % with Java, so it is **off by default**. A mod that gains from it asks with
+  `CelerisPhysics.allowNative("modid")` (Velox does), and `-Dceleris.physics.engine=java|auto|jni|ffm` overrides.
+- 🧲 **Item piles no longer stall**: finding the touching items in a pile of 16,384 takes 0.23 ms instead of up to a
+  second (Java, JNI and FFM tie).
 - 🧵 **4.9× faster hand-off** from one worker thread to the game thread than JCTools, and still ahead with two or
   three workers.
 
